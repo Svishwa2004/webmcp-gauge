@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Secrets — judge-model credentials never enter git
+.env
+.env.*
+!.env.example
+
+# Chrome user-data-dirs used by the harness: large, and they carry profile state and cookies
+chrome-profile/
+chrome-baseline/
+.chrome/
+
+# Measurement output — raw captures of third-party pages and local run artifacts stay out of git
+data/raw/
+reports/local/
+
+# OS and editor cruft
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/

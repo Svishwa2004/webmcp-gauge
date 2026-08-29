@@ -15,6 +15,17 @@ chrome-baseline/
 data/raw/
 reports/local/
 
+# Logs and coverage
+*.log
+npm-debug.log*
+coverage/
+
+# Harness run artifacts — screenshots, CDP dumps, browser traces
+artifacts/
+screenshots/
+traces/
+*.cdp.json
+
 # OS and editor cruft
 Thumbs.db
 desktop.ini

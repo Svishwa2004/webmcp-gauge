@@ -1,6 +1,6 @@
-# ToolProof — Concept Document
+# webmcp-gauge — Concept Document
 
-**Working name:** ToolProof *(provisional — see [Open question 7](#14-open-questions))*
+**Name:** `webmcp-gauge` — settled 2026-08-29. Repo: https://github.com/Svishwa2004/webmcp-gauge
 **Status:** Concept, pre-implementation
 **Written:** 2026-08-29
 **Scope:** A measurement layer for WebMCP page tools — the answer to "does an agent actually call my tool?"
@@ -9,7 +9,7 @@
 
 ## 1. The idea in one paragraph
 
-WebMCP lets a web page register JavaScript functions as AI-callable tools. The hard part is not registering them — it is finding out whether an agent ever *chooses* them, passes them sane arguments, and does so consistently across browsers that all implement the draft differently. Today nobody can answer that question about their own site. ToolProof answers it: a CLI and harness that fires a frozen set of realistic user utterances at a page's registered tools inside real browsers, classifies every outcome, and reports a single defensible number — **invocation rate**, with a confidence interval and a run-to-run variance figure — per tool, per client. The by-product of running it continuously is the thing nobody currently has: a reproducible, public record of which WebMCP behaviours actually work in which client, at which version.
+WebMCP lets a web page register JavaScript functions as AI-callable tools. The hard part is not registering them — it is finding out whether an agent ever *chooses* them, passes them sane arguments, and does so consistently across browsers that all implement the draft differently. Today nobody can answer that question about their own site. webmcp-gauge answers it: a CLI and harness that fires a frozen set of realistic user utterances at a page's registered tools inside real browsers, classifies every outcome, and reports a single defensible number — **invocation rate**, with a confidence interval and a run-to-run variance figure — per tool, per client. The by-product of running it continuously is the thing nobody currently has: a reproducible, public record of which WebMCP behaviours actually work in which client, at which version.
 
 The product is a diagnostic. The durable asset is the dataset.
 
@@ -159,8 +159,8 @@ Three layers, shipped in this order. Each is independently useful, which means e
 ### L0 — Static linter (no browser required)
 
 ```
-npx toolproof lint ./src          # source-tree mode
-npx toolproof lint https://…      # live-page mode
+npx webmcp-gauge lint ./src          # source-tree mode
+npx webmcp-gauge lint https://…      # live-page mode
 ```
 
 Encodes the documented silent-failure modes and model-ergonomics rules:
@@ -177,16 +177,16 @@ Ships in a day, needs no browser, no model, no API key. This is the free on-ramp
 ### L1 — The harness
 
 ```
-npx toolproof run https://example.com --utterances ./toolproof.utterances.json \
+npx webmcp-gauge run https://example.com --utterances ./webmcp-gauge.utterances.json \
     --clients chrome-ot,chatgpt,edge,brave --k 20 --repeat 3
-npx toolproof budget https://example.com          # headroom probe
-npx toolproof compare base.json head.json         # regression diff
+npx webmcp-gauge budget https://example.com          # headroom probe
+npx webmcp-gauge compare base.json head.json         # regression diff
 ```
 
 **Architecture** — Node ESM, no framework, provider-agnostic by design:
 
 ```
-toolproof/
+webmcp-gauge/
   bin/            CLI entry
   core/           outcome taxonomy, Wilson intervals, report schema
   browser/        Chrome launch + CDP session management
@@ -233,7 +233,7 @@ There is a second-order benefit to the standard that matters more than any singl
 
 ## 8. How this helps other developers
 
-| Today | With ToolProof |
+| Today | With webmcp-gauge |
 |---|---|
 | Ship tools and hope; discover from a screenshot that nothing fires | A number before shipping, and the specific reason it is low |
 | "The agent ignored my tool" — no idea whether it is the name, the description, the schema, or the browser | `not_discovered` vs `not_selected` vs `wrong_tool` vs `bad_args` points at the line to edit |
@@ -314,7 +314,7 @@ Decided, not open for drift:
 | ChatGPT in-app browser may not be automatable | Medium | Spike before locking L1 scope. Fall back to sampled manual runs against an instrumented recorder page; report that column as sampled, never as automated. |
 | Model-call cost across clients × K × R × cohort size | Medium | Hard budget ceiling per sweep; cheap judge for CI mode, stronger judge for calibration runs only. |
 | No revenue in 2026 | Accepted | This is a positioning investment. Stated plainly rather than dressed up as a business. |
-| Name collision — "Airlock" already collides with three unrelated products | Low | Check name availability before any public use. See Open question 7. |
+| Name collision — "Airlock" already collides with three unrelated products | Low | ✅ Resolved for this project: `webmcp-gauge` was checked against npm and GitHub before the repo existed, and no ecosystem project or hackathon entry uses the name. |
 | Measuring other people's entries reads as competitive | Medium | Section 12, applied literally. |
 
 ---
@@ -329,7 +329,7 @@ Unresolved, and each is answerable with a small spike:
 4. **What is the actual per-page tool budget**, per client? The whole point of the `budget` probe.
 5. **Will Edge renew its origin trial after 2026-11-17?**
 6. **Does the Mode A ↔ Mode B correlation hold?** The load-bearing empirical assumption of the entire product.
-7. **Is "ToolProof" available** as a package name, domain and GitHub org? Alternatives if not: *Invoked*, *Callable*, *Handshake*.
+7. ~~**Is the name available?**~~ **Resolved 2026-08-29**, verified rather than assumed: `webmcp-gauge` returns 404 on the npm registry, GitHub search finds no repo of that name, and both `webmcp-gauge.dev` and `webmcp-gauge.com` are unregistered per RDAP. Repo created at `https://github.com/Svishwa2004/webmcp-gauge`. Bare `webmcp` and `webmcp-evals` are both taken on npm — do not use either.
 
 ---
 

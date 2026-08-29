@@ -1,8 +1,8 @@
-# ToolProof — The Idea in Plain Language
+# webmcp-gauge — The Idea in Plain Language
 
 **For:** a reader with no technical background
 **Written:** 2026-08-29
-**Companion document:** `CONCEPT.md` (the technical version)
+**Companion document:** `concept.md` (the technical version)
 
 ---
 

@@ -1,10 +1,10 @@
 ---
 
-# ToolProof — Project Log
+# webmcp-gauge — Project Log
 
 Append-only record of every change, decision, and verification in this project. Newest entries at the bottom. Times are UTC unless marked PT.
 
-**Location note:** this log sits in `D:\Projects\Hackathon\toolproof\` and covers only the ToolProof measurement layer. The Airlock hackathon entry has its own log at `D:\Projects\Hackathon\PROJECT-LOG.md`; the two projects share a subject (Airlock is ToolProof's reference page) but nothing else. Airlock's log is frozen history as far as this project is concerned.
+**Location note:** this log sits at the root of `D:\Projects\Hackathon\webmcp-gauge\` (repo `https://github.com/Svishwa2004/webmcp-gauge`) and covers only the webmcp-gauge measurement layer. The Airlock hackathon entry has its own log at `D:\Projects\Hackathon\PROJECT-LOG.md`; the two projects share a subject (Airlock is webmcp-gauge's reference page) but nothing else. Airlock's log is frozen history as far as this project is concerned. Entries below dated before the 2026-08-29 rename still say "ToolProof" and reference `toolproof\` paths — that is frozen history, superseded by the rename entry at the bottom, not an error to correct in place.
 
 **Verification legend:** ✅ verified · 🟡 in progress / awaiting user action · ⚠️ unverified · ❌ known wrong.
 
@@ -15,11 +15,11 @@ Append-only record of every change, decision, and verification in this project. 
 | Item | Status |
 |---|---|
 | Direction | ✅ **Chosen** — measurement layer for WebMCP page tools ("does an agent actually call my tool?") |
-| Working name | 🟡 **ToolProof** — provisional; package/domain/org availability **⚠️ unchecked** |
-| Landscape research | ✅ Verified 2026-08-29 against primary sources (spec repo, chromestatus, standards positions, npm/GitHub APIs, field reports) — recorded in `CONCEPT.md` Appendix A |
-| Concept document | ✅ `toolproof\CONCEPT.md` |
-| Plain-language explainer | ✅ `toolproof\EXPLAINER.md` |
-| Start guide + pipeline flow | ✅ `toolproof\GETTING-STARTED.md` |
+| Name | ✅ **webmcp-gauge** — settled 2026-08-29; npm, GitHub and `.dev`/`.com` all verified free before adoption |
+| Landscape research | ✅ Verified 2026-08-29 against primary sources (spec repo, chromestatus, standards positions, npm/GitHub APIs, field reports) — recorded in `docs\concept.md` Appendix A |
+| Concept document | ✅ `docs\concept.md` |
+| Plain-language explainer | ✅ `docs\explainer.md` |
+| Start guide + pipeline flow | ✅ `docs\getting-started.md` |
 | Publishing policy | ✅ **Decided** — private during judging, aggregate after; conflict of interest disclosed |
 | Code | ❌ **None written.** Pre-implementation |
 | Node / npm | ✅ `v24.18.0` / `12.0.2` |
@@ -28,10 +28,11 @@ Append-only record of every change, decision, and verification in this project. 
 | Reusable rig | ✅ `_spike\cdp-eval.mjs` (zero-dep, raw WebSocket) and `_spike\cdp-command.mjs` (needs `chrome-remote-interface`, resolves only from `airlock\`) |
 | Clean Chrome profile | ✅ `_spike\chrome-baseline\` exists |
 | Ground check (does Chrome 152 see WebMCP?) | 🟡 **Not yet run** — this is the gate on everything else |
-| Git | ✅ `D:\Projects\Hackathon` is **not** a repo; `toolproof\` is untracked. No repo to be created without explicit go-ahead |
+| Git | ✅ Repo at `webmcp-gauge\` on `main`, root commit `fe72fe8`, remote `origin` → `https://github.com/Svishwa2004/webmcp-gauge`. **Nothing pushed yet** |
+| Remote visibility | ⚠️ **Public** — conflicts with the logged private-until-the-report decision; see the rename entry |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** run §1 of `GETTING-STARTED.md` — launch flagged Chrome 152 on the `_spike\chrome-baseline` profile, probe `https://airlock-app.netlify.app` with `cdp-eval.mjs`, and record whether `document.modelContext` exists and `getTools()` returns 7. Both outcomes are useful; the result decides the reference client and may hand over the project's first spec-repo contribution.
+**Immediate next action:** run §1 of `docs\getting-started.md` — launch flagged Chrome 152 on the `_spike\chrome-baseline` profile, probe `https://airlock-app.netlify.app` with `cdp-eval.mjs`, and record whether `document.modelContext` exists and `getTools()` returns 7. Both outcomes are useful; the result decides the reference client and may hand over the project's first spec-repo contribution.
 
 ---
 
@@ -123,3 +124,59 @@ The constructive version: the challenge is worth more to this project as a distr
 - ⚠️ Is "ToolProof" available as package name, domain and GitHub org? Alternatives if not: *Invoked*, *Callable*, *Handshake*.
 - ❔ Does the Mode A ↔ Mode B correlation hold? The load-bearing assumption of the entire product.
 - No code, no repo, no dependencies installed. Nothing committed anywhere; awaiting go-ahead before any of that changes.
+
+---
+
+## 2026-08-29 (later) — Local repository initialised
+
+`toolproof\` is now its own git repository, kept out of `airlock` deliberately: the instrument does not live inside the subject under test, and Airlock is a submitted artifact that must stay substantively unchanged and reachable through judging (Sep 4 → Sep 21). Because `D:\Projects\Hackathon` is not itself a repo, `toolproof\` works as a repo root with no nesting complications — the same arrangement `airlock\` already has.
+
+- **Root commit** ✅ `fe72fe8` on `main` — 7 files, 929 insertions: the four documents plus `LICENSE`, `.gitignore`, `.gitattributes`. Author `Sahan vishwa <svishwa0800@gmail.com>`, the existing git identity, left unchanged.
+- **Licence** ✅ MIT, holder string copied verbatim from `airlock\LICENSE` (*Ranathunga Arachchige Sahan Vishwa Perera*, 2026) so both repos read identically. Noted for later: the published **dataset** is a separate licensing decision from the code — CC BY 4.0 is the convention for data meant to be cited, and being cited is the objective.
+- **Ignore rules verified, not assumed.** `git check-ignore -v` confirms matches for `.env` (rule line 5), `node_modules/` (2), `chrome-baseline/` (11) and `data/raw/` (15). `.env.example` is un-ignored by negation so the config shape can be committed without secrets. The Chrome-profile rule earns its place: a user-data-dir is large and carries cookies and profile state.
+- **`.gitattributes`** ✅ `* text=auto eol=lf`. Staging produced CRLF warnings on all six original files; pinning LF keeps regenerated JSON reports diffable, which is the same reproducibility argument as exact-pinned dependencies.
+- **No remote.** `git remote -v` returns empty. Nothing pushed, no GitHub repo created.
+
+**Decided:** private until the report launch after judging closes (~Sep 23), then public. The harness and dataset must be independently re-runnable or the independent-measurer position does not exist at all — but a public repo showing cohort-scorecard scripts while the author is an entrant under judging reads badly regardless of intent.
+
+### Still open
+- ⚠️ **Name unresolved, so no remote yet.** "ToolProof" availability as package name, domain and GitHub org is unchecked, and a public repo bakes the name into URLs people link to. Alternatives on the table: *Invoked*, *Callable*, *Handshake*.
+- ⚠️ **Which GitHub account** this accumulates under — `Svishwa2004` and `faizydroid` both hold public MIT `airlock` repos. A credibility play should concentrate links on one identity; the user's call, not a recommendation to make for them.
+- 🟡 Ground check (§1 of `GETTING-STARTED.md`) still not run. Unchanged, and still the gate on everything else.
+
+---
+
+## 2026-08-29 (evening) — Named `webmcp-gauge`, docs restructured, remote added
+
+### The naming decision, and the argument that changed it
+
+My initial advice was to keep "webmcp" **out** of the name, on rename risk (#236 proposes `modelContext`→`toolContext`) and WebKit's opposition. The user pushed back, and the pushback was correct:
+
+- **Discovery is the binding constraint, not longevity.** The audience is a few thousand people who search one word, and there is no word-of-mouth channel yet because adoption is measurably zero.
+- **Every project in this ecosystem with traction follows the convention** — `@mcp-b/webmcp-polyfill` (51.3k weekly), `webmcp-types` (17.6k), `GoogleChromeLabs/webmcp-tools` (531★), `webmcp-react`, `webmcp-nexus`, four `awesome-webmcp` lists. A `webmcp-*` name is recognised from a search result without a click.
+- **My risk argument had the trade upside down.** A rename costs in proportion to adoption; adoption is zero, so it is cheapest to bear now and only gets more expensive. And a neutral name would not have protected against the standard dying, because the audience dies with it either way — the real insurance is the portable metric, which belongs in the architecture, not the branding.
+
+What survived: a **two-part name**, `webmcp-<distinctive>`, so the distinctive half is the durable identity and the qualifier is swappable. If the API is renamed, `webmcp-gauge` becomes `toolcontext-gauge` or just `gauge` and everything already cited still resolves.
+
+### Availability verified before adoption, not after
+
+- ✅ `webmcp-gauge` — npm registry 404, GitHub repo search 0 results, `webmcp-gauge.dev` and `webmcp-gauge.com` both unregistered per RDAP.
+- ❌ Rejected: bare `webmcp` (npm 200), `webmcp-evals` (npm 200 — Google's), `webmcp-doctor` (npm free but collides with an existing project of that name in the same QA niche).
+- ❌ The earlier working name `toolproof` was retired on evidence: npm 200, the GitHub account exists, `toolproof.com` registered — and the `-proof` suffix means *protected against* (waterproof, foolproof), so it read as "resistant to tools", the opposite of the intent.
+
+### Restructure
+
+- Directory `toolproof\` → `webmcp-gauge\`.
+- `CONCEPT.md` → `docs\concept.md`, `EXPLAINER.md` → `docs\explainer.md`, `GETTING-STARTED.md` → `docs\getting-started.md`, all via `git mv` so history follows the files. `PROJECT-LOG.md` and `LICENSE` stay at root because they are what a visitor needs first; `README.md` added as the entry point.
+- In-document references updated throughout: CLI examples are now `npx webmcp-gauge <cmd>`, the architecture and repo-layout trees reflect the new shape, cross-document links point at the new paths, and open question 7 (name availability) is marked resolved with the verified evidence rather than deleted.
+- `.gitignore` extended for logs, coverage, and harness run artifacts (`artifacts/`, `traces/`, `*.cdp.json`).
+
+### Remote
+
+- `origin` → `https://github.com/Svishwa2004/webmcp-gauge`, created by the user 2026-08-29T18:20:46Z. `git ls-remote` returns nothing, so the remote is empty and a first push will fast-forward cleanly — no merge, no force.
+- ⚠️ **The repo is public** (`visibility: public` per the GitHub API). That contradicts the private-until-the-report decision recorded in the previous entry. Nothing has been pushed. The documents in the tree describe the cohort-measurement plan and the conflict-of-interest position; publishing them while judging runs Sep 4 → Sep 21 is precisely the optics problem that decision exists to prevent.
+
+### Still open
+- 🟡 **Repo visibility** — flip to private before the first push, or consciously revise the publishing policy. Not resolved unilaterally; this blocks the push.
+- 🟡 Ground check still not run. Unchanged, and still the gate on everything else.
+- The rename, restructure and remote are local only. Nothing committed since `fe72fe8`, nothing pushed.

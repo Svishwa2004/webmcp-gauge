@@ -437,7 +437,13 @@ if (command === 'lint') {
     binPath: fileURLToPath(import.meta.url),
     args: childArgs,
     gapSeconds: Number(flags.gap ?? 0),
+    // What a working session touches. The watchdog kills a session that stops
+    // writing to both, which is the one stall a per-trial deadline cannot see.
+    progressPaths: [checkpointPath, `${outDir}/harness-failures.jsonl`],
     onSessionStart: ({ session }) => console.error(`\n=== session ${session} of ${sessions} ===`),
+    onSessionEnd: ({ session, stalled, error }) => {
+      if (stalled) console.error(`=== session ${session} STALLED: ${error} ===`);
+    },
   });
 
   const { records } = await readCheckpoint(checkpointPath);

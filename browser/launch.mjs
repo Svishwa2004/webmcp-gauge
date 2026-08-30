@@ -36,13 +36,18 @@ export const findFreePort = () =>
     });
   });
 
-const waitForDevTools = async (port, { timeoutMs = 30000 } = {}) => {
+const waitForDevTools = async (port, { timeoutMs = 30000, pollTimeoutMs = 2000 } = {}) => {
   const deadline = Date.now() + timeoutMs;
   let lastError = 'never answered';
 
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(`http://127.0.0.1:${port}/json/version`);
+      // Each poll is bounded on its own. A deadline around an unbounded fetch is
+      // not a deadline: one request that never answers holds the loop open past it
+      // forever, which is how a launch turns into a silent hang instead of an error.
+      const response = await fetch(`http://127.0.0.1:${port}/json/version`, {
+        signal: AbortSignal.timeout(Math.min(pollTimeoutMs, Math.max(250, deadline - Date.now()))),
+      });
       if (response.ok) {
         const payload = await response.json();
         return { build: payload.Browser, protocol: payload['Protocol-Version'] };
@@ -61,8 +66,11 @@ const waitForDevTools = async (port, { timeoutMs = 30000 } = {}) => {
  * Windows leaves Chrome's renderer and GPU children alive when only the parent is
  * killed, and those children keep the profile directory locked, which then fails
  * the cleanup and silently reuses a warm profile next session.
+ *
+ * Exported because the orchestrator needs the same thing for a session process:
+ * killing the node child alone would orphan the Chrome it launched.
  */
-const killTree = (pid) =>
+export const killTree = (pid, { timeoutMs = 10000 } = {}) =>
   new Promise((resolve) => {
     if (process.platform !== 'win32') {
       try {
@@ -78,8 +86,15 @@ const killTree = (pid) =>
       return;
     }
     const killer = spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
-    killer.on('close', () => resolve());
-    killer.on('error', () => resolve());
+    // Even the killer gets a deadline: cleanup that can hang is one more way for a
+    // sweep to stop without saying anything.
+    const timer = setTimeout(() => resolve(), timeoutMs);
+    const done = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    killer.on('close', done);
+    killer.on('error', done);
   });
 
 export const launchSession = async ({

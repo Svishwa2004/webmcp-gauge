@@ -21,9 +21,10 @@ Append-only record of every change, decision, and verification in this project. 
 | Plain-language explainer | ✅ `docs\explainer.md` |
 | Start guide + pipeline flow | ✅ `docs\getting-started.md` |
 | Publishing policy | ✅ **Decided** — private during judging, aggregate after; conflict of interest disclosed |
-| Code | ✅ **Sweep runs end to end, sessions isolated, gate wired, L0 linter built** — `bin\webmcp-gauge.mjs` (`trial`, `run`, `session`, `lint`), `core\{taxonomy,trial,sweep,orchestrate,stats,gate,lint}.mjs`, `browser\{launch,session,serve,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`. 88 tests pass. Badge and Mode B adapters not built |
+| Code | ✅ **Sweep runs end to end, sessions isolated, gate wired, L0 linter built, every wait bounded** — `bin\webmcp-gauge.mjs` (`trial`, `run`, `session`, `lint`), `core\{taxonomy,trial,sweep,orchestrate,stats,gate,lint}.mjs`, `browser\{launch,session,serve,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`. 108 tests pass. Badge and Mode B adapters not built |
 | L0 linter | ✅ **Built 2026-08-30** — `core\lint.mjs`, 13 rules in four families (names, descriptions, schemas, budget), thresholds calibrated so the reference page lints clean. Live reference page: **0 errors, 0 warnings**. Degraded fixture twin: **6 errors, 13 warnings**. `--manifest` lints what source declares, live mode lints what the browser returns |
-| Discrimination | ✅ **Proven 2026-08-30 for description and schema defects** — one fixture page, two manifests, 160 trials each: clean **100.0%** (140/140), degraded **80.0%** (112/140), with `sum_by_category` and `top_expenses` at **35.0%** [18.1%, 56.7%] against a clean [83.9%, 100.0%] — intervals do not overlap. `reports\discrimination-2026-08-30.md` |
+| Discrimination | ✅ **Proven, and then explained** — 2026-08-30: one page, two manifests, clean **99.3%** against degraded **83.1%** overall, `sum_by_category` 95.0%→**60.0%** and `top_expenses` 100%→**26.7%**, intervals well clear of a between-session σ of ≤0.094. 2026-08-31: four ablations show **defects compound** — the two defects on `sum_by_category` cost −5.0 and −3.3 alone and **−35.0 together**. `reports\ablation-2026-08-31.md` |
+| Reproducibility | ✅ **σ between sessions ≤ 0.094** across every arm of the 1,320-trial ablation run (3 processes, 3 browsers, 3 cold profiles each), against effects of 0.35 and larger. Within-session σ still reported separately and is 0.000 at one repeat by construction |
 | CI exit codes | ✅ **Split 2026-08-30** — `0` complete and above threshold, `1` a rate below `--fail-under`, `2` a run that could not measure its plan (or bad usage). Verified against the real 960-trial dataset, and used in the field the same day: the degraded-twin sweep exited 2 on four `judge_truncated` trials, then 0 after `--resume`. `report.json` carries `coverage` and `gate`; schema `webmcp-gauge/report/3` |
 | Browser lifecycle | ✅ **Self-managed since 2026-08-30** — the harness seeds a cold profile with only the WebMCP flag and launches `--headless=new` Chrome per session on a free port, then tears it down. `--port` still attaches to a hand-started browser, and the report flags that sessions were not isolated |
 | First measurement | ✅ **Three sweeps, 2026-08-30** — best isolated: **960 trials**, 3 sessions × 2 repeats, five tools at 100% [96.9%, 100.0%], `filter_rows` 99.2%, `sum_by_category` 94.2%, controls 0/120. `reports\airlock-1.3.0-glm-5.3-s3r2.md`, with the two earlier R=3 runs beside it |
@@ -46,7 +47,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** firm up the discrimination result (item 4 below) — session-isolated repeats of both twin arms, and an ablation that separates each injected defect from the others. Today's numbers come from one session per arm with defects bundled per tool.
+**Immediate next action:** item 5 — make `not_discovered` reachable, then item 9 (Mode B). The fixture now registers a tool Chrome refuses (`"Clear Highlights"`, rejected with `Invalid tool name`), which is the material the classification has always lacked.
 
 ## What to do next, in order
 
@@ -56,12 +57,12 @@ Ordered by what unblocks the most, with the condition that closes each one. Anyt
 |---|---|---|
 | ~~1~~ | ~~**Close the session-isolated sweep**~~ | ✅ **Done 2026-08-30.** 960 trials across 3 isolated sessions; σ between sessions 0.012 against σ within 0.008 where anything varies; Gate 2 re-marked on the between-session figure |
 | ~~2~~ | ~~**Fix exit codes for CI**~~ | ✅ **Done 2026-08-30.** `0` complete and above threshold, `1` a rate below `--fail-under`, `2` unmeasurable or unusable arguments — incomplete outranks a breach, completeness comes from the plan rather than the failure log, and 19 new tests cover the contract including six that drive the real CLI |
-| ~~3~~ | ~~**Step 6 — the L0 linter and a deliberately broken fixture page**~~ | ✅ **Done 2026-08-30.** 13 rules calibrated so the reference page lints clean and the degraded twin reports 6 errors and 13 warnings, **and** the sweep discriminates: 100.0% clean against 80.0% degraded overall, 35.0% [18.1%, 56.7%] on the two worst tools against a clean [83.9%, 100.0%]. `reports\discrimination-2026-08-30.md` |
-| 4 | **Firm up the discrimination result.** Two caveats from `reports\discrimination-2026-08-30.md`: one session per arm, and defects bundled per tool so `sum_by_category`'s twin absorbed the credit its near-duplicate description should share. Also fix the harness bug the run exposed: failures are appended to `harness-failures.jsonl` only at session end, so a killed session loses its failure kinds while coverage still catches the missing trials | Both arms re-run at 3 sessions × 1 repeat with between-session σ reported, an ablation arm per defect family, and a failure log that survives a killed session |
-| 5 | **Make `not_discovered` reachable.** Subscribe to `WebMCP.toolsAdded` / `toolsRemoved` and pass the browser's own tool list into classification | A page that registers a tool the browser never surfaces classifies as `not_discovered` rather than `not_registered`. The broken fixture is now the place to build it: it already registers a tool Chrome refuses (`"Clear Highlights"`) |
-| 6 | **Time-spaced sessions.** `--gap` exists but has never been used; back-to-back sessions measure process independence, not drift | A run whose sessions are hours or days apart, with its between-session σ compared against a back-to-back run of the same shape |
-| 7 | 🚦 **Report `sum_by_category-12` to Airlock's author** as a description weakness, with the six-trial evidence and the observation that `sum_by_category-02` passes every time | Sent, on an explicit go-ahead (Gate 4), and the response recorded here |
-| 8 | 🚦 **Decide where the raw dataset lives.** The 1.4 MB JSONL per run is the evidence behind every number and currently stays local; code is MIT, and data meant to be cited usually wants CC BY 4.0 | A decision recorded here: in-repo, separate dataset repo, or aggregate-only — with the licence named |
+| ~~3~~ | ~~**Step 6 — the L0 linter and a deliberately broken fixture page**~~ | ✅ **Done 2026-08-30.** 13 rules calibrated so the reference page lints clean and the degraded twin reports 6 errors and 13 warnings, **and** the sweep discriminates. `reports\discrimination-2026-08-30.md` |
+| ~~4~~ | ~~**Firm up the discrimination result**~~ | ✅ **Done 2026-08-31.** 1,320 trials, six arms at 3 sessions each, all measured: between-session σ ≤ 0.094 against effects of 0.35+, and four ablations showing defects compound rather than add (−5.0 and −3.3 alone, −35.0 together). The failure log now survives a killed session, and every wait in the harness is bounded. `reports\ablation-2026-08-31.md` |
+| 5 | **Make `not_discovered` reachable.** Subscribe to `WebMCP.toolsAdded` / `toolsRemoved` and pass the browser's own tool list into classification | A page that registers a tool the browser never surfaces classifies as `not_discovered` rather than `not_registered`. The broken fixture already registers one Chrome refuses, so the material exists |
+| 6 | **Time-spaced sessions.** `--gap` exists but has never been used in a published run; back-to-back sessions measure process independence, not drift | A run whose sessions are hours or days apart, with its between-session σ compared against a back-to-back run of the same shape |
+| 7 | **Audit the utterance set's own floor**, which the ablations turned from a worry into a measurement: `sum_by_category-12` fails 12 of 12 across four manifests including the reference description, so its expected tool is contestable rather than the page being wrong. 🚦 Any change to a frozen set is a documented revision and a decision, not a fix | Every utterance whose failures are invariant to the manifest is listed with its selections, and a recorded decision per case: keep, retag, or revise in `1.4.0` — with the comparability cost of a revision stated |
+| 8 | 🚦 **Decide where the raw dataset lives.** The JSONL per run is the evidence behind every number and currently stays local; code is MIT, and data meant to be cited usually wants CC BY 4.0 | A decision recorded here: in-repo, separate dataset repo, or aggregate-only — with the licence named |
 | 9 | **Step 7 — Mode B adapters.** Spike whether the ChatGPT desktop in-app browser can be driven at all; it is still the highest-priority unknown, and it decides whether that column is automated or sampled | Either a driven trial against a real client, or a recorded negative result that fixes the sampling design |
 | 10 | **Badge and Action wrappers**, now unblocked: exit codes mean something and a threshold has been shown to discriminate | `webmcp-gauge run` emits a badge, and a GitHub Action runs it on a sample repo |
 
@@ -883,3 +884,58 @@ Three tests cover the invariant: a promise that never settles rejects with `code
 Two lessons worth keeping. **A hang is the worst failure mode a long unattended run can have**, because it is indistinguishable from work in progress — the exit-code contract, the coverage diff and the failure log all assume the process eventually stops, and none of them fires while it sits there. And the durability fix earned itself back within the hour: the six failures accumulated before the stall (three `judge_truncated`, three `judge_unavailable`) were on disk and readable *during* the stall, where the old end-of-session append would have lost all six when the process was killed.
 
 The 153 trials the stalled attempt did measure are kept — the checkpoint is per trial, and `--resume` picks up from there.
+
+---
+
+## 2026-08-31 — Item 4 closed: the ablations say defects compound, and one of my predictions was simply wrong
+
+1,320 trials across six arms, all measured. Full write-up: `reports\ablation-2026-08-31.md`. The headline is not the numbers but their shape: **no single defect explains the drop, and the metric measures a manifest as a system rather than as a list of findings.**
+
+### `sum_by_category`, against the clean arm's 95.0%
+
+| Manifest | Rate | Cost |
+|---|---|---|
+| near-duplicate description alone | 90.0% [79.9, 95.3] | −5.0 |
+| byte-identical competitor tool alone | 91.7% [81.9, 96.4] | −3.3 |
+| **both** | **60.0%** [47.4, 71.4] | **−35.0** |
+
+The parts sum to −8.3 and together cost −35.0. A vague description survives while nothing else fits the request; a duplicate competitor survives while the original description still says what it does. Remove both supports at once and half the trials leave. `top_expenses` shows it from the other side: the over-parameterised schema alone costs −51.7 (48.3%), the same schema inside the degraded manifest costs −73.3 (26.7%), and the difference is 26 `exec_error` turning into 23 `wrong_tool` escapes to `describe_dataset`.
+
+**The product statement that follows: you cannot triage a manifest one finding at a time and add up the savings.** Two warnings the linter calls advisory, each worth 3–5 points alone, are worth 35 together.
+
+### Reproducibility, the other half of item 4
+
+Between-session σ across three separate processes, browsers and cold profiles: 0.000 at the ceiling, 0.024 on the small drops, 0.041 on `sum_by_category`, 0.062 on `top_expenses` degraded, **0.094** worst case on the isolated schema arm. Smallest effect claimed: 0.35. Within-session σ is 0.000 by construction at one repeat and stays reported separately.
+
+### Predictions: one right, one wrong, two partly
+
+Registered in `fixtures\broken\tools.json` before the run. Right: a near-duplicate description alone costs nearly nothing. **Wrong: the competitor tool alone** — I predicted it carried "most" of the 35-point collapse; it carries 3.3 points. Partly: the thin-description arm left `clear_highlights` at the ceiling as predicted **and** `find_anomalies` too, so a thin description alone cost nothing anywhere; the schema arm produced the predicted `exec_error` signature but at 48.3% rather than 35%.
+
+The error was consistent — every prediction was written as though a defect family had its own price tag. The whole point of registering them beforehand was to catch that, and it did.
+
+### Three things the ablations separated out
+
+**Ambiguity costs tokens before it costs accuracy.** Mean judge completion tokens per call: thin 122, clean 148, competitor 208, degraded 364, near-duplicate **395**, schema **1,145** — 7.7× the clean arm, with seven of its calls burning the whole 4,096-token budget and returning nothing. The near-duplicate arm costs 2.7× the reasoning for 5 points of accuracy: the model reaches the same answer by working harder. An invocation rate cannot see that; a bill can.
+
+**The one well-described tool absorbs everything.** `describe_dataset`, untouched in every variant, collected 2 of 3 failures in the clean arm, 30 of 71 in the degraded arm, 8 of 9 in the near-duplicate arm and 5 of 5 in the competitor arm. Fixing one description relocates confusion rather than removing it.
+
+**`sum_by_category-12` is not a page defect, and the earlier reading was wrong.** *"I feel like I'm bleeding money somewhere and I can't see where."* failed **12 of 12 across four manifests**, including the two carrying the reference description, selecting `describe_dataset` 11 times and `find_anomalies` once. A defect invariant to the description is not caused by the description. Either the expected tool is contestable — an overview or an outlier hunt is a defensible answer to that sentence — or it is a tool-set gap, and both belong to the utterance set rather than to Airlock. Item 7 is re-scoped accordingly: there is no page bug to report here. `sum_by_category-02` ("Where is my money going?") is the honest contrast — clean on the reference description, 3/3 wrong once it is degraded.
+
+Nothing in `1.3.0` was touched to accommodate this. The set stays frozen and the decision is deferred, but it is now measured that **part of every rate in this project is the set's opinion about which tool should have been chosen.**
+
+### What it supersedes
+
+The single-session arms from 2026-08-30 were optimistic in both directions and are superseded, not deleted: degraded 83.1% not 80.0%, `sum_by_category` 60.0% not 35.0%, `top_expenses` 26.7% not 35.0%, and the clean arm 99.3% rather than a flat 100.0%. Its `sum_by_category` reads 95.0% [86.3, 98.3] against the live reference page's 94.2% [88.4, 97.1] over 120 trials — the closest thing to a cross-validation the twin can offer.
+
+### Also in this commit: the last unbounded waits
+
+Found by reading rather than by another stall. `waitForDevTools` polled `fetch` with no signal (a deadline around an unbounded fetch is not a deadline), `killTree` could hang on its own `taskkill`, and `runSessions` awaited a session child with nothing watching it. The orchestrator now runs a **progress-based watchdog**: it kills a session that has written to neither the checkpoint nor the failure log for ten minutes and reports it as `stalled`, which the coverage diff turns into missing trials for `--resume`. Progress rather than elapsed time, because an honest session duration depends on how many trials it was given, while "wrote nothing for ten minutes" means the same thing for a 20-trial session and a 480-trial one.
+
+Five tests in `core\orchestrate.test.mjs` cover it, including the two worth stating: a session writing only to the failure log is **not** killed, and a session we did kill is reported as stalled rather than as an ordinary non-zero exit. That second one was a real race — `killTree` makes `close` fire while the watchdog is still awaiting `taskkill`, and the first `finish()` wins — caught by the test rather than by a later run. 108 tests pass.
+
+### Still open
+- ⚠️ Interaction was measured for one pair and inferred for the other. A full pairwise design is 2ⁿ arms and was not run.
+- ⚠️ Sessions are still back-to-back. `--gap` has never been used in a published run, so drift across hours or days is still unmeasured.
+- ⚠️ `bad_args` has still never been observed in any arm on any page. The unknown-argument check works now; the judge simply does not invent argument keys.
+- ⚠️ The utterance set's own floor is now a known quantity rather than a measured one: `sum_by_category-12` is one case, and nobody has looked for the others.
+- ⚠️ Controls remain ungated by `--fail-under`. Both false positives on the degraded arm are `control-14`, the same utterance that has fired in every arm where anything fired.

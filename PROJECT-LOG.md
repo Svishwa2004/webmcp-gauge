@@ -21,7 +21,8 @@ Append-only record of every change, decision, and verification in this project. 
 | Plain-language explainer | ✅ `docs\explainer.md` |
 | Start guide + pipeline flow | ✅ `docs\getting-started.md` |
 | Publishing policy | ✅ **Decided** — private during judging, aggregate after; conflict of interest disclosed |
-| Code | ✅ **Trial engine runs end to end** — `bin\webmcp-gauge.mjs trial`, `core\taxonomy.mjs`, `core\trial.mjs`, `browser\session.mjs`, `browser\webmcp.mjs`, `judges\openai-compatible.mjs`. 34 tests pass (22 fixture, 12 taxonomy). Sweep, linter and report emitters not built |
+| Code | ✅ **Sweep runs end to end** — `bin\webmcp-gauge.mjs` (`trial`, `run`), `core\{taxonomy,trial,sweep,stats}.mjs`, `browser\{session,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`. 44 tests pass. Linter and Mode B adapters not built |
+| First measurement | ✅ **480 trials, 2026-08-30** — five tools at 100% [94.0%, 100.0%], `sum_by_category` 96.7%, `filter_rows` 95.0%, controls 0/60 false positives. Report at `reports\airlock-1.2.0-glm-5.3-r3.md` |
 | Judge | ✅ **`glm-5.3` at `https://agentrouter.org/v1`** — verified with a real chat call, then two live trials. Distinct from the authoring model, as required |
 | Node / npm | ✅ `v24.18.0` / `12.0.2` |
 | Local Chrome | ✅ `152.0.7977.65` — **#268 not reproduced here.** With `#enable-webmcp-testing` on, `document.modelContext` is present and returns all 7 Airlock tools |
@@ -37,7 +38,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** step 4 of §2 in `docs\getting-started.md` — the full sweep. The single-trial path is proven, so what step 4 adds is repetition and aggregation: 7 × 20 × R trials plus the 20 controls, Wilson intervals, per-tool rollup, and the control false-positive rate reported separately from invocation rate. Two things to decide before spending tokens on it: R, and whether the sweep runs one tab per trial (correct, slow) or reuses a tab per tool (faster, contaminating).
+**Immediate next action:** decide `filter_rows-14`. It selected `describe_dataset` in all three runs, and the phrasing I rewrote during review ("I'm curious about the Healthcare side of things") is defensibly an overview request — so the 95.0% for `filter_rows` is probably measuring my fixture rather than Airlock. Rewording it means bumping the frozen set to `1.3.0` and re-running, and changing an instrument after seeing its output needs an explicit decision with a recorded reason, not a quiet edit. After that: step 6, the L0 linter with a deliberately broken fixture page, which is what turns "the harness is sound" into "the metric discriminates".
 
 ---
 
@@ -513,3 +514,52 @@ Both were mine, both surfaced within seconds of the first real run, and neither 
 - ⚠️ `not_discovered` stays unreachable until the sweep reads `WebMCP.toolsAdded` from the browser side. The domain exists on this build; the plumbing does not.
 - ⚠️ `browser\session.mjs` still leans on an already-running flagged Chrome. Launching and tearing down the browser is not automated, so a CI gate is not yet possible.
 - ⚠️ Trial outputs go to `artifacts\` (git-ignored). Report emitters — JSON, Markdown, badge — do not exist.
+
+---
+
+## 2026-08-30 (morning) — Step 4: the first full sweep. 480 trials, and the metric holds
+
+`webmcp-gauge run --repeats 3 --concurrency 3` swept the frozen set against the live page: **480 trials — 140 utterances plus 20 controls, three times each** — in 751 s, then a `--resume` filled the three trials lost to judge outages. Report committed at `reports\airlock-1.2.0-glm-5.3-r3.md` and `.json`; the 1.4 MB raw trial log stays in `artifacts\` for now, because whether the dataset lives in this repo is still the open licensing decision from 2026-08-29.
+
+**Stamped**: utterance set `1.2.0` (frozen) · judge `glm-5.3` at agentrouter · browser `Chrome/152.0.7977.65` · R=3.
+
+| Tool | Invocation rate (95% Wilson) | σ across runs | Outcomes |
+|---|---|---|---|
+| `describe_dataset` | **100.0%** [94.0%, 100.0%] | 0.000 | ok 60 |
+| `monthly_trend` | **100.0%** [94.0%, 100.0%] | 0.000 | ok 60 |
+| `find_anomalies` | **100.0%** [94.0%, 100.0%] | 0.000 | ok 60 |
+| `top_expenses` | **100.0%** [94.0%, 100.0%] | 0.000 | ok 60 |
+| `clear_highlights` | **100.0%** [94.0%, 100.0%] | 0.000 | ok 60 |
+| `sum_by_category` | **96.7%** [88.6%, 99.1%] | 0.024 | ok 58, wrong_tool 2 |
+| `filter_rows` | **95.0%** [86.3%, 98.3%] | 0.000 | ok 57, wrong_tool 3 |
+
+415 of 420 tool trials returned `ok`. By phrasing: **plain 100%** (147), **paraphrase 100%** (147), **oblique 96.0%** (126) — the gradient the tags were designed to expose, and the only failures are at the oblique end.
+
+**Controls: 0 false positives in 60 trials**, including 0 of 6 injection-class. Reported as `0.0% [0.0%, 6.0%]`, and the per-class upper bounds are deliberately ugly — 0/6 injection is `[0.0%, 39.0%]`, which is the honest statement of what six trials can prove. If the injection claim is ever going to be load-bearing, that class needs to be an order of magnitude larger.
+
+### Gate 2 — the variance gate — passes, with one caveat stated plainly
+
+σ across the three runs is **0.000 for five tools, 0.024 for `sum_by_category`, 0.000 for `filter_rows`**. Run-to-run noise does not swamp the signal, so the metric exists and the project continues past the gate that was allowed to kill it.
+
+The caveat: five of seven tools sit at the ceiling, and σ near zero at a 100% rate is partly arithmetic rather than evidence of stability. Airlock has carefully written descriptions — it is the known-good fixture, chosen precisely for that — so this run demonstrates the harness is *sound*, not that the metric *discriminates*. Proving discrimination needs a deliberately badly-described page, which is exactly what the L0 linter fixture (step 6) is for. Until then, the honest claim is "the instrument reads 100% on a page believed to be good", not "the instrument can tell good pages from bad ones".
+
+### All five failures are two utterances, and one of them is my fault
+
+- **`filter_rows-14`** — "I'm curious about the Healthcare side of things." → `describe_dataset`, **3 times out of 3**. This is the utterance I rewrote during the review pass to name the `Healthcare` token, fixing a real defect (the manifest does not enumerate category names, so "medical bills" was unanswerable). The rewrite introduced a different ambiguity: "I'm curious about X" reads as a request for an overview, and a human would defend `describe_dataset` as a reasonable answer. That makes it a **fixture flaw, not a page finding**, and it should be reworded in a `1.3.0` bump rather than left to depress `filter_rows` forever.
+- **`sum_by_category-12`** — "I feel like I'm bleeding money somewhere and I can't see where." → `describe_dataset` in run 1, `find_anomalies` in run 2, correct in run 3. This one earns its place: a genuinely oblique phrasing, answered three different ways across three runs. It is the single source of all observed variance, and it is the kind of instability the metric is supposed to make visible rather than average away.
+
+Everything else — 158 of 160 utterances — was answered identically in all three runs.
+
+### Other measurements worth keeping
+
+- **`executeTool` shape: `tool-object+string` in 412 of 412 executions.** One accepted signature, no drift within the build. That is now a solid compatibility-matrix row rather than a one-off observation.
+- **Judge latency**: median 2400 ms, p95 6224 ms, max 22163 ms. **Manifest settle**: median 833 ms, max 4799 ms — faster than the 2.5–4.0 s measured serially, because a warm HTTP cache dominates.
+- **Judge reliability**: 3 of 480 trials (0.6%) produced no measurement — one provider `HTTP 500` and two `fetch failed`. All three were excluded from the rates rather than scored, and `--resume` re-ran exactly those three in 17 s. Without that separation the two most affected tools would have reported 94.9% and 100% off different denominators, and `clear_highlights` would have shown 58 trials while every other tool showed 60.
+- **Concurrency note**: the main run used 3 parallel tabs, the resume used 1. Rates are unaffected — tabs are independent documents and each judge call is a fresh context — but latency and settle figures mix two conditions, which is why the report stamps concurrency.
+
+### Still open
+- 🟡 **`filter_rows-14` needs rewording** and a `1.3.0` bump. Deliberately not done unilaterally: changing a frozen instrument after seeing the numbers it produced is exactly how a metric gets massaged, so it wants an explicit decision and a recorded reason.
+- ⚠️ Gate 2 passed on a known-good page. Discrimination is unproven until the linter's deliberately-broken fixture exists.
+- ⚠️ Control classes are too small for the safety claim: 0/6 injection is `[0.0%, 39.0%]`.
+- 🟡 Step 5 in the step table is this same run, so the table now needs collapsing rather than a fresh entry.
+- ⚠️ Still no browser lifecycle management, so a CI gate remains impossible; and `not_discovered` is still unreachable without the browser-side tool list.

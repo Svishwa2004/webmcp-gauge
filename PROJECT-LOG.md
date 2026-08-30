@@ -32,7 +32,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Documented paths | ✅ **Corrected 2026-08-30** in `README.md`-adjacent docs and this log's header: live tree is `D:\Projects\Hackthon-projects\` with `WebMCP\` (`airlock\`, `webmcp-challenge\`, `_spike\`) beside `webmcp-gauge\`. Pre-2026-08-30 log entries keep the old `Hackathon\` paths as frozen history |
 | Dependencies | ✅ `chrome-remote-interface@0.33.3` exact-pinned, lockfile committed-pending; `npm audit` → 0 vulnerabilities, 4 packages |
 | Utterance set | 🟡 **Drafted 2026-08-30, not frozen** — `fixtures\airlock.utterances.json`, 7 × 20 = 140 utterances **plus 20 negative controls**, guarded by 16 passing validation tests. Blocked on human review and on recording the authoring model id |
-| Git | ✅ Repo at `webmcp-gauge\` on `main`, local `a8f0560` (scaffold + doc corrections) on top of `9cf9de7`, `origin/main` still at `9216e31` — **ahead 2, not pushed**; the utterance draft is uncommitted |
+| Git | ✅ Repo at `webmcp-gauge\` on `main`, pushed to `origin/main` at `bafe6e0` on 2026-08-30 (three commits: `9cf9de7`, `a8f0560`, `bafe6e0`), in sync — this log entry is the only uncommitted change |
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
@@ -374,3 +374,21 @@ Candidates that were **rejected during drafting** rather than left in to inflate
 - 🟡 **Human review of all 160 lines** (140 utterances + 20 controls) — the done-condition for step 2, and not something the drafting model can sign off on its own work.
 - 🟡 `authoring.modelId` unrecorded; a judge model must then be chosen that differs from it.
 - 🟡 Step 3 (one trial end to end) is next, and needs a judge adapter plus an OpenAI-compatible endpoint and key decision.
+
+---
+
+## 2026-08-30 (night) — Pushed to the private remote
+
+`git push origin main` → `9216e31..bafe6e0`, 29 objects, 39.86 KiB. `git ls-remote --heads origin` confirms `refs/heads/main` = `bafe6e030c804abca4da20b57f26141061bf595c`, and `git status` reports `main...origin/main` in sync. Three commits went up: `9cf9de7` (ground check), `a8f0560` (scaffold, probe fix, doc corrections), `bafe6e0` (utterance set with controls).
+
+**Visibility re-verified before the push, not taken from the 2026-08-29 record.** The publishing policy — private until the report launch, ~Sep 23 — is what makes this push safe at all, and a repo's visibility can change between sessions. Two independent checks, both showing the private signature:
+
+- Unauthenticated `GET https://api.github.com/repos/Svishwa2004/webmcp-gauge` → **404** (a public repo returns 200 with a payload).
+- Anonymous `git ls-remote` with `GIT_TERMINAL_PROMPT=0` and the credential helper disabled → **`fatal: could not read Username`** (a public repo connects and returns refs).
+
+The tree now on the remote describes cohort measurement and the conflict-of-interest position while judging runs Sep 4 → Sep 21, so this check is a precondition of every push until the repo flips public, not a one-off from the first one.
+
+### Still open
+- Unchanged from the entries above: human review of the 160-line utterance set, the authoring model id, and the judge endpoint decision that gates step 3.
+- 📅 Scheduled, not open: flip the repo to public at the report launch (~Sep 23).
+- This log entry itself is uncommitted; it records the push after the fact rather than predicting it.

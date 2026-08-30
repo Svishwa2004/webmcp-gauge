@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-draft",
+  "version": "1.1.0-draft",
   "frozen": false,
   "drafted": "2026-08-30",
-  "reviewStatus": "DRAFT — not frozen. Requires human review of every utterance before any number is produced from it.",
+  "reviewStatus": "DRAFT — revised 2026-08-30 in a review pass with the maintainer. Still not frozen: authoring model id unrecorded, reviewer not recorded.",
   "authoring": {
-    "writtenBy": "Assistant draft inside a Qwen Code session, 2026-08-30. The exact model identity is not self-verifiable from inside the session; the operator must record it here before the first run.",
+    "writtenBy": "Assistant draft inside a Qwen Code session, 2026-08-30, revised the same day against maintainer-approved review findings. The exact model identity is not self-verifiable from inside the session; the operator must record it here before the first run.",
     "modelId": "UNRECORDED — fill this in",
     "reviewedBy": null,
     "rule": "The judge model MUST NOT be the model that authored these utterances. If they are the same model, the metric measures self-consistency rather than usability, and the numbers are not comparable to anything. Record both ids in every report.",
@@ -27,6 +27,8 @@
   "conventions": {
     "utterancesPerTool": 20,
     "controlUtterances": 20,
+    "tagMix": { "plain": 7, "paraphrase": 7, "oblique": 6 },
+    "tagMixRationale": "Every tool carries the identical mix, or per-tool rates are not comparable: a tool handed nine plain phrasings will beat one handed eight oblique ones for reasons that have nothing to do with its description.",
     "tags": {
       "plain": "How most people would ask; names the operation almost directly.",
       "paraphrase": "Same intent, different words; no operation vocabulary.",
@@ -39,6 +41,8 @@
     },
     "expectedArgs": "Argument values the phrasing pins down. Absent means a no-argument call is correct.",
     "requiredArgKeys": "Keys that must be present, where the value is a defensible judgement call rather than a single right answer.",
+    "argConstraints": "Direction checks for judgement-call arguments: { key: { gt | gte | lt | lte: number } }. Presence alone is not enough — 'be stricter' answered with a lower threshold is wrong in the way that matters, and a presence-only check would score it as correct. Any key here must also appear in requiredArgKeys.",
+    "setup": "State a tool's utterances presuppose. Trials run in fresh contexts, so an utterance like 'clear that' has no referent unless the harness creates one first.",
     "scoring": "expected tool + valid args = ok. Selecting another listed tool is wrong_tool even when a human might defend it; ambiguity that shows up as a low rate on a specific utterance is a finding about the tool descriptions, not a bug in this file.",
     "controlScoring": "For controls the taxonomy inverts: not_selected is the PASS, and any tool selection is the failure — reported as wrong_tool. Invocation rate and control false-positive rate are separate numbers and must never be pooled: a client that calls something for every utterance would otherwise look excellent."
   },
@@ -79,7 +83,7 @@
         { "id": "describe_dataset-05", "text": "Which categories appear in this data?", "tag": "plain" },
         { "id": "describe_dataset-06", "text": "What date range does this cover?", "tag": "plain" },
         { "id": "describe_dataset-07", "text": "What's the total amount across everything here?", "tag": "paraphrase" },
-        { "id": "describe_dataset-08", "text": "Summarise the dataset for me.", "tag": "plain" },
+        { "id": "describe_dataset-08", "text": "I don't want to scroll through 900 rows to work out what's here.", "tag": "oblique" },
         { "id": "describe_dataset-09", "text": "I just opened this page — what am I looking at?", "tag": "oblique" },
         { "id": "describe_dataset-10", "text": "Tell me the shape of this data: size, fields, period.", "tag": "paraphrase" },
         { "id": "describe_dataset-11", "text": "Before we dig in, what does this file contain?", "tag": "paraphrase" },
@@ -91,7 +95,7 @@
         { "id": "describe_dataset-17", "text": "Sanity check: how many transactions, and what do they add up to?", "tag": "oblique" },
         { "id": "describe_dataset-18", "text": "What kind of records are in this table?", "tag": "paraphrase" },
         { "id": "describe_dataset-19", "text": "Start by telling me what data you can actually see.", "tag": "oblique" },
-        { "id": "describe_dataset-20", "text": "Describe the file that's loaded.", "tag": "plain" }
+        { "id": "describe_dataset-20", "text": "I've just been handed this file and I've no idea what I'm looking at.", "tag": "oblique" }
       ]
     },
     {
@@ -108,10 +112,10 @@
         { "id": "sum_by_category-09", "text": "Show me the category breakdown, and mark the Transport rows so I can see them.", "tag": "plain", "expectedArgs": { "highlight": "Transport" } },
         { "id": "sum_by_category-10", "text": "Add up the spending per category, please.", "tag": "plain" },
         { "id": "sum_by_category-11", "text": "What are my biggest spending categories?", "tag": "paraphrase" },
-        { "id": "sum_by_category-12", "text": "I want a category-by-category total.", "tag": "plain" },
+        { "id": "sum_by_category-12", "text": "I feel like I'm bleeding money somewhere and I can't see where.", "tag": "oblique" },
         { "id": "sum_by_category-13", "text": "Compare the categories by total spend.", "tag": "paraphrase" },
         { "id": "sum_by_category-14", "text": "Which categories are trivial, and which are serious money?", "tag": "oblique" },
-        { "id": "sum_by_category-15", "text": "Group the totals by category for me.", "tag": "plain" },
+        { "id": "sum_by_category-15", "text": "Which parts of my life are eating the budget?", "tag": "oblique" },
         { "id": "sum_by_category-16", "text": "Category totals — and can you highlight Subscriptions while you're at it.", "tag": "paraphrase", "expectedArgs": { "highlight": "Subscriptions" } },
         { "id": "sum_by_category-17", "text": "How is my spending distributed across categories?", "tag": "paraphrase" },
         { "id": "sum_by_category-18", "text": "Totals by category, please.", "tag": "plain" },
@@ -122,23 +126,23 @@
     {
       "name": "filter_rows",
       "utterances": [
-        { "id": "filter_rows-01", "text": "How much did I spend in March 2026?", "tag": "paraphrase", "expectedArgs": { "from": "2026-03-01", "to": "2026-03-31" } },
+        { "id": "filter_rows-01", "text": "Which transactions were in March 2026?", "tag": "paraphrase", "expectedArgs": { "from": "2026-03-01", "to": "2026-03-31" } },
         { "id": "filter_rows-02", "text": "Show me everything over 20000.", "tag": "plain", "expectedArgs": { "min_amount": 20000 } },
         { "id": "filter_rows-03", "text": "Find the Transport spending between January and March 2026.", "tag": "plain", "expectedArgs": { "category": "Transport", "from": "2026-01-01", "to": "2026-03-31" } },
         { "id": "filter_rows-04", "text": "Anything between 5000 and 10000?", "tag": "paraphrase", "expectedArgs": { "min_amount": 5000, "max_amount": 10000 } },
         { "id": "filter_rows-05", "text": "What did I spend on Groceries in December 2025?", "tag": "paraphrase", "expectedArgs": { "category": "Groceries", "from": "2025-12-01", "to": "2025-12-31" } },
-        { "id": "filter_rows-06", "text": "List the transactions after the first of June 2026.", "tag": "paraphrase", "expectedArgs": { "from": "2026-06-01" } },
+        { "id": "filter_rows-06", "text": "I only care about what happened since June 2026 — the earlier stuff is irrelevant.", "tag": "oblique", "expectedArgs": { "from": "2026-06-01" } },
         { "id": "filter_rows-07", "text": "Which rows are under 500?", "tag": "plain", "expectedArgs": { "max_amount": 500 } },
         { "id": "filter_rows-08", "text": "Pull up the Dining charges from the last quarter of 2025.", "tag": "oblique", "expectedArgs": { "category": "Dining", "from": "2025-10-01", "to": "2025-12-31" } },
         { "id": "filter_rows-09", "text": "Show me up to five Housing rows.", "tag": "plain", "expectedArgs": { "category": "Housing", "limit": 5 } },
         { "id": "filter_rows-10", "text": "How many transactions happened in 2026, and what do they total?", "tag": "paraphrase", "expectedArgs": { "from": "2026-01-01" } },
-        { "id": "filter_rows-11", "text": "Filter to Utilities between 2025-09-01 and 2026-02-28.", "tag": "plain", "expectedArgs": { "category": "Utilities", "from": "2025-09-01", "to": "2026-02-28" } },
+        { "id": "filter_rows-11", "text": "Just the Utilities charges between 2025-09-01 and 2026-02-28.", "tag": "plain", "expectedArgs": { "category": "Utilities", "from": "2025-09-01", "to": "2026-02-28" } },
         { "id": "filter_rows-12", "text": "Everything above 15000 in Transport.", "tag": "plain", "expectedArgs": { "category": "Transport", "min_amount": 15000 } },
         { "id": "filter_rows-13", "text": "What happened in the first week of September 2025?", "tag": "oblique", "expectedArgs": { "from": "2025-09-01", "to": "2025-09-07" } },
-        { "id": "filter_rows-14", "text": "Give me the Healthcare rows.", "tag": "plain", "expectedArgs": { "category": "Healthcare" } },
+        { "id": "filter_rows-14", "text": "I want to see what the medical bills looked like.", "tag": "oblique", "expectedArgs": { "category": "Healthcare" } },
         { "id": "filter_rows-15", "text": "Small stuff only — nothing above 1000.", "tag": "oblique", "expectedArgs": { "max_amount": 1000 } },
         { "id": "filter_rows-16", "text": "Show the Education spending from 2026 onwards.", "tag": "paraphrase", "expectedArgs": { "category": "Education", "from": "2026-01-01" } },
-        { "id": "filter_rows-17", "text": "Between 2026-04-01 and 2026-04-30, what came through?", "tag": "paraphrase", "expectedArgs": { "from": "2026-04-01", "to": "2026-04-30" } },
+        { "id": "filter_rows-17", "text": "April 2026 felt expensive — what actually went out that month?", "tag": "oblique", "expectedArgs": { "from": "2026-04-01", "to": "2026-04-30" } },
         { "id": "filter_rows-18", "text": "Find the Mobile charges over 2000.", "tag": "plain", "expectedArgs": { "category": "Mobile", "min_amount": 2000 } },
         { "id": "filter_rows-19", "text": "I want the rows from November 2025.", "tag": "paraphrase", "expectedArgs": { "from": "2025-11-01", "to": "2025-11-30" } },
         { "id": "filter_rows-20", "text": "Just show me three examples of Clothing purchases.", "tag": "paraphrase", "expectedArgs": { "category": "Clothing", "limit": 3 } }
@@ -151,7 +155,7 @@
         { "id": "monthly_trend-02", "text": "Show me the monthly totals.", "tag": "plain" },
         { "id": "monthly_trend-03", "text": "Am I spending more now than when this data starts?", "tag": "oblique" },
         { "id": "monthly_trend-04", "text": "Which month was my most expensive?", "tag": "paraphrase" },
-        { "id": "monthly_trend-05", "text": "Is there a trend across the year?", "tag": "oblique" },
+        { "id": "monthly_trend-05", "text": "Which month had the lowest total?", "tag": "plain" },
         { "id": "monthly_trend-06", "text": "Give me a month-by-month total, oldest first.", "tag": "plain" },
         { "id": "monthly_trend-07", "text": "Did my spending go up after the new year?", "tag": "oblique" },
         { "id": "monthly_trend-08", "text": "What does the month-on-month change look like?", "tag": "paraphrase" },
@@ -162,7 +166,7 @@
         { "id": "monthly_trend-13", "text": "Was August worse than July?", "tag": "oblique" },
         { "id": "monthly_trend-14", "text": "Show me the seasonal pattern in my spending, if there is one.", "tag": "oblique" },
         { "id": "monthly_trend-15", "text": "How much per month, across the whole period?", "tag": "paraphrase" },
-        { "id": "monthly_trend-16", "text": "I want to see whether things are getting worse over time.", "tag": "oblique" },
+        { "id": "monthly_trend-16", "text": "What's my average spend per month, and which months beat it?", "tag": "paraphrase" },
         { "id": "monthly_trend-17", "text": "Monthly spend, please.", "tag": "plain" },
         { "id": "monthly_trend-18", "text": "Roll this up by month.", "tag": "paraphrase" },
         { "id": "monthly_trend-19", "text": "Which direction is my spending going?", "tag": "oblique" },
@@ -176,15 +180,15 @@
         { "id": "find_anomalies-02", "text": "Find the outliers in my spending.", "tag": "plain" },
         { "id": "find_anomalies-03", "text": "Which charges are abnormally large for their category?", "tag": "plain" },
         { "id": "find_anomalies-04", "text": "Flag anything that looks out of line.", "tag": "paraphrase" },
-        { "id": "find_anomalies-05", "text": "Be stricter than usual — only genuinely extreme cases.", "tag": "oblique", "requiredArgKeys": ["threshold"] },
+        { "id": "find_anomalies-05", "text": "Be stricter than usual — only genuinely extreme cases.", "tag": "oblique", "requiredArgKeys": ["threshold"], "argConstraints": { "threshold": { "gt": 2.5 } }, "note": "The tool defaults to 2.5, so 'stricter' means a higher number. Presence alone is not enough." },
         { "id": "find_anomalies-06", "text": "Show me the suspicious transactions.", "tag": "paraphrase" },
         { "id": "find_anomalies-07", "text": "Are there any one-off spikes?", "tag": "paraphrase" },
         { "id": "find_anomalies-08", "text": "Which rows stand out compared with similar ones?", "tag": "paraphrase" },
         { "id": "find_anomalies-09", "text": "Find anything more than three standard deviations above normal.", "tag": "plain", "expectedArgs": { "threshold": 3 } },
-        { "id": "find_anomalies-10", "text": "Be lenient — show me mild oddities too.", "tag": "oblique", "requiredArgKeys": ["threshold"] },
+        { "id": "find_anomalies-10", "text": "Be lenient — show me mild oddities too.", "tag": "oblique", "requiredArgKeys": ["threshold"], "argConstraints": { "threshold": { "lt": 2.5 } }, "note": "Lenient means a lower number than the 2.5 default." },
         { "id": "find_anomalies-11", "text": "Did I get overcharged anywhere?", "tag": "oblique" },
-        { "id": "find_anomalies-12", "text": "Point out the weird ones.", "tag": "paraphrase" },
-        { "id": "find_anomalies-13", "text": "What doesn't fit the usual pattern?", "tag": "oblique" },
+        { "id": "find_anomalies-12", "text": "Find the anomalous rows in each category.", "tag": "plain" },
+        { "id": "find_anomalies-13", "text": "Detect the outliers using the default sensitivity.", "tag": "plain", "note": "Deliberate no-argument case: a model that invents a threshold here is over-reaching." },
         { "id": "find_anomalies-14", "text": "Highlight the unusual amounts in the table.", "tag": "paraphrase" },
         { "id": "find_anomalies-15", "text": "Any transactions I should double-check?", "tag": "oblique" },
         { "id": "find_anomalies-16", "text": "Find the statistical outliers within each category.", "tag": "plain" },
@@ -199,7 +203,7 @@
       "utterances": [
         { "id": "top_expenses-01", "text": "What were my biggest single purchases?", "tag": "plain" },
         { "id": "top_expenses-02", "text": "Show me the top ten expenses.", "tag": "plain", "expectedArgs": { "limit": 10 } },
-        { "id": "top_expenses-03", "text": "What's the largest single charge in here?", "tag": "paraphrase", "expectedArgs": { "limit": 1 } },
+        { "id": "top_expenses-03", "text": "What's the largest single charge in here?", "tag": "paraphrase", "note": "No limit expectation: naming the largest out of a default page of rows is a correct answer, so pinning limit=1 would score a good response as bad_args." },
         { "id": "top_expenses-04", "text": "Biggest expenses, please.", "tag": "plain" },
         { "id": "top_expenses-05", "text": "Give me the three most expensive rows.", "tag": "plain", "expectedArgs": { "limit": 3 } },
         { "id": "top_expenses-06", "text": "Which individual transactions were the largest?", "tag": "paraphrase" },
@@ -213,7 +217,7 @@
         { "id": "top_expenses-14", "text": "Highlight my largest expenses in the table.", "tag": "plain" },
         { "id": "top_expenses-15", "text": "What's at the expensive end of this data?", "tag": "oblique" },
         { "id": "top_expenses-16", "text": "Show me the biggest fifteen.", "tag": "paraphrase", "expectedArgs": { "limit": 15 } },
-        { "id": "top_expenses-17", "text": "Which rows have the highest amounts?", "tag": "plain" },
+        { "id": "top_expenses-17", "text": "I bet a handful of payments account for most of this.", "tag": "oblique" },
         { "id": "top_expenses-18", "text": "Find my most expensive transactions.", "tag": "plain" },
         { "id": "top_expenses-19", "text": "Top few by amount — just a handful.", "tag": "oblique" },
         { "id": "top_expenses-20", "text": "What did I spend the most on in one go?", "tag": "oblique" }
@@ -221,6 +225,11 @@
     },
     {
       "name": "clear_highlights",
+      "setup": {
+        "seedState": "Before each clear_highlights trial the harness must apply a highlight — call sum_by_category with highlight=\"Transport\" — and record that it did. Trials run in fresh contexts, so without it 'clear that' and 'the table's hard to read now' have no referent and a competent agent may reasonably decline, which would be scored as not_selected and read as a description failure.",
+        "seedCall": { "tool": "sum_by_category", "args": { "highlight": "Transport" } },
+        "excludeFromSeed": "The seed call is setup, not a trial: it is never scored, and it must not appear in the manifest of tools offered for the trial's own selection decision."
+      },
       "utterances": [
         { "id": "clear_highlights-01", "text": "Clear the highlighting.", "tag": "plain" },
         { "id": "clear_highlights-02", "text": "Remove the highlights from the table.", "tag": "plain" },
@@ -237,10 +246,10 @@
         { "id": "clear_highlights-13", "text": "Show every row normally again.", "tag": "paraphrase" },
         { "id": "clear_highlights-14", "text": "Clean up the table.", "tag": "oblique" },
         { "id": "clear_highlights-15", "text": "Drop the highlighting, new question coming.", "tag": "oblique" },
-        { "id": "clear_highlights-16", "text": "Deselect those rows.", "tag": "paraphrase" },
+        { "id": "clear_highlights-16", "text": "That's enough highlighting for now.", "tag": "paraphrase" },
         { "id": "clear_highlights-17", "text": "Return the table to normal.", "tag": "paraphrase" },
         { "id": "clear_highlights-18", "text": "No more highlights, please.", "tag": "plain" },
-        { "id": "clear_highlights-19", "text": "Wipe the highlighting.", "tag": "plain" },
+        { "id": "clear_highlights-19", "text": "I can't read the numbers with all that colour on them.", "tag": "oblique" },
         { "id": "clear_highlights-20", "text": "Clear the marks on the table.", "tag": "plain" }
       ]
     }

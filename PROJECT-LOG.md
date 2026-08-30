@@ -31,8 +31,8 @@ Append-only record of every change, decision, and verification in this project. 
 | Ground check (does Chrome 152 see WebMCP?) | ✅ **Answered 2026-08-30 — yes.** Gate 1 cleared; Chrome 152 is the reference client |
 | Documented paths | ✅ **Corrected 2026-08-30** in `README.md`-adjacent docs and this log's header: live tree is `D:\Projects\Hackthon-projects\` with `WebMCP\` (`airlock\`, `webmcp-challenge\`, `_spike\`) beside `webmcp-gauge\`. Pre-2026-08-30 log entries keep the old `Hackathon\` paths as frozen history |
 | Dependencies | ✅ `chrome-remote-interface@0.33.3` exact-pinned, lockfile committed-pending; `npm audit` → 0 vulnerabilities, 4 packages |
-| Utterance set | 🟡 **Drafted 2026-08-30, not frozen** — `fixtures\airlock.utterances.json`, 7 × 20 = 140 utterances **plus 20 negative controls**, guarded by 16 passing validation tests. Blocked on human review and on recording the authoring model id |
-| Git | ✅ Repo at `webmcp-gauge\` on `main`, pushed to `origin/main` at `bafe6e0` on 2026-08-30 (three commits: `9cf9de7`, `a8f0560`, `bafe6e0`), in sync — this log entry is the only uncommitted change |
+| Utterance set | 🟡 **`1.1.0-draft`, revised in review 2026-08-30, still not frozen** — `fixtures\airlock.utterances.json`, 7 × 20 at a pinned 7/7/6 tag mix **plus 20 negative controls**, guarded by 20 passing validation tests. Blocked on review sign-off and on recording the authoring model id |
+| Git | ✅ Repo at `webmcp-gauge\` on `main`, `origin/main` at `2551fa4` (four commits: `9cf9de7`, `a8f0560`, `bafe6e0`, `2551fa4`) — the `1.1.0-draft` review revision and this entry are uncommitted |
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
@@ -392,3 +392,33 @@ The tree now on the remote describes cohort measurement and the conflict-of-inte
 - Unchanged from the entries above: human review of the 160-line utterance set, the authoring model id, and the judge endpoint decision that gates step 3.
 - 📅 Scheduled, not open: flip the repo to public at the report launch (~Sep 23).
 - This log entry itself is uncommitted; it records the push after the fact rather than predicting it.
+
+---
+
+## 2026-08-30 (night, later) — Review pass on the utterance set: four defects, all structural
+
+Reviewed the 160 lines with the maintainer. Four changes were approved and applied; the fixture is now `1.1.0-draft` and validation is at **20 tests, 20 passing**. Three of the four were not wording problems at all, which is the point worth recording: reading a fixture line by line finds typos, but reading it *as an instrument* finds the ways it would have produced confident wrong numbers.
+
+**1. Twenty utterances had no referent.** Every `clear_highlights` phrasing presupposes existing highlighting — "clear that", "the table's hard to read now", "no more highlights" — but §3 of the start guide mandates a **fresh context and a clean page per trial**. Against an unhighlighted table a competent agent may reasonably decline, which lands as `not_selected` and reads as a weak tool description. It would have looked like a finding about Airlock and been a bug in the harness. The fixture now declares `setup.seedCall` — `sum_by_category` with `highlight: "Transport"` — to be applied before each of those trials, never scored, and kept out of the manifest offered for the trial's own selection decision. `docs\getting-started.md` §3 step 10 carries the rule.
+
+**2. Per-tool rates were not comparable.** The tag mix was uneven by tool: `describe_dataset` 9 plain / 7 paraphrase / 4 oblique against `find_anomalies` 5/8/7 and `monthly_trend` 6/6/8. Since the headline number is per-tool, that difference alone would have made `describe_dataset` look better described than `find_anomalies` for reasons unrelated to either description. Every tool is now pinned to **7 / 7 / 6**, `conventions.tagMix` states it, and a test enforces it. Rebalancing meant rewriting ten utterances rather than relabelling them — a tag has to describe the text, or the fix is cosmetic.
+
+**3. Presence-only argument checks scored the wrong answer as correct.** `find_anomalies-05` ("Be stricter than usual") and `-10` ("Be lenient") only required that `threshold` be *present*, so a model answering "stricter" with `threshold: 1.0` — the opposite of what was asked — would have passed. Added `argConstraints`: `{ threshold: { gt: 2.5 } }` and `{ threshold: { lt: 2.5 } }`, keyed to the tool's documented 2.5 default, with a test that a constrained key is also required and never simultaneously pinned by `expectedArgs`.
+
+**4. Five line-level fixes**, each for a stated reason rather than taste:
+
+- `filter_rows-01` "How much did I spend in March 2026?" → **"Which transactions were in March 2026?"** The original is a single-month aggregate, which `monthly_trend` answers *better* in one call. Scoring it as `filter_rows` would have punished the right answer.
+- `filter_rows-11` "**Filter** to Utilities between…" → "Just the Utilities charges between…". It handed the model the tool's own verb. The leak test only catches the full name, so this class of leak needs a human — noted for the review checklist.
+- `top_expenses-03` "What's the largest single charge in here?" — dropped `expectedArgs: {limit: 1}`. Naming the largest out of a default page of rows is a correct answer; pinning `limit: 1` would have scored it `bad_args`.
+- `clear_highlights-16` "Deselect those rows." → "That's enough highlighting for now." Selection is not highlighting; the original tested vocabulary Airlock never uses.
+- `monthly_trend-05` "Is there a trend across the year?" → "Which month had the lowest total?" Four near-identical oblique trend questions (05, 14, 16, 19) were spending four of twenty slots on one phrasing shape.
+
+Also folded in while rebalancing, and worth flagging because it was not on the approved list: `describe_dataset-20` was "Describe the file that's loaded", which leaks the `describe_dataset` verb the same way `filter_rows-11` did. It became an oblique phrasing ("I've just been handed this file and I've no idea what I'm looking at").
+
+**Kept despite doubts, deliberately:** `monthly_trend-10` ("Which months were unusually heavy?"), `find_anomalies-14` ("Highlight the unusual amounts"), `filter_rows-02` ("everything over 20000", which competes with `top_expenses`) and `sum_by_category-07` ("What share of my spending is Dining?"). Each is a hard case a well-described tool should still win. If they fail across every client, that is evidence about Airlock's descriptions — which is the product working, not the fixture failing.
+
+### Still open
+- 🟡 **Sign-off on the revised 160 lines**, plus `authoring.modelId` and `reviewedBy`, then `frozen: true`.
+- 🟡 The revision is uncommitted.
+- ⚠️ The harness must implement the seed-call protocol before any `clear_highlights` number is meaningful. Until then that tool's rate is not measurable, only guessable.
+- 🟡 Step 3 still needs the judge endpoint and model decision, which must differ from the authoring model.

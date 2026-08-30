@@ -47,6 +47,67 @@ test('every tool carries the declared number of utterances', () => {
   }
 });
 
+test('every tool carries the identical tag mix, or per-tool rates are not comparable', () => {
+  for (const tool of fixture.tools) {
+    const mix = tool.utterances.reduce((acc, u) => ({ ...acc, [u.tag]: (acc[u.tag] ?? 0) + 1 }), {});
+    for (const [tag, expected] of Object.entries(fixture.conventions.tagMix)) {
+      assert.equal(mix[tag] ?? 0, expected, `${tool.name} has ${mix[tag] ?? 0} ${tag}, expected ${expected}`);
+    }
+  }
+});
+
+test('the declared tag mix sums to the per-tool utterance count', () => {
+  const total = Object.values(fixture.conventions.tagMix).reduce((a, b) => a + b, 0);
+  assert.equal(total, fixture.conventions.utterancesPerTool);
+});
+
+test('argument constraints are directional, numeric, and back a required key', () => {
+  const operators = new Set(['gt', 'gte', 'lt', 'lte']);
+  for (const { tool, id, argConstraints, requiredArgKeys, expectedArgs } of allUtterances) {
+    if (argConstraints === undefined) continue;
+    for (const [key, constraint] of Object.entries(argConstraints)) {
+      assert.ok(TOOL_ARG_KEYS[tool].includes(key), `${id} constrains unknown arg ${key}`);
+      assert.ok(
+        (requiredArgKeys ?? []).includes(key),
+        `${id} constrains ${key} without requiring it — presence must be checked too`
+      );
+      assert.ok(
+        !(key in (expectedArgs ?? {})),
+        `${id} both pins and constrains ${key}; pick one`
+      );
+      const entries = Object.entries(constraint);
+      assert.ok(entries.length > 0, `${id} has an empty constraint on ${key}`);
+      for (const [operator, value] of entries) {
+        assert.ok(operators.has(operator), `${id} uses unknown operator ${operator}`);
+        assert.equal(typeof value, 'number', `${id} constrains ${key} with a non-number`);
+      }
+    }
+  }
+});
+
+test('a tool whose utterances presuppose state declares how to seed it', () => {
+  const clearHighlights = fixture.tools.find((t) => t.name === 'clear_highlights');
+  assert.ok(
+    clearHighlights.setup?.seedState,
+    'clear_highlights utterances refer to existing highlighting, which fresh-context trials will not have'
+  );
+
+  for (const tool of fixture.tools) {
+    if (tool.setup === undefined) continue;
+    assert.equal(typeof tool.setup.seedState, 'string');
+    const seed = tool.setup.seedCall;
+    assert.ok(seed, `${tool.name} declares seedState without a seedCall`);
+    assert.ok(TOOL_ARG_KEYS[seed.tool], `${tool.name} seeds with unknown tool ${seed.tool}`);
+    assert.notEqual(seed.tool, tool.name, `${tool.name} cannot seed itself`);
+    for (const key of Object.keys(seed.args ?? {})) {
+      assert.ok(
+        TOOL_ARG_KEYS[seed.tool].includes(key),
+        `${tool.name} seed passes unknown arg ${key} to ${seed.tool}`
+      );
+    }
+  }
+});
+
 test('ids are unique, prefixed by tool and numbered from 01', () => {
   const seen = new Set();
   for (const tool of fixture.tools) {

@@ -149,7 +149,7 @@ Run-to-run variance is the first thing a sceptic will attack, and rightly. Publi
 
 ### 5.4 Methodological rule that must not be broken
 
-**The model that authors the utterance set must not be the model that is judged on it.** Otherwise the metric measures self-consistency, not usability. Utterances are human-reviewed, committed to the developer's repo as a frozen versioned file, and changed deliberately — never regenerated per run, or the numbers stop being comparable across commits.
+**The model that authors the utterance set must not be the model that is judged on it.** Otherwise the metric measures self-consistency, not usability. Utterances are human-reviewed, committed to the developer's repo as a frozen versioned file, and changed deliberately — never regenerated per run, or the numbers stop being comparable across commits. The authoring model is recorded inside the fixture so the constraint is checkable rather than remembered: Airlock's set (`fixtures/airlock.utterances.json`, frozen at `1.2.0` on 2026-08-30) was authored by `deepseek v4 by agentrouter`, which is therefore disqualified as a judge for those numbers.
 
 ---
 

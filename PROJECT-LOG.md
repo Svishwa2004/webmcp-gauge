@@ -31,12 +31,12 @@ Append-only record of every change, decision, and verification in this project. 
 | Ground check (does Chrome 152 see WebMCP?) | ✅ **Answered 2026-08-30 — yes.** Gate 1 cleared; Chrome 152 is the reference client |
 | Documented paths | ✅ **Corrected 2026-08-30** in `README.md`-adjacent docs and this log's header: live tree is `D:\Projects\Hackthon-projects\` with `WebMCP\` (`airlock\`, `webmcp-challenge\`, `_spike\`) beside `webmcp-gauge\`. Pre-2026-08-30 log entries keep the old `Hackathon\` paths as frozen history |
 | Dependencies | ✅ `chrome-remote-interface@0.33.3` exact-pinned, lockfile committed-pending; `npm audit` → 0 vulnerabilities, 4 packages |
-| Utterance set | 🟡 **`1.2.0-draft`, revised twice on 2026-08-30, still not frozen** — `fixtures\airlock.utterances.json`, 7 × 20 at a pinned 7/7/6 tag mix **plus 20 negative controls**, guarded by 22 passing validation tests. Blocked on review sign-off and on recording the authoring model id |
+| Utterance set | ✅ **FROZEN at `1.2.0` on 2026-08-30** — `fixtures\airlock.utterances.json`: 7 × 20 at a 7/7/6 tag mix plus 20 negative controls, 22 passing validation tests, reviewed line by line by Sahan Vishwa. Authoring model recorded as `deepseek v4 by agentrouter` (operator-attested), **disqualified as a judge** |
 | Git | ✅ Repo at `webmcp-gauge\` on `main`, tracking `origin/main`, pushed after every step. The head commit is not repeated here — it went stale twice in one evening; `git log -1` is authoritative, and each entry below names the commit it produced |
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** review `fixtures\airlock.utterances.json` line by line, record the authoring model id, set `frozen: true` and `reviewedBy`, then move to step 3 — one trial end to end. The set cannot be used for a number until a human has read it; the validation test refuses to let it be marked frozen otherwise.
+**Immediate next action:** step 3 of §2 in `docs\getting-started.md` — one trial end to end. It needs a judge adapter and an OpenAI-compatible endpoint plus model, and the model must not be `deepseek v4 by agentrouter`, which authored the now-frozen utterance set.
 
 ---
 
@@ -444,3 +444,24 @@ The general rule behind #4 is worth more than the fix and is now enforced: **an 
 - 🟡 The `1.2.0-draft` fixes and this entry are uncommitted.
 - ⚠️ Unmeasured by design, and recorded so it is a choice rather than an oversight: privacy-mode behaviour (tools return different payloads with it on or off) gets no utterance, and multi-call sequences — discover then filter — are outside the one-utterance-one-trial protocol.
 - 🟡 Step 3 needs the judge endpoint and model decision.
+
+---
+
+## 2026-08-30 (night, close) — Utterance set FROZEN at `1.2.0`. Step 2 done
+
+`fixtures\airlock.utterances.json` is frozen: `frozen: true`, `frozenOn: 2026-08-30`, version `1.2.0` with the `-draft` suffix dropped. 22 validation tests pass with the provenance assertions now live — they only run once `frozen` is true, so this is the first run in which they meant anything.
+
+**Provenance, recorded rather than inferred:**
+
+- `authoring.modelId` = **`deepseek v4 by agentrouter`**, supplied by the maintainer. I declined to fill this from `settings.json` (`model.name: qwen3.8-max`) even though the value was sitting there: a model cannot verify its own identity from inside a session, and the entire point of the field is that the judge must provably differ from the author. A plausible guess in that slot would silently void the rule it exists to enforce. The file records this as `modelIdProvenance` — operator-attested, not self-reported.
+- `authoring.reviewedBy` = **Sahan Vishwa**, with the date and the fact that all 160 lines were read out block by block.
+- The rule text now names the disqualified model explicitly, and a test asserts it does: `authoring.rule` must contain `authoring.modelId`, so the constraint is checkable at run time instead of being a sentence someone remembers.
+
+**Three more freeze invariants** added while making the assertions live, each closing a way a frozen file could lie about itself: a frozen set must carry `frozenOn`; its version must not contain "draft"; and the disqualified-judge rule must name the authoring model.
+
+**Consequence for step 3, which is now the next action:** the judge cannot be `deepseek v4 by agentrouter`. `docs\concept.md` §5.4 and the §2 step table both record this, so choosing a judge is a decision with a stated constraint rather than a preference.
+
+### Still open
+- 🟡 Judge endpoint and model for step 3 — OpenAI-compatible, and not the authoring model.
+- ⚠️ The harness must implement the `clear_highlights` seed protocol before that tool's rate means anything.
+- ⚠️ Unmeasured by design: privacy-mode payload differences, and multi-call sequences such as discover-then-filter.

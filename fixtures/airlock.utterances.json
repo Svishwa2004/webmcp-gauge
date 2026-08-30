@@ -1,14 +1,16 @@
 {
-  "version": "1.2.0-draft",
-  "frozen": false,
+  "version": "1.2.0",
+  "frozen": true,
   "drafted": "2026-08-30",
-  "reviewStatus": "DRAFT — revised twice on 2026-08-30 with the maintainer: review pass (1.1.0) then four gap fixes (1.2.0). Still not frozen: authoring model id unrecorded, reviewer not recorded.",
+  "frozenOn": "2026-08-30",
+  "reviewStatus": "FROZEN at 1.2.0 on 2026-08-30, after two revision passes the same day: review findings (1.1.0) and four measurement-gap fixes (1.2.0). Any change from here bumps the version, or numbers stop being comparable across commits.",
   "authoring": {
-    "writtenBy": "Assistant draft inside a Qwen Code session, 2026-08-30, revised the same day against maintainer-approved review findings. The exact model identity is not self-verifiable from inside the session; the operator must record it here before the first run.",
-    "modelId": "UNRECORDED — fill this in",
-    "reviewedBy": null,
-    "rule": "The judge model MUST NOT be the model that authored these utterances. If they are the same model, the metric measures self-consistency rather than usability, and the numbers are not comparable to anything. Record both ids in every report.",
-    "editingPolicy": "Once reviewed, set frozen=true and bump version on any change. Utterance text is the instrument; changing it silently invalidates comparison across commits."
+    "writtenBy": "Assistant draft inside a Qwen Code session, 2026-08-30, revised twice the same day against maintainer-approved review findings.",
+    "modelId": "deepseek v4 by agentrouter",
+    "modelIdProvenance": "Recorded verbatim as supplied by the maintainer on 2026-08-30. A model cannot verify its own identity from inside a session, so this is an operator-attested value rather than a self-report.",
+    "reviewedBy": "Sahan Vishwa — read all 160 lines block by block on 2026-08-30, approved the four gap fixes, and signed off on the freeze.",
+    "rule": "The judge model MUST NOT be the model that authored these utterances. This set was authored by 'deepseek v4 by agentrouter', which is therefore disqualified as a judge for these numbers. If author and judge are the same model, the metric measures self-consistency rather than usability, and the numbers are not comparable to anything. Record both ids in every report.",
+    "editingPolicy": "Frozen. Any change to utterance text, tags, or argument expectations bumps the version, and every report names the version it was produced from."
   },
   "subject": {
     "name": "airlock",

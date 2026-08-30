@@ -236,6 +236,15 @@ test('authoring provenance is recorded before the set can be frozen', () => {
       'a frozen set must name the authoring model, so a judge can be chosen that differs from it'
     );
     assert.ok(fixture.authoring.reviewedBy, 'a frozen set must record its human reviewer');
+    assert.ok(fixture.frozenOn, 'a frozen set must record when it was frozen');
+    assert.ok(
+      !fixture.version.includes('draft'),
+      `a frozen set cannot carry a draft version (${fixture.version})`
+    );
+    assert.ok(
+      fixture.authoring.rule.includes(fixture.authoring.modelId),
+      'the disqualified-judge rule must name the authoring model, or the constraint is unenforceable at run time'
+    );
   }
 });
 

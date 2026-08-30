@@ -4,7 +4,7 @@
 
 Append-only record of every change, decision, and verification in this project. Newest entries at the bottom. Times are UTC unless marked PT.
 
-**Location note:** this log sits at the root of `D:\Projects\Hackathon\webmcp-gauge\` (repo `https://github.com/Svishwa2004/webmcp-gauge`) and covers only the webmcp-gauge measurement layer. The Airlock hackathon entry has its own log at `D:\Projects\Hackathon\PROJECT-LOG.md`; the two projects share a subject (Airlock is webmcp-gauge's reference page) but nothing else. Airlock's log is frozen history as far as this project is concerned. Entries below dated before the 2026-08-29 rename still say "ToolProof" and reference `toolproof\` paths — that is frozen history, superseded by the rename entry at the bottom, not an error to correct in place.
+**Location note:** this log sits at the root of `D:\Projects\Hackthon-projects\webmcp-gauge\` (repo `https://github.com/Svishwa2004/webmcp-gauge`) and covers only the webmcp-gauge measurement layer. The Airlock hackathon entry has its own log at `D:\Projects\Hackthon-projects\WebMCP\PROJECT-LOG.md`, with the app itself at `WebMCP\airlock\`; the two projects share a subject (Airlock is webmcp-gauge's reference page) but nothing else. Airlock's log is frozen history as far as this project is concerned. Entries below dated before the 2026-08-29 rename still say "ToolProof" and reference `toolproof\` paths, and entries before 2026-08-30 give the parent directory as `D:\Projects\Hackathon\` — that is frozen history, superseded by the entries at the bottom, not an error to correct in place. The live tree is `D:\Projects\Hackthon-projects\` containing `WebMCP\` (with `airlock\`, `webmcp-challenge\`, `_spike\`) and `webmcp-gauge\`.
 
 **Verification legend:** ✅ verified · 🟡 in progress / awaiting user action · ⚠️ unverified · ❌ known wrong.
 
@@ -21,7 +21,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Plain-language explainer | ✅ `docs\explainer.md` |
 | Start guide + pipeline flow | ✅ `docs\getting-started.md` |
 | Publishing policy | ✅ **Decided** — private during judging, aggregate after; conflict of interest disclosed |
-| Code | ❌ **No product code.** Three probe expressions exist in `probes\` (ground-check artifacts, not the harness) |
+| Code | 🟡 **Scaffold only** — `package.json`, `bin\webmcp-gauge.mjs` (`--help` / `--version` work, no command implemented), three probe expressions in `probes\`. No harness yet |
 | Node / npm | ✅ `v24.18.0` / `12.0.2` |
 | Local Chrome | ✅ `152.0.7977.65` — **#268 not reproduced here.** With `#enable-webmcp-testing` on, `document.modelContext` is present and returns all 7 Airlock tools |
 | WebMCP CDP domain | ✅ Present on this build: commands `enable`, `disable`, `invokeTool`, `cancelInvocation`; events `toolsAdded`, `toolsRemoved`, `toolInvoked`, `toolResponded` |
@@ -29,12 +29,13 @@ Append-only record of every change, decision, and verification in this project. 
 | Reusable rig | ✅ `_spike\cdp-eval.mjs` (zero-dep, raw WebSocket; ⚠️ exits `-1073740791` on Windows after printing valid JSON) and `_spike\cdp-command.mjs` (needs `chrome-remote-interface`, resolves only from `airlock\`, **port 9222 hardcoded**) |
 | Clean Chrome profile | ✅ `_spike\chrome-baseline\` — WebMCP flag now enabled in it (`enabled_labs_experiments: ["enable-webmcp-testing@1"]`) |
 | Ground check (does Chrome 152 see WebMCP?) | ✅ **Answered 2026-08-30 — yes.** Gate 1 cleared; Chrome 152 is the reference client |
-| Documented paths | ❌ **Stale.** Docs say `D:\Projects\Hackathon\...`; the real tree is `D:\Projects\Hackthon-projects\WebMCP\_spike\` and `D:\Projects\Hackthon-projects\webmcp-gauge\` |
-| Git | ✅ Repo at `webmcp-gauge\` on `main`, pushed to `origin/main` at `9216e31`, upstream tracking set — 🟡 this log entry and `probes\` are uncommitted, awaiting go-ahead |
+| Documented paths | ✅ **Corrected 2026-08-30** in `README.md`-adjacent docs and this log's header: live tree is `D:\Projects\Hackthon-projects\` with `WebMCP\` (`airlock\`, `webmcp-challenge\`, `_spike\`) beside `webmcp-gauge\`. Pre-2026-08-30 log entries keep the old `Hackathon\` paths as frozen history |
+| Dependencies | ✅ `chrome-remote-interface@0.33.3` exact-pinned, lockfile committed-pending; `npm audit` → 0 vulnerabilities, 4 packages |
+| Git | ✅ Repo at `webmcp-gauge\` on `main`, local `9cf9de7` (ground check), `origin/main` still at `9216e31` — **ahead 1, not pushed**; the scaffold is uncommitted |
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** step 1 of §2 in `docs\getting-started.md` — scaffold the package (`package.json`, `bin\webmcp-gauge.mjs --help`, `npm i -E chrome-remote-interface@0.33.3`). Two corrections belong in the same pass: the stale `D:\Projects\Hackathon\...` paths throughout the docs, and the `getTools()`-returns-an-array assumption in the §1.2 probe snippet (it returns a Promise on Chrome 152).
+**Immediate next action:** step 2 of §2 in `docs\getting-started.md` — freeze the utterance set at `fixtures\airlock.utterances.json`: 7 tools × 20 human-written phrasings, written by hand rather than by the model that will be judged on them.
 
 ---
 
@@ -251,3 +252,62 @@ Final settled read, for the record: `count: 7` — `clear_highlights`, `describe
 - ⚠️ Per-page tool budget, per client.
 - ❔ Mode A ↔ Mode B correlation — untouched.
 - 🟡 `probes\` and this entry are uncommitted; nothing pushed.
+
+---
+
+## 2026-08-30 (later) — Step 1: package scaffolded
+
+Committed the ground check first: **`9cf9de7`** — `PROJECT-LOG.md` plus the three `probes\` expressions, 4 files, 207 insertions. Staged by path, not with `-A`. `main` is now **ahead 1** of `origin/main`; nothing pushed, and pushing has not been asked for.
+
+Then step 1 of §2, done-condition met and quoted rather than asserted:
+
+- `package.json` — `"type": "module"`, `bin.webmcp-gauge` → `bin\webmcp-gauge.mjs`, `engines.node >= 24.0.0`, scripts `gauge` and `test` (`node --test`). Conventions copied from `airlock\package.json`: exact-pinned dependencies with no carets, ESM, Node's built-in test runner, no test framework.
+- `"private": true` **on purpose.** The package is meant to be published as `npx webmcp-gauge` eventually, but publishing is public, and the standing policy is private until the report launch (~Sep 23). The flag is the cheap guard against an accidental `npm publish`; flip it deliberately at launch, not now.
+- `engines.node` is `>=24.0.0` because 24.18.0 is what is verified here. Global `WebSocket` and `node --test` exist on earlier majors, but claiming a floor that has not been tested would be an unverified fact in a config file.
+- `npm install --save-exact chrome-remote-interface@0.33.3` → *added 3 packages, audited 4 packages, found 0 vulnerabilities*. `package.json` records `"chrome-remote-interface": "0.33.3"` with no range, `npm ls` resolves `chrome-remote-interface@0.33.3`, and `git check-ignore -v node_modules` → `.gitignore:2` confirms the tree stays out of git while `package-lock.json` goes in.
+- `bin\webmcp-gauge.mjs` — reads its own `name` and `version` from `package.json` rather than duplicating them, prints usage listing `probe`, `lint` and `run` as *not implemented*, and exits with a real status code: `--help` and `--version` → `0`, unknown command → `2`. Verified via `$LASTEXITCODE`, because the naive `cmd` check (`node ... & echo %ERRORLEVEL%`) expands the variable before the command runs and reports a false `0`.
+
+No harness logic, no CDP code, no abstractions: the point of this step is that the layout is provably runnable, not that it does anything.
+
+### Still open
+- 🟡 The scaffold (`package.json`, `package-lock.json`, `bin\`) is uncommitted, awaiting go-ahead.
+- 🟡 Doc corrections outstanding: stale `Hackathon` paths, and the §1.2 snippet's synchronous `getTools()`.
+- Everything from the entry above remains open; nothing there was addressed by scaffolding.
+
+---
+
+## 2026-08-30 (later still) — Documents corrected against measurement
+
+Both outstanding doc defects are fixed, and the ground-check findings are now written into the documents rather than living only in this log.
+
+**Paths.** `docs\getting-started.md` and this log's header now name the real tree: `D:\Projects\Hackthon-projects\` holding `WebMCP\` (with `airlock\`, `webmcp-challenge\`, `_spike\`) beside `webmcp-gauge\`. Every command in §1 was rewritten to a path that exists. Log entries dated before today keep the old `D:\Projects\Hackathon\` strings on purpose — this file is append-only, and rewriting history to look correct is exactly the habit that makes a record untrustworthy; the header now says so explicitly.
+
+**The probe snippet.** §1.2 no longer publishes a synchronous read. It points at the three committed expressions in `probes\` and shows a corrected inline version that awaits `getTools()`. The `navigator.modelContext` fallback is gone, because on 152 the name does not exist.
+
+**Findings folded into the docs, each where it will actually be read:**
+
+- §1 now opens with the result — Chrome 152 sees WebMCP, #268 not reproduced, reference client fixed — and reframes the check as recurring rather than one-off: it must be re-run on every browser update and every new client, because "which client works" is a measured fact with an expiry date.
+- §1.1 documents the port trap (an unrelated Chrome holds 9222 and answers `404` on `/json/version`, so a port check alone lies) and the flag trap (the setting is only written on a clean shutdown, so read `Local State` rather than trusting the click).
+- §1.3 documents the `cmd` quoting trap (`set CDP_PORT=9333` unquoted keeps the trailing space and builds an invalid URL) and the `-1073740791` exit.
+- §1.4 replaces the `cdp-command.mjs`-only instruction with the zero-dependency `/json/protocol` read, and records the confirmed `WebMCP` domain surface plus the `invokeTool` / `executeTool` vocabulary split.
+- §2 marks steps 0 and 1 done with their evidence; §3 step 4 now requires awaiting `getTools()` and waiting for the tool set to *settle*; §3 step 8 records that page-API execution and CDP `invokeTool` are two different measurements, not interchangeable.
+- §6 Gate 1 is marked cleared but not retired.
+- §7 gained six rows keyed to failures actually hit today: `count: null` from an un-awaited Promise, a partial tool set, the invalid-URL quoting bug, a port that 404s, the libuv exit, and `cdp-command.mjs`'s hardcoded port.
+- `docs\concept.md`: open question 3 is resolved by measurement (`'modelContext' in navigator` → `false`), the Mode A mechanics note now carries the Promise return, and Appendix B states where its relative paths are rooted.
+
+Nothing in the metric definition, the taxonomy or the gates changed. The corrections are about the instrument's own accuracy: a start guide whose commands do not run, and a probe snippet that misreports the very thing it exists to read, would have produced wrong numbers before any judge model was involved.
+
+### The probe committed this morning was itself wrong, and running the docs proved it
+
+Re-running the newly documented command verbatim — the point of writing it down — returned `count: null`, because `expr-modelcontext.js` as committed in `9cf9de7` checked `Array.isArray()` on a Promise. Awaiting it then returned **`count: 4`**, and the run before that **`count: 3`**: the probe stopped at the first non-empty read, so it reported a partial registration as the whole set, with no error and a perfectly plausible number. That is the product's own thesis turned on its author.
+
+`probes\expr-modelcontext.js` is now **settle-aware**: it awaits `getTools()`, requires four consecutive identical reads (800 ms of stability) inside an 8 s deadline, and reports `settled` and `settledAtMs` so an unstable read is visibly unstable rather than quietly wrong. Two verification runs:
+
+- `settled: true`, `settledAtMs: 4023`, `count: 7`
+- `settled: true`, `settledAtMs: 2544`, `count: 7`
+
+So registration on Airlock completes roughly **1.7–3.2 s after the probe starts**, and the spread between two consecutive runs on the same page is ~1.5 s. Design consequence: any fixed sleep is either slow or wrong, and the harness needs the event-driven path (`WebMCP.toolsAdded` / `toolsRemoved`) plus a stability requirement — not a timeout. §1.2, §1.3 and §7 now carry the settled expectation and the observed numbers.
+
+### Still open
+- ⚠️ The `--enable-features=` token equivalent to the flag — still unverified, still not guessed.
+- Everything in the two entries above that was not touched here: ChatGPT-browser drivability, Gemini invocation, tool budget, Edge OT renewal, Mode A ↔ Mode B correlation, and the #268 counter-example that has not been filed (public contact, Gate 4).

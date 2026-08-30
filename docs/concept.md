@@ -200,7 +200,7 @@ webmcp-gauge/
 
 1. Launch Chrome with a dedicated profile and `--remote-debugging-port`, WebMCP enabled by flag or OT token. A clean baseline profile already exists at `_spike/chrome-baseline`.
 2. `WebMCP.enable` and the `toolsAdded` event give discovery ground truth straight from the browser, independent of any page instrumentation.
-3. `Runtime.evaluate` drives `document.modelContext.getTools()` and `executeTool()` — **note the live signature divergence**: the draft moved `executeTool` to an object argument (#246, 2026-08-17), while the local type surface verified against Chrome 151 on 2026-08-26 still takes a JSON string. This is compatibility-matrix row one, available on day one.
+3. `Runtime.evaluate` drives `document.modelContext.getTools()` and `executeTool()` — **note the live signature divergence**: `getTools()` resolves a `Promise` on Chrome 152 (measured 2026-08-30, so every read must be awaited), and the draft moved `executeTool` to an object argument (#246, 2026-08-17) while the local type surface verified against Chrome 151 on 2026-08-26 still takes a JSON string. This is compatibility-matrix row one, available on day one.
 4. The judge adapter receives the manifest plus one utterance and returns a tool choice with arguments. Swapping judges must be a flag, never a rewrite — the metric is model-relative, so pinning and reporting the judge is mandatory.
 5. Execute the selection, observe page state, classify into the taxonomy, emit.
 
@@ -325,7 +325,7 @@ Unresolved, and each is answerable with a small spike:
 
 1. **Can the ChatGPT desktop in-app browser be driven programmatically at all?** Determines whether Mode B is automated or sampled. Highest-priority unknown.
 2. **Does Gemini-in-Chrome actually invoke page tools today?** Google-sourced coverage says "will soon"; Chrome docs distinguish the Inspector from the Gemini feature. Not confirmable from a primary source.
-3. **Was `navigator.modelContext` formally deprecated in 150 and removed in 152?** Only secondary sources and issue #266 assert this; the local type surface says both names referenced the same object in Chrome 151.
+3. ~~**Was `navigator.modelContext` formally deprecated in 150 and removed in 152?**~~ **Resolved 2026-08-30 by direct measurement:** on Chrome `152.0.7977.65` with `#enable-webmcp-testing` enabled, `'modelContext' in navigator` → `false`. The name is gone; only `document.modelContext` exists. Two related facts came out of the same probe and are load-bearing for the harness: **`getTools()` returns a `Promise`**, not an array, and the browser exposes a **`WebMCP` CDP domain** (`enable`, `disable`, `invokeTool`, `cancelInvocation`; `toolsAdded`, `toolsRemoved`, `toolInvoked`, `toolResponded`) — note `invokeTool` where the page API says `executeTool`.
 4. **What is the actual per-page tool budget**, per client? The whole point of the `budget` probe.
 5. **Will Edge renew its origin trial after 2026-11-17?**
 6. **Does the Mode A ↔ Mode B correlation hold?** The load-bearing empirical assumption of the entire product.
@@ -389,14 +389,16 @@ All accessed and verified 2026-08-29.
 
 ## Appendix B — Local assets already in hand
 
-Verified on disk 2026-08-29. This is why Milestone 1 is days rather than weeks.
+Verified on disk 2026-08-29, paths re-checked 2026-08-30. This is why Milestone 1 is days rather than weeks.
+
+Paths below are relative to `D:\Projects\Hackthon-projects\WebMCP\`, which holds `_spike\`, `airlock\` and `webmcp-challenge\`; this repo sits beside it at `D:\Projects\Hackthon-projects\webmcp-gauge\`.
 
 | Asset | Path | Reuse |
 |---|---|---|
 | CDP command probe — enumerates tabs, sends arbitrary CDP methods, prints JSON results and errors | `_spike/cdp-command.mjs` | Becomes `browser/session.js`. Already the right shape for `WebMCP.enable` / `toolsAdded`. |
 | CDP evaluate runner — opens a target, navigates, waits for load, evaluates with `awaitPromise`, hard timeout, cleans up | `_spike/cdp-eval.mjs` | Becomes the Mode A trial executor. Raw-WebSocket, zero dependencies. |
 | Clean Chrome profile | `_spike/chrome-baseline` | Reproducible browser state per run — a prerequisite for comparable numbers. |
-| `chrome-remote-interface` 0.33.3 | `airlock` devDependency | Already vendored and working. |
+| `chrome-remote-interface` 0.33.3 | `airlock` devDependency, and pinned in `webmcp-gauge` itself since 2026-08-30 | Already vendored and working. |
 | Verified WebMCP type surface, empirically checked against Chrome 151 on 2026-08-26 | `airlock/src/webmcp.ts` | Ground truth for the compatibility layer, including the `executeTool` string-vs-object divergence against draft #246. |
 | Airlock — 7 registered tools, 27 passing unit tests, live at `https://airlock-app.netlify.app` | `airlock/` | The known-good fixture. A harness with no trusted reference page cannot be calibrated. |
 | Verified WebMCP research notes | `webmcp-challenge/RESEARCH-FINDINGS.md`, `HACKATHON-BRIEF.md` | Prior primary-source verification, already done. |

@@ -1,0 +1,21 @@
+{
+  "name": "webmcp-gauge",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Measures whether an AI agent actually calls the tools a page exposes through WebMCP.",
+  "license": "MIT",
+  "bin": {
+    "webmcp-gauge": "bin/webmcp-gauge.mjs"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "gauge": "node bin/webmcp-gauge.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "chrome-remote-interface": "0.33.3"
+  }
+}

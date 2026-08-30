@@ -2,7 +2,7 @@
 
 Measures whether an AI agent actually calls the tools your web page exposes through WebMCP.
 
-**Status: pre-implementation.** The design is settled and documented; no code has been written yet.
+**Status: pre-implementation.** The design is settled and documented, the package is scaffolded, and the reference browser is confirmed — Chrome `152.0.7977.65` exposes `document.modelContext` and returns all seven tools of the reference page. No measurement code is written yet: `webmcp-gauge --help` lists `probe`, `lint` and `run` as not implemented.
 
 ## The problem
 

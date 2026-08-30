@@ -144,15 +144,17 @@ Run-to-run variance is the first thing a sceptic will attack, and rightly. Publi
 ### 5.3 Secondary metrics
 
 - **Control false-positive rate** — of *M* control utterances that **no** registered tool can serve (off-topic, out-of-scope writes and exports, injection-style instructions), the fraction that still caused a tool call. Without it invocation rate is unfalsifiable: an agent that fires something at every input scores 1.0 on a set where every utterance has a right answer. Reported with its own Wilson interval and never pooled with invocation rate, and broken out by control class, because an `injection` false positive is a safety finding while an `out_of_scope` one is an over-eager description. Airlock's set carries M=20 (5 off-topic, 13 out-of-scope, 2 injection).
-- **Reachability** — `1 − (not_registered + not_discovered)/K`. Separates page-side registration failures from model-side selection failures. The single most useful diagnostic split.
+- **Reachability** — `1 − (not_registered + not_discovered)/K`. Separates page-side registration failures from model-side selection failures. The single most useful diagnostic split, and computable since 2026-08-31: `not_discovered` needs the browser's own tool list, which every trial now records.
 - **Argument fidelity** — exact and semantic match of extracted arguments against expectations.
-- **Budget headroom** — register *N* synthetic tools alongside the real ones and binary-search the *N* at which discovery breaks. Reports `headroom = N_break − N_current`. This turns the 296-tool silent-disable anecdote into a number, per client. Nobody has this.
+- **Budget headroom** — register *N* synthetic tools alongside the real ones and search for the *N* at which discovery breaks. First measurement 2026-08-31 (`probes\webmcp-domain.mjs`, `?flood=N` on the fixture twin): **no break on Chrome 152 up to 507 tools** — all registered, all listed by `getTools()`, all surfaced by the browser, settle time 1.04 s → 1.30 s. So the 296-tool silent-disable anecdote is not this build, and `headroom` is still unknown rather than large: the number that matters is per client, and Edge and the ChatGPT in-app browser are unmeasured.
 - **Cross-client divergence** — pairwise disagreement on the `ok` set between clients. Directly feeds spec issue #268.
 - **Annotation efficacy** — does setting `readOnlyHint` or `untrustedContentHint` change observable agent behaviour *at all*? An experiment, not an opinion, on whether the spec's safety hints do anything.
 
 ### 5.4 Methodological rule that must not be broken
 
-**The model that authors the utterance set must not be the model that is judged on it.** Otherwise the metric measures self-consistency, not usability. Utterances are human-reviewed, committed to the developer's repo as a frozen versioned file, and changed deliberately — never regenerated per run, or the numbers stop being comparable across commits. The authoring model is recorded inside the fixture so the constraint is checkable rather than remembered: Airlock's set (`fixtures/airlock.utterances.json`, frozen at `1.2.0` on 2026-08-30) was authored by `deepseek v4 by agentrouter`, which is therefore disqualified as a judge for those numbers.
+**The model that authors the utterance set must not be the model that is judged on it.** Otherwise the metric measures self-consistency, not usability. Utterances are human-reviewed, committed to the developer's repo as a frozen versioned file, and changed deliberately — never regenerated per run, or the numbers stop being comparable across commits. The authoring model is recorded inside the fixture so the constraint is checkable rather than remembered: Airlock's set (`fixtures/airlock.utterances.json`, frozen at `1.3.0` on 2026-08-30) was authored by `deepseek v4 by agentrouter`, which is therefore disqualified as a judge for those numbers, and the CLI refuses to run when the two match.
+
+Measured consequence of the same rule, 2026-08-31: some part of every rate is the *set's* opinion about which tool should have been chosen. `sum_by_category-12` fails 12 of 12 trials across four different manifests — including two carrying the reference description — because its expected tool is contestable, not because any page is wrong. That is a property of the fixture, and it stays frozen until a revision decides otherwise.
 
 ---
 
@@ -179,7 +181,9 @@ webmcp-gauge lint --serve fixtures/broken --url twin.html       # a local fixtur
 
 Two design decisions carry the weight:
 
-**Thresholds are calibrated, not invented.** The reference page has a measured invocation rate — 100% [96.9%, 100.0%] on five tools over 960 trials, 99.2% on the sixth — so the defaults are set where that page lints clean: descriptions ≥ 60 characters (its thinnest is 76), ≤ 6 schema properties (its largest tool has exactly 6), near-duplicate at 70% token overlap, budget warning at 64 tools against the 296 that has been reported to disable the feature silently. A default that flags a manifest known to work is a broken default, and every threshold is a flag.
+**Thresholds are calibrated, not invented.** The reference page has a measured invocation rate — 100% [96.9%, 100.0%] on five tools over 960 trials, 99.2% on the sixth — so the defaults are set where that page lints clean: descriptions ≥ 60 characters (its thinnest is 76), ≤ 6 schema properties (its largest tool has exactly 6), near-duplicate at 70% token overlap, budget warning at 64 tools. A default that flags a manifest known to work is a broken default, and every threshold is a flag. The budget rule is the one that had to be corrected by measurement: it fired as an *error* at the reported 296 tools until 2026-08-31, when 507 tools on Chrome 152 were all accepted and surfaced. It is a warning at both levels now, and says which build was measured.
+
+**What the linter cannot tell you, and the ablations proved it.** A rule that costs 5 points alone can cost 35 in company: a near-duplicate description and a duplicate competitor tool are each nearly free on their own and together take `sum_by_category` from 95.0% to 60.0%. So severity is a property of the rule, not a prediction of the cost, and the linter says so rather than ranking findings by an impact it cannot know.
 
 **A live manifest is not what the page declared.** Measured on Chrome `152.0.7977.65` (2026-08-30): `registerTool` **throws `"Invalid tool name"`** for a name containing a space, so #145's "silently does nothing" is not this build's behaviour — and the worst names can never appear in `getTools()`. They show up instead as a tool that is missing, which the harness scores `not_registered`. `--manifest` therefore lints what the source declares, and the live mode lints what the browser returns; both are needed and they answer different questions.
 
@@ -192,21 +196,27 @@ Still not covered: `execute` handlers that close over stale snapshots, and missi
 ```
 npx webmcp-gauge run https://example.com --utterances ./webmcp-gauge.utterances.json \
     --clients chrome-ot,chatgpt,edge,brave --k 20 --repeat 3
-npx webmcp-gauge budget https://example.com          # headroom probe
-npx webmcp-gauge compare base.json head.json         # regression diff
+npx webmcp-gauge budget https://example.com          # headroom probe — not built; today it is probes\webmcp-domain.mjs against ?flood=N on an own fixture
+npx webmcp-gauge compare base.json head.json         # regression diff — not built; today it is probes\compare-arms.mjs over report.json files
 ```
 
-**Architecture** — Node ESM, no framework, provider-agnostic by design:
+**Architecture** — Node ESM, no framework, provider-agnostic by design. What exists today is marked; the rest is the sketch:
 
 ```
 webmcp-gauge/
-  bin/            CLI entry
-  core/           outcome taxonomy, Wilson intervals, report schema
-  browser/        Chrome launch + CDP session management
-  clients/        chrome-ot | chatgpt | edge | brave adapters
-  judges/         model adapters (OpenAI | Gemini | local) behind one interface
-  report/         JSON + Markdown + badge SVG emitters
-  action/         GitHub Action wrapper
+  bin/            CLI entry — trial | run | session | lint          [built]
+  core/           taxonomy, Wilson intervals, sweep, orchestrator,
+                  CI gate, L0 linter                                [built]
+  browser/        Chrome launch, CDP session, WebMCP page + browser
+                  views, fixture file server                        [built]
+  fixtures/       frozen utterance sets + the degraded twin page    [built]
+  probes/         one-off measurements: launch, manifest, WebMCP
+                  domain, arm comparison                            [built]
+  scripts/        scheduled-run glue for time-spaced sessions       [built]
+  report/         JSON + Markdown emitters                          [built]
+  clients/        chrome-ot | chatgpt | edge | brave adapters       [not built]
+  judges/         model adapters behind one interface               [one: OpenAI-compatible]
+  action/         GitHub Action wrapper + badge SVG                 [not built]
 ```
 
 **Mechanics, grounded in what already works locally** (see [Appendix B](#appendix-b-local-assets-already-in-hand)):

@@ -1,7 +1,7 @@
 # webmcp-gauge — The Idea in Plain Language
 
 **For:** a reader with no technical background
-**Written:** 2026-08-29
+**Written:** 2026-08-29 · **Updated:** 2026-08-31 (the "Where things stand" section, and three pieces of folklore that turned out to be untrue)
 **Companion document:** `concept.md` (the technical version)
 
 ---
@@ -36,6 +36,8 @@ They build it. They write the menu. They publish it. And then… nothing. No con
 
 This is not a hypothetical. One developer reported getting an assistant to use their counter **once in twenty attempts** — and got the same result with the official demonstration examples. Another spent days debugging by taking screenshots inside the assistant's browser, because screenshots were the only evidence available to them. A third put 296 items on their menu, and the entire feature silently switched itself off — no warning, no error message, nothing.
 
+That third story is worth pausing on, because we have since tested it. We put **507** items on a menu in the current version of Chrome and every one of them worked. So either that developer's browser was different from ours, or something else was going on — and *nobody could have told you that before somebody measured it.* Which is the point of the whole exercise: the folklore in this field is untested, and some of it is wrong.
+
 The reason this matters more than it sounds: **the menu wording is the product.** The assistant decides what to do by reading the labels. So a shop can have a perfect counter, perfect staff and perfect stock, and still fail entirely because the sign above the counter is ambiguous. It is an airport-signage problem, not a plumbing problem. And nobody can currently measure their own signage.
 
 ---
@@ -56,9 +58,9 @@ The rest of the scorecard matters just as much, because it tells you *which* thi
 
 Three practical pieces, built in this order:
 
-1. **A free checker** that reads your menu and flags obvious mistakes — labels that break the rules, two labels that mean the same thing, forms that ask for too much, a menu that has grown long enough to switch the whole feature off. No AI needed, runs in seconds.
-2. **The rehearsal itself** — the mystery shoppers, across several different assistants and browsers, producing the scorecard.
-3. **A public record** of which assistants and browsers actually behave which way, kept up to date as they change. This is the part that outlives everything else.
+1. **A free checker** that reads your menu and flags obvious mistakes — labels that break the rules, two labels that mean the same thing, forms that ask for too much. No AI needed, runs in seconds. *Built.*
+2. **The rehearsal itself** — the mystery shoppers, producing the scorecard. *Built. It has now been run 3,560 times against real pages in a real browser.*
+3. **A public record** of which assistants and browsers actually behave which way, kept up to date as they change. This is the part that outlives everything else. *Eleven runs published so far, each with the code that produced it.*
 
 ---
 
@@ -125,8 +127,22 @@ That is a 2027 conversation at the earliest. Building a checkout page in 2026 fo
 
 ## Where things stand
 
-The groundwork is already in place rather than hypothetical. There is a finished, working website of our own that uses this technology, with seven working counters and a passing test suite — which gives us a known-good subject to rehearse against, the equivalent of a calibration weight for a set of scales. The browser-control scripts needed to run the rehearsals already exist and work.
+**The instrument works, and the first hard question has been answered.**
 
-The first milestone is deliberately small and deliberately falsifiable: run the rehearsal against our own site, and find out whether the resulting number holds still enough to be worth anything. If it does, everything else follows. If it doesn't, we learned something cheaply and we say so.
+There is a finished website of our own using this technology, with seven working counters — the equivalent of a calibration weight for a set of scales. The rehearsal runs against it end to end: it opens its own browser, reads the menu, asks an AI which counter it would use, checks the answer, presses the button and checks that something actually happened.
+
+The first milestone was deliberately falsifiable: does the number hold still enough to be worth anything? **It does.** Run the same rehearsal three times in three separate browsers and the results move by around one to nine parts in a hundred — while the differences we are trying to detect are thirty-five to seventy-five parts in a hundred. The signal is far larger than the wobble, which is the only reason any of the rest is worth saying.
+
+The second question was harder and more important: *does a good score actually mean good signage, or does it just mean the machinery ran?* To find out, we built a deliberately badly-signed copy of our own shop — same stock, same staff, same counters, only the signs rewritten badly — and sent the same twenty shoppers per counter into both. The good copy served 99.3% of them. The bad copy served 83.1%, and its two worst counters dropped to 60% and 27%. So the instrument measures the signs, not itself.
+
+Then the genuinely surprising part. We took the bad signs apart to find out which specific mistake did the damage, and **no single mistake did it.** A vague sign on its own cost 5 points. A second counter with an identical sign, on its own, cost 3. Both together cost **35** — far more than the sum. Bad signage compounds: two individually harmless problems become one serious one. That is not what we predicted, we wrote our predictions down before running the test, and two of them were wrong. Those wrong predictions are published alongside the right ones, because a measuring project that only reports its hits is not measuring.
+
+Three smaller findings, all of the same shape — folklore that turned out to be untrue when tested:
+
+- A counter whose name contains a space was said to fail silently. In the current Chrome it does not fail silently; it is rejected outright, with an error.
+- 296 menu items was said to switch the feature off. 507 items did not.
+- A menu item added by an embedded widget — an advert, a chat box, anything in a frame — turns out to appear on *the host shop's* menu. Worth knowing if you embed other people's widgets.
+
+**What is still missing** is the part that matters most commercially and is hardest to get: none of this has been measured inside a real AI assistant yet. Everything so far uses a stand-in — a language model asked the same question a real assistant would be asked. Whether the stand-in predicts the real thing is the one assumption the whole product rests on, and it is next.
 
 **What success looks like, in one sentence:** when a developer somewhere hits this problem and searches for whether these things actually get used, the number they find and quote is ours.

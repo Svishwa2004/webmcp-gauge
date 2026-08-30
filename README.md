@@ -8,7 +8,7 @@ The question that mattered most has an answer. Every early number came from a pa
 
 Four ablations, each the clean manifest plus exactly one defect, then answered *which* defect — and the answer was **none of them alone**. A near-duplicate description costs 5 points; a byte-identical competitor tool costs 3; the two together cost **35**. Manifest defects compound, so a page cannot be triaged one finding at a time. Write-ups: [`ablation-2026-08-31.md`](reports/ablation-2026-08-31.md) and [`discrimination-2026-08-30.md`](reports/discrimination-2026-08-30.md), each scoring the predictions registered before its run, including the ones that were wrong.
 
-What exists: `lint` (static manifest rules, no judge or key), `trial` (one utterance, one outcome), `run` (S isolated sessions × R repeats, Wilson intervals, control false-positive rate, stamped JSON and Markdown reports), JSONL checkpointing with `--resume`, a CI gate with split exit codes, and a served fixture page for measuring pages this repo controls. What does not: the Mode B adapters for real shipping clients, and the badge emitter.
+What exists: `lint` (static manifest rules, no judge or key), `trial` (one utterance, one outcome), `run` (S isolated sessions × R repeats, Wilson intervals, control false-positive rate, stamped JSON and Markdown reports), JSONL checkpointing with `--resume`, a CI gate with split exit codes, a served fixture page for measuring pages this repo controls, and a browser-side tool view so a client that drops a tool can be told from a page that never registered one. What does not: the Mode B adapters for real shipping clients, and the badge emitter.
 
 ## The problem
 
@@ -24,9 +24,9 @@ Every trial lands in exactly one bucket — `not_supported`, `not_registered`, `
 
 ## What gets built
 
-- **A static linter** — no browser needed to reason, no model, no API key. Thirteen rules across four families: invalid or colliding tool names, missing, thin, duplicate or near-duplicate descriptions, over-parameterised and under-documented schemas, and tool counts approaching the undocumented per-page budget. Thresholds are calibrated so the reference page — the one measured at 100% over 960 trials — lints clean, because a default that flags a manifest known to work is a broken default. *Built.*
-- **The harness** — drives real browsers over the Chrome DevTools Protocol, fires the utterance set at the page's registered tools, classifies every outcome, and emits a JSON report plus a CI gate. *Built.*
-- **A public dataset** — the cross-client compatibility record and invocation-rate corpus, regenerated as browsers change, published with the code that produced every number. *Three runs so far, in `reports/`.*
+- **A static linter** — no browser needed to reason, no model, no API key. Thirteen rules across four families: invalid or colliding tool names, missing, thin, duplicate or near-duplicate descriptions, over-parameterised and under-documented schemas, and tool counts approaching a per-page budget that is still unmeasured (the reported 296-tool figure does **not** reproduce on Chrome 152, where 507 registered tools were all accepted and surfaced). Thresholds are calibrated so the reference page — the one measured at 100% over 960 trials — lints clean, because a default that flags a manifest known to work is a broken default. *Built.*
+- **The harness** — drives real browsers over the Chrome DevTools Protocol, fires the utterance set at the page's registered tools, classifies every outcome, and emits a JSON report plus a CI gate. Every trial reads the tool set **twice** — the page's own `getTools()` and the browser's `WebMCP.toolsAdded` stream — because "the page never registered it" and "the client dropped it" are indistinguishable from inside the page. *Built.*
+- **A public dataset** — the cross-client compatibility record and invocation-rate corpus, regenerated as browsers change, published with the code that produced every number. *Eleven runs so far, in `reports/`.*
 
 ## How a number is reported
 

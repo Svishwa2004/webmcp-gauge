@@ -185,19 +185,23 @@ webmcp-gauge/
   README.md               entry point — what it is, status, links
   LICENSE                 MIT
   PROJECT-LOG.md          append-only record, newest at bottom
+  .env.example            judge credentials; copy to .env for scheduled runs
   docs/
     concept.md            what and why (technical)
     explainer.md          plain language, non-technical
     getting-started.md    this file
-  bin/webmcp-gauge.mjs    CLI entry
-  core/                   outcome taxonomy, Wilson intervals, aggregation, report schema
-  browser/                Chrome launch + CDP session (grown from _spike/cdp-eval.mjs)
-  clients/                chrome-ot | chatgpt | edge | brave adapters
-  judges/                 model adapters behind one interface
-  report/                 JSON + Markdown + badge emitters
-  probes/                 one-off evaluation expressions
-  fixtures/               frozen utterance sets + a deliberately broken page for linter tests
-  action/                 GitHub Action wrapper
+  bin/webmcp-gauge.mjs    CLI entry — trial | run | session | lint
+  core/                   taxonomy, Wilson intervals, sweep, orchestrator, CI gate, L0 linter
+  browser/                Chrome launch, CDP session, WebMCP page + browser views, fixture server
+  judges/                 model adapters behind one interface (one so far: OpenAI-compatible)
+  report/                 JSON + Markdown emitters
+  probes/                 one-off measurements: launch, fixture manifest, WebMCP domain, arm comparison
+  fixtures/               frozen utterance sets, and broken/ — the degraded twin page and its widget
+  scripts/                scheduled-run glue (spaced-session.cmd)
+  reports/                published runs: report.md + report.json per run, plus the write-ups
+  artifacts/              git-ignored working output: checkpoints, logs, session profiles
+  clients/                chrome-ot | chatgpt | edge | brave adapters        (not built)
+  action/                 GitHub Action wrapper + badge                     (not built)
 ```
 
 Three constraints on this layout:
@@ -267,7 +271,9 @@ Explicit stop-and-think points, so momentum doesn't carry a broken premise forwa
 
 Three caveats stay on the record. Where σ reads 0.000 the tool never failed in 120 trials, so that is a ceiling effect and the interval `[96.9%, 100.0%]` carries the real uncertainty. Sessions ran back to back on one machine, so drift across hours or days is unmeasured — and `sum_by_category-12`'s wrong answer moved from `describe_dataset` in two earlier sweeps to `find_anomalies` in all six trials of this one. The third caveat — that discrimination was unproven because the numbers came from a page chosen for being well described — was **closed on 2026-08-30 and explained on 2026-08-31**: 1,320 trials over a clean and a degraded twin of the same page, plus four single-defect ablations, read **99.3% against 83.1%** overall, with `sum_by_category` 95.0% → **60.0%** and `top_expenses` 100% → **26.7%**, against a between-session σ of at most **0.094**. See `reports\ablation-2026-08-31.md`, which adds two things this gate should carry: defects **compound** rather than add (−5.0 and −3.3 alone, **−35.0** together), and `sum_by_category-12` fails 12 of 12 even with the reference description — so that one is a question about the utterance set, not about the page.
 
-Between-session σ was also confirmed **larger than within-session σ** (0.012 against 0.008), which is why the earlier gate marking was optimistic rather than wrong. If a later run shows σ swamping the difference between a good and a bad description, the options are unchanged: raise K, pin the judge harder, redesign the trial, or publish the negative result. What is not an option is shipping a number you do not believe.
+Between-session σ was also confirmed **larger than within-session σ** (0.012 against 0.008), which is why the earlier gate marking was optimistic rather than wrong. One axis is still open and is being measured now: every published run has sessions **minutes** apart, so drift across hours or days is untested. Four scheduled tasks are firing the degraded twin at 04:15, 10:15 and 16:15 on 2026-08-31 with a reconcile at 17:15 (`scripts\spaced-session.cmd`), in the same shape as the back-to-back arm whose σ was 0.041 and 0.062 — so the two are directly comparable when it lands.
+
+If a later run shows σ swamping the difference between a good and a bad description, the options are unchanged: raise K, pin the judge harder, redesign the trial, or publish the negative result. What is not an option is shipping a number you do not believe.
 
 **Gate 3 — Mode A ↔ Mode B correlation.** If the cheap loop does not predict the real clients, the CI product is dead and the finding becomes the deliverable. Both branches are publishable; only pretending is not.
 

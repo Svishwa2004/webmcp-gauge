@@ -39,6 +39,14 @@ export const openSession = async ({
   const socket = new WebSocket(target.webSocketDebuggerUrl);
   const pending = new Map();
   const eventWaiters = [];
+  /**
+   * Persistent event subscribers, as distinct from the one-shot waiters above.
+   * The browser's WebMCP domain has no "list the tools" command in Chrome 152 - it
+   * announces them through `toolsAdded`, one event per registration - so a browser-
+   * side view of a page's tools can only be *accumulated*, and something has to stay
+   * subscribed for the whole trial to do it.
+   */
+  const subscribers = new Map();
   let nextId = 1;
   let closed = false;
 
@@ -46,6 +54,13 @@ export const openSession = async ({
     const message = JSON.parse(event.data);
 
     if (message.method) {
+      for (const handler of subscribers.get(message.method) ?? []) {
+        try {
+          handler(message.params ?? {});
+        } catch {
+          // A subscriber that throws must not take the socket's reader with it.
+        }
+      }
       for (const waiter of eventWaiters.splice(0)) {
         if (waiter.method === message.method) waiter.resolve(message.params ?? {});
         else eventWaiters.push(waiter);
@@ -158,6 +173,14 @@ export const openSession = async ({
     evaluate,
     waitForEvent,
     close,
+
+    /** Stays subscribed until the returned function is called. Returns an unsubscribe. */
+    subscribe(method, handler) {
+      const handlers = subscribers.get(method) ?? new Set();
+      handlers.add(handler);
+      subscribers.set(method, handlers);
+      return () => handlers.delete(handler);
+    },
 
     /** Navigates and waits for the load event. Registration lands later; see captureManifest. */
     async navigate(url) {

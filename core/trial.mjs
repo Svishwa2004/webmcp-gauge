@@ -5,7 +5,7 @@
  * trial N contaminates trial N+1 - so the judge is called with a single message
  * pair and nothing else, and the tab is the caller's to discard afterwards.
  */
-import { captureManifest, executeTool, observe } from '../browser/webmcp.mjs';
+import { captureManifest, executeTool, observe, watchBrowserTools } from '../browser/webmcp.mjs';
 import { classifyAfterExecution, classifyBeforeExecution } from './taxonomy.mjs';
 
 const SYSTEM_PROMPT = `You are the tool-using layer of a web browser. The page below exposes tools you may call.
@@ -78,8 +78,37 @@ export const runTrial = async ({
 }) => {
   const startedAt = new Date().toISOString();
 
+  // Started before navigation, because the browser announces tools through
+  // `WebMCP.toolsAdded` events rather than through any command: a watch attached
+  // afterwards sees nothing and would read as "the browser surfaced none of them".
+  const browserWatch = await watchBrowserTools(session);
+
   await session.navigate(url);
   const manifest = await captureManifest(session);
+
+  // Two independent views of the same page. The page's own getTools() says what it
+  // believes it registered; the browser's says what an agent would be offered. A
+  // disagreement is the whole point of the not_discovered outcome, and is invisible
+  // from inside the page.
+  const browserNames = browserToolNames ?? browserWatch.names();
+  const browserTools = browserWatch.tools();
+  browserWatch.stop();
+  const pageNames = (manifest.tools ?? []).map((tool) => tool.name);
+  const browserView = {
+    available: browserWatch.available,
+    reason: browserWatch.reason,
+    toolCount: browserNames?.length ?? null,
+    // More than one frame means tools arrived from an embed. Chrome 152 folds those
+    // into the top frame's getTools(), so a host page's agent surface can include a
+    // widget's tools - worth recording per trial rather than discovering later.
+    frames: browserTools ? new Set(browserTools.map((tool) => tool.frameId)).size : null,
+    registeredButNotSurfaced: browserNames
+      ? pageNames.filter((name) => !browserNames.includes(name))
+      : null,
+    surfacedButNotInPage: browserNames
+      ? browserNames.filter((name) => !pageNames.includes(name))
+      : null,
+  };
 
   // Utterances like "clear that" have no referent on a clean page, so the fixture
   // declares the state they presuppose. The seed call is setup, never scored.
@@ -114,7 +143,7 @@ export const runTrial = async ({
         expectedTool: toolName,
         selection,
         expectation,
-        browserToolNames,
+        browserToolNames: browserNames,
       });
 
   const record = {
@@ -134,6 +163,7 @@ export const runTrial = async ({
       settled: manifest.settled ?? null,
       settledAtMs: manifest.settledAtMs ?? null,
       toolCount: manifest.tools?.length ?? 0,
+      browserView,
     },
     judge: {
       model: judgeAnswer?.model ?? judge.id,

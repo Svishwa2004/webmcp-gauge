@@ -28,9 +28,13 @@ export const DEFAULT_OPTIONS = Object.freeze({
   /** The reference page's largest schema has six properties and invokes at 99.2%. */
   maxProperties: 6,
   /**
-   * There is no published per-page tool budget. The only field figure is 296
-   * registered tools silently disabling WebMCP for an entire page, so that is
-   * treated as evidence of breakage and the warning fires well below it.
+   * There is no published per-page tool budget. The only field figure is a report of
+   * 296 registered tools silently disabling WebMCP for an entire page — and that
+   * figure **does not reproduce on Chrome 152.0.7977.65**: measured 2026-08-31, a
+   * page registering 507 tools had all 507 accepted, listed by `getTools()` and
+   * surfaced by the browser's own WebMCP domain. So this rule warns rather than
+   * asserts, and both levels are warnings: an error on something measured to work
+   * would be the false positive the calibration principle above exists to prevent.
    */
   budgetWarnAt: 64,
   budgetBreakAt: 296,
@@ -226,13 +230,12 @@ export const lintManifest = ({ manifest, options = {} }) => {
   }
 
   if (tools.length >= settings.budgetBreakAt) {
-    findings.push({
-      rule: 'budget/headroom',
-      severity: 'error',
-      tool: null,
-      detail: `${tools.length} tools, at or past the ${settings.budgetBreakAt} that has been reported to disable WebMCP for a whole page with no error`,
-      evidence: { toolCount: tools.length },
-    });
+    add(
+      'budget/headroom',
+      null,
+      `${tools.length} tools, at or past the ${settings.budgetBreakAt} reported to disable WebMCP for a whole page with no error. That report does not reproduce on Chrome 152.0.7977.65, where 507 tools were all registered and surfaced — so this is a warning about an unknown, not a verified ceiling`,
+      { toolCount: tools.length }
+    );
   } else if (tools.length >= settings.budgetWarnAt) {
     add(
       'budget/headroom',

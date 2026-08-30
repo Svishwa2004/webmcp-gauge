@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>webmcp-gauge fixture — embedded widget</title>
+    <!--
+      A one-tool page meant to be loaded inside an iframe of twin.html?iframe=1.
+
+      It exists to ask one compatibility question: when a subframe registers a WebMCP
+      tool, who can see it? The top frame's own document.modelContext.getTools() is
+      what this harness has always read, and the browser's CDP WebMCP domain reports
+      a frameId per tool - so if the two disagree, a page whose tools live in an
+      embed is measurable only from the browser side, and the harness would otherwise
+      report a tool that exists as not_registered.
+    -->
+    <style>
+      body {
+        margin: 0;
+        padding: 0.6rem 0.8rem;
+        font: 13px/1.4 system-ui, sans-serif;
+        color: #16181d;
+        background: #f6f7f9;
+      }
+      p {
+        margin: 0.2rem 0;
+      }
+      .state {
+        color: #6b7280;
+      }
+    </style>
+  </head>
+  <body>
+    <p><strong>Embedded widget</strong> — registers one tool from inside an iframe.</p>
+    <p class="state" id="widget-state">registering…</p>
+
+    <script type="module">
+      const state = document.getElementById('widget-state');
+
+      if (!('modelContext' in document) || !document.modelContext) {
+        state.textContent = 'no modelContext in this frame';
+      } else {
+        try {
+          await document.modelContext.registerTool({
+            name: 'widget_ping',
+            description:
+              'Report the embedded widget status line back to the caller, so a tool registered inside an iframe can be told apart from one registered by the top frame.',
+            inputSchema: { type: 'object', properties: {} },
+            annotations: { readOnlyHint: true },
+            async execute() {
+              return { widget: 'ok', registeredIn: 'iframe', href: location.href };
+            },
+          });
+          state.textContent = 'widget_ping registered from the iframe';
+          window.__widgetRegistration = { registered: ['widget_ping'] };
+        } catch (error) {
+          state.textContent = `registration failed: ${error?.message ?? error}`;
+          window.__widgetRegistration = { registered: [], error: String(error?.message ?? error) };
+        }
+      }
+    </script>
+  </body>
+</html>

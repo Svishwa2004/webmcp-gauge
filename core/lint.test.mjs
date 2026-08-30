@@ -199,7 +199,7 @@ test('the property-count threshold sits exactly where the reference page does', 
   assert.equal(over.findings.filter((entry) => entry.rule === 'schema/over-parameterised').length, 1);
 });
 
-test('budget headroom warns well below the count that has been reported to break a page, and errors at it', () => {
+test('budget headroom warns well below the count that has been reported to break a page, and stays a warning at it', () => {
   const manifestWith = (count) => ({
     present: true,
     settled: true,
@@ -218,8 +218,12 @@ test('budget headroom warns well below the count that has been reported to break
   assert.equal(warned.severity, 'warning');
   assert.match(warned.detail, /headroom here is unknown rather than fine/);
 
-  const broke = lintManifest({ manifest: manifestWith(DEFAULT_OPTIONS.budgetBreakAt) }).findings.find((entry) => entry.rule === 'budget/headroom');
-  assert.equal(broke.severity, 'error');
+  // Chrome 152 registered and surfaced all 507 tools of a flooded fixture (measured
+  // 2026-08-31), so the 296 field report is an unknown rather than a ceiling. An
+  // error here would be the false positive the calibrated defaults exist to prevent.
+  const atReported = lintManifest({ manifest: manifestWith(DEFAULT_OPTIONS.budgetBreakAt) }).findings.find((entry) => entry.rule === 'budget/headroom');
+  assert.equal(atReported.severity, 'warning');
+  assert.match(atReported.detail, /does not reproduce on Chrome 152/);
 });
 
 test('thresholds are options, so a project can set its own and still be reported', () => {

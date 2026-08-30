@@ -109,7 +109,7 @@ Every trial runs in a fresh page context and lands in exactly one bucket:
 |---|---|---|
 | `not_supported` | No `document.modelContext` in this client | Nobody — record and move on |
 | `not_registered` | The page never registered the tool (bug, or budget exceeded) | Page author |
-| `not_discovered` | Registered, but absent from the agent's tool list | Client or page — the interesting case |
+| `not_discovered` | Registered, but absent from the agent's tool list | Client or page — the interesting case. **Reachable since 2026-08-31** and **never observed on Chrome 152**: see the note under the taxonomy |
 | `not_selected` | Discovered; the agent answered without calling any tool | **Description quality** |
 | `wrong_tool` | Called a different tool | **Naming / description collision** |
 | `bad_args` | Right tool, arguments fail schema or expectation | **Schema design** |
@@ -118,6 +118,8 @@ Every trial runs in a fresh page context and lands in exactly one bucket:
 | `ok` | Right tool, valid arguments, observable effect | — |
 
 The taxonomy is the product. A single pass/fail tells a developer nothing; `not_selected` vs `bad_args` vs `not_discovered` tells them exactly which line to edit.
+
+**`not_discovered` needs two views, and now has them.** Built 2026-08-31: the page's own `getTools()` says what the page believes it registered, and the CDP `WebMCP` domain's `toolsAdded` / `toolsRemoved` events say what the browser is prepared to offer an agent. Every trial records both and their difference in either direction. On Chrome `152.0.7977.65` the two **never disagreed** — 7, 71, 187, 307 and 507 registered tools all matched exactly, and a tool registered inside an iframe appeared in both (the top frame's `getTools()` folds subframe tools in, which also means an embed can add tools to its host's agent surface). So the outcome is reachable, the classifier fires it the moment a client drops a tool, and on this build it never has. A view the harness does not have is recorded as `null` rather than as an empty list: absent evidence must never read as `not_discovered`.
 
 ### 5.2 Reporting the number honestly
 
@@ -338,7 +340,7 @@ Unresolved, and each is answerable with a small spike:
 1. **Can the ChatGPT desktop in-app browser be driven programmatically at all?** Determines whether Mode B is automated or sampled. Highest-priority unknown.
 2. **Does Gemini-in-Chrome actually invoke page tools today?** Google-sourced coverage says "will soon"; Chrome docs distinguish the Inspector from the Gemini feature. Not confirmable from a primary source.
 3. ~~**Was `navigator.modelContext` formally deprecated in 150 and removed in 152?**~~ **Resolved 2026-08-30 by direct measurement:** on Chrome `152.0.7977.65` with `#enable-webmcp-testing` enabled, `'modelContext' in navigator` → `false`. The name is gone; only `document.modelContext` exists. Two related facts came out of the same probe and are load-bearing for the harness: **`getTools()` returns a `Promise`**, not an array, and the browser exposes a **`WebMCP` CDP domain** (`enable`, `disable`, `invokeTool`, `cancelInvocation`; `toolsAdded`, `toolsRemoved`, `toolInvoked`, `toolResponded`) — note `invokeTool` where the page API says `executeTool`.
-4. **What is the actual per-page tool budget**, per client? The whole point of the `budget` probe.
+4. **What is the actual per-page tool budget**, per client? ⚠️ **Partly answered for Chrome 152, and the anecdote does not reproduce.** Measured 2026-08-31 against a fixture registering synthetic tools: at 71, 187, 307 and **507** tools, every one was accepted, listed by `getTools()` and surfaced by the browser's own `WebMCP` domain — no silent disable, no truncation, and settle time rose only from 1.04 s to 1.30 s. The 296-tool report therefore describes another client or an older build, not this one. Still open for Edge and for the ChatGPT in-app browser, which is where a budget would actually bite.
 5. **Will Edge renew its origin trial after 2026-11-17?**
 6. **Does the Mode A ↔ Mode B correlation hold?** The load-bearing empirical assumption of the entire product.
 7. ~~**Is the name available?**~~ **Resolved 2026-08-29**, verified rather than assumed: `webmcp-gauge` returns 404 on the npm registry, GitHub search finds no repo of that name, and both `webmcp-gauge.dev` and `webmcp-gauge.com` are unregistered per RDAP. Repo created at `https://github.com/Svishwa2004/webmcp-gauge`. Bare `webmcp` and `webmcp-evals` are both taken on npm — do not use either.

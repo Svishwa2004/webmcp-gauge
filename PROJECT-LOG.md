@@ -36,7 +36,8 @@ Append-only record of every change, decision, and verification in this project. 
 | WebMCP CDP domain | ✅ Present on this build: commands `enable`, `disable`, `invokeTool`, `cancelInvocation`; events `toolsAdded`, `toolsRemoved`, `toolInvoked`, `toolResponded` |
 | Reference subject | ✅ Airlock — 7 tools, 27 passing tests, live at `https://airlock-app.netlify.app` |
 | Broken fixture | ✅ **Built 2026-08-30** — `fixtures\broken\twin.html`, one implementation and one dataset behind two manifests (`?variant=clean` / `?variant=degraded`), plus `?flood=N` for the budget rule. Dataset is a byte-identical copy of the reference CSV (SHA-256 `b737acf…a11c09`), so the frozen `1.3.0` set runs against it unedited. Injected defects and their predictions are registered in `fixtures\broken\tools.json` and were written before either sweep |
-| Chrome 152 compatibility | ✅ **Two findings 2026-08-30.** `registerTool` **throws `"Invalid tool name"`** for a name containing a space — not the silent no-op #145 describes — while a dotted name registers fine. `getTools()` returns `inputSchema` as a **JSON string**, so #241's DOMString→object move has not landed in this build's read-back path; the harness now parses it and records `inputSchemaWire` per tool |
+| Chrome 152 compatibility | ✅ **Four findings.** `registerTool` **throws `"Invalid tool name"`** for a name containing a space — not the silent no-op #145 describes — while a dotted name registers fine. `getTools()` returns `inputSchema` as a **JSON string**, so #241's DOMString→object move has not landed in this build's read-back path; the harness parses it and records `inputSchemaWire` per tool. The **296-tool budget anecdote does not reproduce**: 507 registered tools were all accepted, listed and surfaced (2026-08-31). A **subframe's tools appear in the top frame's `getTools()`**, so an embed can add tools to its host's agent surface |
+| Browser-side tool view | ✅ **Built 2026-08-31** — `watchBrowserTools` accumulates `WebMCP.toolsAdded` / `toolsRemoved` (the domain has no command that lists tools), started before navigation, and every trial records `client.browserView` with the page/browser difference in both directions. `not_discovered` is reachable at last; on Chrome 152 the two views have never disagreed, at any tool count or across frames |
 | Reusable rig | ✅ `_spike\cdp-eval.mjs` (zero-dep, raw WebSocket; ⚠️ exits `-1073740791` on Windows after printing valid JSON) and `_spike\cdp-command.mjs` (needs `chrome-remote-interface`, resolves only from `airlock\`, **port 9222 hardcoded**) |
 | Clean Chrome profile | ✅ `_spike\chrome-baseline\` — WebMCP flag now enabled in it (`enabled_labs_experiments: ["enable-webmcp-testing@1"]`) |
 | Ground check (does Chrome 152 see WebMCP?) | ✅ **Answered 2026-08-30 — yes.** Gate 1 cleared; Chrome 152 is the reference client |
@@ -47,7 +48,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** item 5 — make `not_discovered` reachable, then item 9 (Mode B). The fixture now registers a tool Chrome refuses (`"Clear Highlights"`, rejected with `Invalid tool name`), which is the material the classification has always lacked.
+**Immediate next action:** item 6 — a time-spaced run using `--gap`, the last unmeasured axis of variance. Then item 9 (Mode B), still the highest-priority unknown.
 
 ## What to do next, in order
 
@@ -59,7 +60,7 @@ Ordered by what unblocks the most, with the condition that closes each one. Anyt
 | ~~2~~ | ~~**Fix exit codes for CI**~~ | ✅ **Done 2026-08-30.** `0` complete and above threshold, `1` a rate below `--fail-under`, `2` unmeasurable or unusable arguments — incomplete outranks a breach, completeness comes from the plan rather than the failure log, and 19 new tests cover the contract including six that drive the real CLI |
 | ~~3~~ | ~~**Step 6 — the L0 linter and a deliberately broken fixture page**~~ | ✅ **Done 2026-08-30.** 13 rules calibrated so the reference page lints clean and the degraded twin reports 6 errors and 13 warnings, **and** the sweep discriminates. `reports\discrimination-2026-08-30.md` |
 | ~~4~~ | ~~**Firm up the discrimination result**~~ | ✅ **Done 2026-08-31.** 1,320 trials, six arms at 3 sessions each, all measured: between-session σ ≤ 0.094 against effects of 0.35+, and four ablations showing defects compound rather than add (−5.0 and −3.3 alone, −35.0 together). The failure log now survives a killed session, and every wait in the harness is bounded. `reports\ablation-2026-08-31.md` |
-| 5 | **Make `not_discovered` reachable.** Subscribe to `WebMCP.toolsAdded` / `toolsRemoved` and pass the browser's own tool list into classification | A page that registers a tool the browser never surfaces classifies as `not_discovered` rather than `not_registered`. The broken fixture already registers one Chrome refuses, so the material exists |
+| ~~5~~ | ~~**Make `not_discovered` reachable**~~ | ✅ **Done 2026-08-31.** Every trial accumulates the browser's own tool list from `WebMCP.toolsAdded` / `toolsRemoved` — the domain has no command that lists tools — and records the page/browser difference both ways. The outcome fires the moment a client drops a tool; on Chrome 152 the views never disagreed at 7, 71, 187, 307 or 507 tools, or across an iframe. Two side findings: the 296-tool budget anecdote does not reproduce, and a subframe's tools appear in the host's manifest |
 | 6 | **Time-spaced sessions.** `--gap` exists but has never been used in a published run; back-to-back sessions measure process independence, not drift | A run whose sessions are hours or days apart, with its between-session σ compared against a back-to-back run of the same shape |
 | 7 | **Audit the utterance set's own floor**, which the ablations turned from a worry into a measurement: `sum_by_category-12` fails 12 of 12 across four manifests including the reference description, so its expected tool is contestable rather than the page being wrong. 🚦 Any change to a frozen set is a documented revision and a decision, not a fix | Every utterance whose failures are invariant to the manifest is listed with its selections, and a recorded decision per case: keep, retag, or revise in `1.4.0` — with the comparability cost of a revision stated |
 | 8 | 🚦 **Decide where the raw dataset lives.** The JSONL per run is the evidence behind every number and currently stays local; code is MIT, and data meant to be cited usually wants CC BY 4.0 | A decision recorded here: in-repo, separate dataset repo, or aggregate-only — with the licence named |
@@ -939,3 +940,43 @@ Five tests in `core\orchestrate.test.mjs` cover it, including the two worth stat
 - ⚠️ `bad_args` has still never been observed in any arm on any page. The unknown-argument check works now; the judge simply does not invent argument keys.
 - ⚠️ The utterance set's own floor is now a known quantity rather than a measured one: `sum_by_category-12` is one case, and nobody has looked for the others.
 - ⚠️ Controls remain ungated by `--fail-under`. Both false positives on the degraded arm are `control-14`, the same utterance that has fired in every arm where anything fired.
+
+---
+
+## 2026-08-31 (later) — Item 5: `not_discovered` is reachable, and Chrome 152 refuses to produce one
+
+The taxonomy has had a `not_discovered` outcome since the first commit — the page registered a tool, the client never surfaced it — and has never been able to reach it, because the harness only ever read the page's own `getTools()`. From inside the page those two things are indistinguishable, which is precisely the silent failure this project exists to catch.
+
+### What the browser actually offers, read from the browser
+
+`/json/protocol` on Chrome `152.0.7977.65` describes the `WebMCP` domain as **experimental**, with commands `enable`, `disable`, `invokeTool`, `cancelInvocation` and events `toolsAdded`, `toolsRemoved`, `toolInvoked`, `toolResponded`. The load-bearing detail: **there is no command that lists tools.** The browser-side view can only be *accumulated* from `toolsAdded`, one event per `registerTool`, so the watch has to be attached **before navigation** or the events are already gone — a reader that subscribes afterwards sees nothing and would report that the browser surfaced none of them.
+
+`watchBrowserTools` in `browser\webmcp.mjs` does that accumulation, on top of a new persistent `subscribe(method, handler)` in `browser\session.mjs` (the existing `waitForEvent` is one-shot, which is the wrong shape for a stream). Every trial now records `client.browserView`: availability, tool count, frame count, and the difference in **both** directions — `registeredButNotSurfaced` (the `not_discovered` case) and `surfacedButNotInPage`. When the domain is missing, `names()` returns **null rather than an empty array**, because a view you do not have is not evidence of absence and must never classify as `not_discovered`.
+
+### The measurement: the two views never disagreed
+
+| Registered tools | page `getTools()` | browser view | disagreement |
+|---|---|---|---|
+| 7 | 7 | 7 | none |
+| 71 | 71 | 71 | none |
+| 187 | 187 | 187 | none |
+| 307 | 307 | 307 | none |
+| **507** | **507** | **507** | none |
+| 7 + 1 in an iframe | **8** | 8, across 2 frames | none |
+
+So `not_discovered` is implemented, unit-tested and **unobserved**. That is the honest result, and the classifier will fire the moment a client drops a tool.
+
+Two findings fall out of it:
+
+**The 296-tool budget anecdote does not reproduce on this build.** A page registering 507 synthetic tools had every one accepted, listed and surfaced, with settle time rising only from 1.04 s to 1.30 s. The open question in `docs\concept.md` is now partly answered — for Chrome 152 — and the linter's `budget/headroom` rule has been corrected accordingly: it was an **error** at 296 and is now a **warning**, because an error on a count measured to work is exactly the false positive the calibrated-defaults rule forbids. The message says what was measured and on which build.
+
+**A subframe's tools land in the host page's manifest.** `twin.html?iframe=1` embeds `widget.html`, which registers `widget_ping` from inside the iframe; the *top* frame's `getTools()` returns 8 tools, and the browser view agrees at 8 across 2 frames. Useful for the harness — a page-side read is sufficient on this build — and worth stating plainly for anyone shipping embeds: **an iframe can add tools to its host's agent surface.** The browser view also carries `frameId` and a `stackTrace` per tool, so the browser knows where each registration came from even when the page cannot say.
+
+### Tests
+
+Six in `browser\webmcp.test.mjs`, against a fake session rather than Chrome, because the contract being tested is the accumulation: one event per registration, removals leaving the view, a re-registered name appearing exactly once (the view is keyed by name, since names are the unit of selection), events without a usable name ignored, `stop()` unsubscribing, and an unavailable domain reporting `null` while leaving no subscribers behind. 114 tests pass.
+
+### Still open
+- ⚠️ `not_discovered` remains unobserved. Edge and the ChatGPT in-app browser are where a divergence would plausibly appear, and neither is measured yet.
+- ⚠️ The browser view is read once per trial, after the manifest settles. A tool added or removed *later* in the trial is not tracked, so a page that mutates its tool set mid-conversation is out of scope for now.
+- ⚠️ `WebMCP.invokeTool` still unused: execution goes through the page API, while a real client would use the browser path. That is a compatibility row nobody has measured.

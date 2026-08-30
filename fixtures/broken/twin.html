@@ -122,6 +122,10 @@
       const params = new URLSearchParams(location.search);
       const requestedVariant = params.get('variant') ?? 'degraded';
       const flood = Math.max(0, Number.parseInt(params.get('flood') ?? '0', 10) || 0);
+      // ?iframe=1 embeds widget.html, which registers one tool from a subframe — the
+      // material for asking whether a subframe's tools reach the top frame's
+      // getTools() at all, or only the browser's own view of the page.
+      const withIframe = params.get('iframe') === '1';
 
       const rowsBody = document.getElementById('rows');
       const noteEl = document.getElementById('highlight-note');
@@ -454,10 +458,19 @@
           ...rejected.map((entry) => `REJECTED ${entry.name}: ${entry.error}`),
         ].join('\n');
 
+        if (withIframe) {
+          const frame = document.createElement('iframe');
+          frame.id = 'widget-frame';
+          frame.title = 'embedded widget';
+          frame.src = 'widget.html';
+          frame.style.cssText = 'width:100%;height:5.5rem;border:1px solid var(--line);margin-top:0.75rem';
+          document.body.append(frame);
+        }
+
         // Registration outcomes are a measurement in their own right: whether this
         // build accepts a tool whose name contains a space is spec issue #145, and
         // the harness reads this from the page rather than from a screenshot.
-        window.__fixtureRegistration = { variant, flood, registered, rejected };
+        window.__fixtureRegistration = { variant, flood, iframe: withIframe, registered, rejected };
       };
 
       boot().catch((error) => {

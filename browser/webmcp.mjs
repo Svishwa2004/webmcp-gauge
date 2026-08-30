@@ -110,6 +110,59 @@ export const captureManifest = (session) => session.evaluate(MANIFEST_EXPRESSION
 export const observe = (session) => session.evaluate(OBSERVATION_EXPRESSION);
 
 /**
+ * The browser's own view of a page's tools, accumulated from CDP events.
+ *
+ * This is the second, independent view the `not_discovered` outcome has always
+ * needed: the page's `getTools()` says what the page believes it registered, this
+ * says what the browser is prepared to offer an agent, and a disagreement between
+ * them is invisible from inside the page - exactly the silent failure this project
+ * exists to catch.
+ *
+ * Measured on Chrome 152.0.7977.65 (2026-08-31): the `WebMCP` domain is experimental
+ * and has **no command that lists tools** — only `enable`, `disable`, `invokeTool`
+ * and `cancelInvocation`. The set arrives as `toolsAdded` events, so it can only be
+ * accumulated, and the watch must start *before* navigation or the events are already
+ * gone. On a build without the domain this returns `available: false` and `names()`
+ * returns null rather than an empty array: a view you do not have is not evidence of
+ * absence, and the classifier must not read it as one.
+ */
+export const watchBrowserTools = async (session) => {
+  const present = new Map();
+  const removed = [];
+
+  const stopAdded = session.subscribe('WebMCP.toolsAdded', (params) => {
+    for (const tool of params.tools ?? []) {
+      if (tool?.name) present.set(tool.name, tool);
+    }
+  });
+  const stopRemoved = session.subscribe('WebMCP.toolsRemoved', (params) => {
+    for (const tool of params.tools ?? []) {
+      if (!tool?.name) continue;
+      present.delete(tool.name);
+      removed.push(tool.name);
+    }
+  });
+
+  const enabled = await session.enableWebMcpDomain();
+  if (!enabled.available) {
+    stopAdded();
+    stopRemoved();
+  }
+
+  return {
+    available: enabled.available,
+    reason: enabled.reason ?? null,
+    names: () => (enabled.available ? [...present.keys()] : null),
+    tools: () => (enabled.available ? [...present.values()] : null),
+    removedNames: () => (enabled.available ? [...removed] : null),
+    stop: () => {
+      stopAdded();
+      stopRemoved();
+    },
+  };
+};
+
+/**
  * Calls a tool through the page API, trying every signature this ecosystem is
  * known to use and reporting which one the build accepted - that is a
  * compatibility-matrix row, not an implementation detail.

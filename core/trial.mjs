@@ -69,6 +69,12 @@ export const runTrial = async ({
   setup = null,
   browserToolNames = null,
   fixtureVersion = null,
+  /**
+   * Control mode inverts the question: no tool should be selected at all. The
+   * pipeline is identical up to selection, then stops - executing a tool for a
+   * control would mutate the page to measure nothing.
+   */
+  controlMode = false,
 }) => {
   const startedAt = new Date().toISOString();
 
@@ -101,13 +107,15 @@ export const runTrial = async ({
     }
   }
 
-  const preVerdict = classifyBeforeExecution({
-    manifest,
-    expectedTool: toolName,
-    selection,
-    expectation,
-    browserToolNames,
-  });
+  const preVerdict = controlMode
+    ? null
+    : classifyBeforeExecution({
+        manifest,
+        expectedTool: toolName,
+        selection,
+        expectation,
+        browserToolNames,
+      });
 
   const record = {
     trial: {
@@ -145,7 +153,43 @@ export const runTrial = async ({
   };
 
   if (judgeError) {
-    return { ...record, outcome: 'not_selected', reason: `judge call failed: ${judgeError}` };
+    // A judge that could not be reached has told us nothing about the page. Calling
+    // that not_selected would put transport failures inside the metric and quietly
+    // depress every rate; the sweep routes a null outcome to harness failures.
+    return {
+      ...record,
+      outcome: null,
+      harnessFailure: { kind: 'judge_unavailable', detail: judgeError },
+    };
+  }
+
+  if (judgeAnswer?.truncated && !judgeAnswer.content) {
+    const reasoning = judgeAnswer.usage?.completion_tokens_details?.reasoning_tokens ?? null;
+    return {
+      ...record,
+      outcome: null,
+      harnessFailure: {
+        kind: 'judge_truncated',
+        detail: `finish_reason=length with empty content; ${judgeAnswer.usage?.completion_tokens ?? '?'} completion tokens${reasoning === null ? '' : ` of which ${reasoning} reasoning`}. Raise maxTokens.`,
+      },
+    };
+  }
+
+  if (controlMode) {
+    if (!manifest.present) {
+      return { ...record, outcome: 'not_supported', reason: 'no modelContext on this client' };
+    }
+    if ((manifest.tools?.length ?? 0) === 0) {
+      return { ...record, outcome: 'not_registered', reason: 'page registered no tools' };
+    }
+    if (!selection?.tool) {
+      return { ...record, outcome: 'not_selected', reason: 'no tool selected, which is the pass' };
+    }
+    return {
+      ...record,
+      outcome: 'wrong_tool',
+      reason: `control utterance selected ${selection.tool}`,
+    };
   }
 
   if (preVerdict) {

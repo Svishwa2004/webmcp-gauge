@@ -11,6 +11,16 @@
 const DEFAULT_TIMEOUT_MS = 60000;
 
 /**
+ * Reasoning models spend completion tokens on thinking before they emit anything,
+ * and the budget covers both. At 1024, glm-5.3 spent 1021 tokens reasoning about
+ * one utterance and returned an empty string with finish_reason "length" - which
+ * looked exactly like a judge declining to pick a tool. A truncated judge is a
+ * harness misconfiguration, so the ceiling is set where truncation is unlikely and
+ * the caller is told when it happens anyway. Unused headroom costs nothing.
+ */
+const DEFAULT_MAX_TOKENS = 4096;
+
+/**
  * agentrouter.org rejects requests that do not look like a CLI client, with
  * `401 unauthorized client detected`, even when the key is valid.
  */
@@ -83,7 +93,7 @@ export const createJudge = ({
     baseUrl,
     keySource: source,
 
-    async complete({ system, user, maxTokens = 1024 }) {
+    async complete({ system, user, maxTokens = DEFAULT_MAX_TOKENS }) {
       const body = {
         model,
         temperature,
@@ -117,12 +127,16 @@ export const createJudge = ({
 
       const payload = JSON.parse(text);
       const message = payload.choices?.[0]?.message ?? {};
+      const finishReason = payload.choices?.[0]?.finish_reason ?? null;
 
       return {
         content: (message.content ?? '').trim(),
         raw: text,
         model: payload.model ?? model,
-        finishReason: payload.choices?.[0]?.finish_reason ?? null,
+        finishReason,
+        // Truncation is the caller's problem to classify, not something to hide:
+        // an empty answer cut off mid-thought is not a judge declining to answer.
+        truncated: finishReason === 'length',
         usage: payload.usage ?? null,
         elapsedMs,
       };

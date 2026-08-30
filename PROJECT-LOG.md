@@ -837,3 +837,33 @@ One session and one repeat per arm, so neither arm carries a between-session σ;
 - ⚠️ Controls remain small (1 of 20 here, 20 of 20 clean) and are still not gated by `--fail-under`.
 - ⚠️ `not_discovered` still unreachable; the fixture now registers a tool Chrome refuses, which is the material for it.
 - ⚠️ Judge truncation is classified as a harness failure, but on the degraded page it was *caused* by the page. A defect that makes the agent think itself to death is a real cost, and the current taxonomy has nowhere to put it.
+
+---
+
+## 2026-08-30 (late night) — Item 4, part one: the failure log survives a kill, and the ablations exist
+
+Item 4 has three parts. Two of them are code and are done; the third is 1,320 trials that are running as this is written, and their numbers are deliberately not in this entry.
+
+### The failure log is now written as failures happen
+
+`harness-failures.jsonl` was appended once, at session end. The discrimination run proved why that is wrong: an external timeout killed the clean arm at 63 of 160 trials and took three failure records with it, so the log claimed a clean run while 97 trials were missing. Coverage caught it — that is computed from the plan, not from this log — but the *diagnosis* was gone, and a diagnosis that only survives a clean exit is not one.
+
+`appendFailures` and `readFailures` moved into `core\sweep.mjs`, `runSessionSweep` takes a `failureLogPath` and appends each failure the moment it happens, and the CLI no longer appends at the end. `readFailures` now keeps the newest entry per trial, because the log accumulates across `--resume` attempts and a report wants "how many trials failed at least once", not "how many attempts failed". A malformed line throws rather than being skipped: a failure log that silently drops entries is worse than no log.
+
+Six new tests in `core\sweep.test.mjs` cover durability one-line-at-a-time, the dedupe, the malformed line, and the plan and checkpoint helpers that had no tests at all. The CLI test now asserts the log holds exactly one line per failed trial, which is what distinguishes an in-run append from an end-of-session one.
+
+### Four ablations, composed rather than copied
+
+The first sweep bundled two defects on `sum_by_category` — a near-duplicate description and an identically-described competitor tool — and the competitor absorbed 10 of its 20 trials, so the near-duplicate's own contribution was never measured. `fixtures\broken\tools.json` is now `1.1.0` with four ablations, each the clean manifest plus exactly one defect family: `ablate-near-duplicate`, `ablate-duplicate-tool`, `ablate-thin`, `ablate-schema`.
+
+They are **composed at load time** from `clean` plus a patch, by `fixtures\broken\compose.mjs`, which the page and the tests both import. Writing each variant out in full would have made "nothing else moved" a promise enforced by a test; composing it makes divergence impossible, which is the stronger of the two. The `clean` and `degraded` variants are byte-identical to `1.0.0`, so the published numbers still describe what this file registers — a test asserts that too, including that the degraded arm keeps the space-named tool Chrome refuses, because that rejection is the #145 measurement.
+
+Six tests in `fixtures\broken\compose.test.mjs` check that each ablation changes exactly the tools it declares, removes none, and **trips its own linter family and no other** — so the isolation claim is verified statically before any trial is spent on it. Each ablation also carries the question it answers and a prediction, again written before the run. 100 tests pass.
+
+Two predictions worth stating plainly, because the first sweep falsified their siblings: a near-duplicate description with no competitor is expected to cost **nothing**, and `clear_highlights` with a one-word description is expected to stay at the ceiling because nothing else on the page clears highlighting. If both hold, the linter's description rules are advisory for a measurable reason rather than a stylistic one.
+
+### In flight at commit time
+
+Six arms, sequential, one judge and one browser build: the degraded and clean manifests at 3 sessions × 1 repeat over all 160 utterances, and the four ablations at 3 sessions over only the tools they touch (`--tools`, `--no-controls`), which is 1,320 trials rather than the 2,240 a full cross would cost. The untouched tools already sit at the ceiling in both `1.0.0` arms, so spending trials on them again would buy nothing.
+
+Their numbers are the point of item 4 and are not in this commit.

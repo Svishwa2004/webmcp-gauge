@@ -1,8 +1,22 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "frozen": true,
   "frozenOn": "2026-08-30",
-  "purpose": "Tool metadata for the degraded twin of the reference page. Two variants over one identical implementation and one identical dataset, so the only difference between them is what the manifest says about the tools. That is what makes a rate difference attributable to description and schema quality rather than to the app.",
+  "purpose": "Tool metadata for the degraded twin of the reference page. Several variants over one identical implementation and one identical dataset, so the only difference between them is what the manifest says about the tools. That is what makes a rate difference attributable to description and schema quality rather than to the app.",
+  "revisions": [
+    {
+      "version": "1.0.0",
+      "date": "2026-08-30",
+      "change": "First frozen version: the 'clean' and 'degraded' variants, plus the defect register with a prediction per injected defect.",
+      "results": "reports/discrimination-2026-08-30.md - clean 100.0% (140/140), degraded 80.0% (112/140), one session per arm."
+    },
+    {
+      "version": "1.1.0",
+      "date": "2026-08-30",
+      "change": "Added four ablation variants, each the clean manifest plus exactly one defect family: ablate-near-duplicate, ablate-duplicate-tool, ablate-thin, ablate-schema. The 'clean' and 'degraded' variants are byte-identical to 1.0.0, so the 1.0.0 numbers remain comparable.",
+      "reason": "The first sweep bundled two defects on sum_by_category - a near-duplicate description and an identically-described competitor tool - and the competitor absorbed 10 of its 20 trials, so the near-duplicate's own contribution was unmeasured. The ablations exist to separate them, and to test the two predictions the first run falsified: that a near-duplicate description alone hurts, and that a one-word description alone hurts."
+    }
+  ],
   "authoring": {
     "writtenBy": "Assistant draft inside a Qwen Code session, 2026-08-30.",
     "note": "The 'clean' variant copies the reference page's descriptions and schemas verbatim from airlock/src/tools.ts (surveyed 2026-08-30). The 'degraded' variant is written to embody documented WebMCP failure modes, not to hit a target number, and every injected defect is registered below with the prediction it was written to test - recorded before the sweep ran."
@@ -80,6 +94,144 @@
       "prediction": "Linter-only. Never used for the measured sweep, because a tool-count effect would confound the description effect the sweep exists to isolate."
     }
   ],
+  "ablations": {
+    "note": "Each ablation is the clean manifest plus exactly one defect family, so a rate can be attributed to that family alone. It is composed at load time from 'clean' plus the patch in 'tools' by compose.mjs, which the page and the tests share - writing each variant out in full would make 'nothing else moved' a promise; composing it makes divergence impossible. 'changes' and 'adds' declare the intended difference and a test checks the composition against them. 'measure' is the --tools list worth spending trials on; the untouched tools already sit at the ceiling in both 1.0.0 arms.",
+    "ablate-near-duplicate": {
+      "family": "description/near-duplicate",
+      "basedOn": "clean",
+      "changes": ["sum_by_category", "filter_rows"],
+      "adds": [],
+      "measure": ["sum_by_category", "filter_rows"],
+      "question": "Does a near-duplicate description hurt on its own, with no competitor tool to absorb the request?",
+      "prediction": "Falsified once already: filter_rows held at 100% in the 1.0.0 degraded arm with this exact description. Expect both tools to stay at or near the ceiling, which would mean vocabulary overlap alone is not a defect the metric can see - and that the linter's near-duplicate rule is advisory for a reason.",
+      "tools": [
+        {
+          "name": "sum_by_category",
+          "impl": "sumByCategory",
+          "description": "Works with the rows in the table and returns totals for what it finds.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "highlight": {
+                "type": "string",
+                "description": "Exact category name to highlight in the table. Must match a category returned by describe_dataset."
+              }
+            }
+          },
+          "annotations": { "readOnlyHint": true }
+        },
+        {
+          "name": "filter_rows",
+          "impl": "filterRows",
+          "description": "Works with the rows in the table and returns counts for what it finds.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "from": { "type": "string", "description": "Earliest date to include, as YYYY-MM-DD." },
+              "to": { "type": "string", "description": "Latest date to include, as YYYY-MM-DD." },
+              "category": { "type": "string", "description": "Restrict to one category name." },
+              "min_amount": { "type": "number", "description": "Smallest amount to include." },
+              "max_amount": { "type": "number", "description": "Largest amount to include." },
+              "limit": { "type": "number", "description": "How many matching rows to preview. Defaults to 10, capped at 25." }
+            }
+          },
+          "annotations": { "readOnlyHint": true }
+        }
+      ]
+    },
+    "ablate-duplicate-tool": {
+      "family": "description/duplicate",
+      "basedOn": "clean",
+      "changes": [],
+      "adds": ["summarise_by_category"],
+      "measure": ["sum_by_category"],
+      "question": "How much of sum_by_category's collapse to 35% was the competitor rather than the vague description?",
+      "prediction": "Most of it. Expect sum_by_category well below the ceiling even with its reference description intact, because an identically-described tool sits beside it.",
+      "tools": [
+        {
+          "name": "summarise_by_category",
+          "impl": "sumByCategory",
+          "description": "Total the loaded spending by category, largest first. Optionally pass a category name to visually highlight its rows in the table for the human reading the page. Returns aggregates only.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "highlight": {
+                "type": "string",
+                "description": "Exact category name to highlight in the table. Must match a category returned by describe_dataset."
+              }
+            }
+          },
+          "annotations": { "readOnlyHint": true }
+        }
+      ]
+    },
+    "ablate-thin": {
+      "family": "description/thin",
+      "basedOn": "clean",
+      "changes": ["find_anomalies", "clear_highlights"],
+      "adds": [],
+      "measure": ["find_anomalies", "clear_highlights"],
+      "question": "Does a description carrying no information hurt when nothing else can serve the request?",
+      "prediction": "find_anomalies lower (it competes with describe_dataset for 'what stands out'), clear_highlights at the ceiling (nothing else clears highlighting). If that holds, a thin description is only a defect where a competitor exists, and the same rule should read differently for a tool with no substitute.",
+      "tools": [
+        {
+          "name": "find_anomalies",
+          "impl": "findAnomalies",
+          "description": "Processes the table and gives numbers back.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "threshold": {
+                "type": "number",
+                "description": "How many standard deviations above the category mean counts as unusual. Defaults to 2.5; raise it to be stricter, or lower it to surface milder variation."
+              }
+            }
+          },
+          "annotations": { "readOnlyHint": true }
+        },
+        {
+          "name": "clear_highlights",
+          "impl": "clearHighlights",
+          "description": "Utility.",
+          "inputSchema": { "type": "object", "properties": {} },
+          "annotations": { "readOnlyHint": false }
+        }
+      ]
+    },
+    "ablate-schema": {
+      "family": "schema/over-parameterised",
+      "basedOn": "clean",
+      "changes": ["top_expenses"],
+      "adds": [],
+      "measure": ["top_expenses"],
+      "question": "Is the schema alone enough to produce the avoid/throw/decline spread seen at 1.0.0, with the description untouched?",
+      "prediction": "Yes - the description was already the reference one in the degraded arm, so this should reproduce 35% with exec_error present. This ablation is the control on the other three: it should change nothing.",
+      "tools": [
+        {
+          "name": "top_expenses",
+          "impl": "topExpenses",
+          "throwWhenMissing": ["mode", "format", "strategy"],
+          "description": "Find the largest individual rows by amount and highlight them in the table.",
+          "inputSchema": {
+            "type": "object",
+            "required": ["mode", "format", "strategy"],
+            "properties": {
+              "limit": { "type": "number", "description": "How many rows to consider. Defaults to 5, capped at 25." },
+              "mode": { "type": "string" },
+              "format": { "type": "string" },
+              "strategy": { "type": "string" },
+              "locale": { "type": "string" },
+              "page": { "type": "number" },
+              "page_size": { "type": "number" },
+              "include_totals": { "type": "boolean" },
+              "verbose": { "type": "boolean" }
+            }
+          },
+          "annotations": { "readOnlyHint": true }
+        }
+      ]
+    }
+  },
   "variants": {
     "clean": [
       {

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchSession } from '../browser/launch.mjs';
@@ -9,7 +9,7 @@ import { captureManifest } from '../browser/webmcp.mjs';
 import { EXIT, gateRun, parseFailUnder } from '../core/gate.mjs';
 import { lintManifest, lintToText } from '../core/lint.mjs';
 import { runSessions } from '../core/orchestrate.mjs';
-import { buildPlan, readCheckpoint, runSessionSweep, trialKey } from '../core/sweep.mjs';
+import { buildPlan, readCheckpoint, readFailures, runSessionSweep, trialKey } from '../core/sweep.mjs';
 import { runTrial } from '../core/trial.mjs';
 import { createJudge } from '../judges/openai-compatible.mjs';
 import { buildReport, toMarkdown } from '../report/emit.mjs';
@@ -364,6 +364,7 @@ if (command === 'lint') {
       concurrency,
       port: explicitPort ?? browser.port,
       checkpointPath,
+      failureLogPath: `${outDir}/harness-failures.jsonl`,
       onProgress: ({ completed, total, item, failures }) => {
         process.stderr.write(
           `\rsession ${session}: ${completed}/${total} · ${item.utterance.id} · ${failures} harness failures    `
@@ -374,9 +375,6 @@ if (command === 'lint') {
     console.error(
       `session ${session}: ${result.written.length} trials recorded, ${result.failures.length} harness failures, ${(result.elapsedMs / 1000).toFixed(0)}s`
     );
-    if (result.failures.length > 0) {
-      await appendFailures(`${outDir}/harness-failures.jsonl`, result.failures);
-    }
     // A session that could not measure part of its plan exits 2, so a hand-run
     // session and the orchestrator agree on what an incomplete measurement is.
     // The parent does not depend on this: it recomputes coverage from the plan.
@@ -506,23 +504,4 @@ if (command === 'lint') {
   console.error(`report.json and report.md written to ${outDir}/ · checkpoint ${checkpointPath}`);
   console.error(`gate: ${gate.summary}`);
   process.exitCode = gate.code;
-}
-
-async function appendFailures(path, failures) {
-  await mkdir(dirname(path), { recursive: true });
-  const lines = failures.map((failure) => JSON.stringify(failure)).join('\n');
-  await appendFile(path, `${lines}\n`, 'utf8');
-}
-
-async function readFailures(path) {
-  try {
-    const text = await readFile(path, 'utf8');
-    return text
-      .split('\n')
-      .filter((line) => line.trim().length > 0)
-      .map((line) => JSON.parse(line));
-  } catch (error) {
-    if (error.code === 'ENOENT') return [];
-    throw error;
-  }
 }

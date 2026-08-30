@@ -21,6 +21,43 @@ import { runTrial } from './trial.mjs';
 
 export const trialKey = (session, repeat, utteranceId) => `${session}:${repeat}:${utteranceId}`;
 
+/**
+ * Appends harness failures as they happen rather than at the end of a session.
+ *
+ * This was written at session end once, and a session killed mid-plan then took its
+ * failure kinds with it: the run that produced `reports/discrimination-2026-08-30.md`
+ * lost three of them to an external timeout. Coverage still caught the missing
+ * trials, because that is computed from the plan rather than from this log - but the
+ * diagnosis was gone, and a diagnosis that only survives a clean exit is not much of
+ * a diagnosis.
+ */
+export const appendFailures = async (path, failures) => {
+  if (!path || failures.length === 0) return;
+  await mkdir(dirname(path), { recursive: true });
+  await appendFile(path, `${failures.map((failure) => JSON.stringify(failure)).join('\n')}\n`, 'utf8');
+};
+
+/**
+ * Reads the failure log, keeping the newest entry per trial. The log accumulates
+ * across `--resume` attempts, so the same trial can appear more than once; a report
+ * wants "how many trials failed at least once", not "how many attempts failed".
+ */
+export const readFailures = async (path) => {
+  try {
+    const text = await readFile(path, 'utf8');
+    const byTrial = new Map();
+    for (const line of text.split('\n')) {
+      if (line.trim().length === 0) continue;
+      const failure = JSON.parse(line);
+      byTrial.set(trialKey(failure.session ?? 1, failure.repeat, failure.utteranceId), failure);
+    }
+    return [...byTrial.values()];
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  }
+};
+
 export const readCheckpoint = async (path) => {
   try {
     const text = await readFile(path, 'utf8');
@@ -103,6 +140,7 @@ export const runSessionSweep = async ({
   concurrency = 1,
   port,
   checkpointPath,
+  failureLogPath = null,
   onProgress = () => {},
 }) => {
   const plan = buildPlan({ fixture, repeatsPerSession, tools, includeControls });
@@ -125,6 +163,13 @@ export const runSessionSweep = async ({
       const item = pending[cursor];
       cursor += 1;
 
+      // Recorded the moment it happens, not at the end of the session: a killed
+      // process must not take the reason with it.
+      const recordFailure = async (failure) => {
+        failures.push(failure);
+        await appendFailures(failureLogPath, [failure]).catch(() => {});
+      };
+
       let tab;
       try {
         tab = await openSession({ port });
@@ -144,7 +189,7 @@ export const runSessionSweep = async ({
           // The trial ran but produced no measurement - an unreachable or truncated
           // judge says nothing about the page. It stays out of the checkpoint so a
           // later --resume retries it instead of baking a non-result into the rates.
-          failures.push({
+          await recordFailure({
             session,
             repeat: item.repeat,
             utteranceId: item.utterance.id,
@@ -159,7 +204,7 @@ export const runSessionSweep = async ({
           }
         }
       } catch (error) {
-        failures.push({
+        await recordFailure({
           session,
           repeat: item.repeat,
           utteranceId: item.utterance.id,

@@ -117,11 +117,11 @@
     </div>
 
     <script type="module">
+      import { composeVariant, variantNames } from './compose.mjs';
+
       const params = new URLSearchParams(location.search);
-      const variant = params.get('variant') === 'clean' ? 'clean' : 'degraded';
+      const requestedVariant = params.get('variant') ?? 'degraded';
       const flood = Math.max(0, Number.parseInt(params.get('flood') ?? '0', 10) || 0);
-      document.getElementById('variant-name').textContent =
-        variant + (flood > 0 ? ` + ${flood} filler tools` : '');
 
       const rowsBody = document.getElementById('rows');
       const noteEl = document.getElementById('highlight-note');
@@ -424,13 +424,27 @@
         render();
         statusEl.textContent = `${rows.length} rows parsed in-browser from ${toolsFile.dataset.file}. Nothing was uploaded.`;
 
+        // An unknown variant must fail loudly. Silently falling back to another one
+        // would register a different manifest than the URL asked for, and the sweep
+        // would attribute the result to the wrong arm.
+        const variant = requestedVariant;
+        const variantTools = composeVariant(toolsFile, variant);
+        if (!Array.isArray(variantTools)) {
+          document.getElementById('variant-name').textContent = `UNKNOWN (${variant})`;
+          badgeEl.dataset.state = 'unsupported';
+          badgeEl.textContent = `no such variant '${variant}'; tools.json declares ${variantNames(toolsFile).join(', ')}`;
+          return;
+        }
+        document.getElementById('variant-name').textContent =
+          variant + (flood > 0 ? ` + ${flood} filler tools` : '');
+
         if (!('modelContext' in document) || !document.modelContext) {
           badgeEl.dataset.state = 'unsupported';
           badgeEl.textContent = 'WebMCP unavailable — enable chrome://flags/#enable-webmcp-testing';
           return;
         }
 
-        const definitions = [...toolsFile.variants[variant], ...floodDefinitions(flood)];
+        const definitions = [...variantTools, ...floodDefinitions(flood)];
         const { registered, rejected } = await registerAll(definitions);
 
         badgeEl.dataset.state = 'ready';

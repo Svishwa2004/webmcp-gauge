@@ -193,6 +193,12 @@ test('trials that could not be measured exit 2, not 1', async () => {
     assert.equal(report.gate.code, 2);
     assert.equal(report.coverage.missingTrials, 3);
     assert.equal(report.harnessFailures.length, 3);
+
+    // One line per failed trial, written during the session rather than at the end
+    // of it. A double-append would show six, and an end-of-session append would
+    // lose all three if the process were killed first.
+    const log = await readFile(join(dir, 'harness-failures.jsonl'), 'utf8');
+    assert.equal(log.trim().split('\n').length, 3);
   });
 });
 

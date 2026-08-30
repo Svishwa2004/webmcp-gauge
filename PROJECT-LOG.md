@@ -61,7 +61,7 @@ Ordered by what unblocks the most, with the condition that closes each one. Anyt
 | ~~3~~ | ~~**Step 6 — the L0 linter and a deliberately broken fixture page**~~ | ✅ **Done 2026-08-30.** 13 rules calibrated so the reference page lints clean and the degraded twin reports 6 errors and 13 warnings, **and** the sweep discriminates. `reports\discrimination-2026-08-30.md` |
 | ~~4~~ | ~~**Firm up the discrimination result**~~ | ✅ **Done 2026-08-31.** 1,320 trials, six arms at 3 sessions each, all measured: between-session σ ≤ 0.094 against effects of 0.35+, and four ablations showing defects compound rather than add (−5.0 and −3.3 alone, −35.0 together). The failure log now survives a killed session, and every wait in the harness is bounded. `reports\ablation-2026-08-31.md` |
 | ~~5~~ | ~~**Make `not_discovered` reachable**~~ | ✅ **Done 2026-08-31.** Every trial accumulates the browser's own tool list from `WebMCP.toolsAdded` / `toolsRemoved` — the domain has no command that lists tools — and records the page/browser difference both ways. The outcome fires the moment a client drops a tool; on Chrome 152 the views never disagreed at 7, 71, 187, 307 or 507 tools, or across an iframe. Two side findings: the 296-tool budget anecdote does not reproduce, and a subframe's tools appear in the host's manifest |
-| 6 | **Time-spaced sessions.** `--gap` exists but has never been used in a published run; back-to-back sessions measure process independence, not drift | A run whose sessions are hours or days apart, with its between-session σ compared against a back-to-back run of the same shape |
+| 6 | 🟡 **Time-spaced sessions — scheduled 2026-08-31, in flight.** Four `schtasks` entries under `\webmcp-gauge\` fire `scripts\spaced-session.cmd` at 04:15, 10:15, 16:15 and a reconcile at 17:15 local, against the degraded twin in the same shape as the published back-to-back arm. Session 1 verified through the scheduler | A run whose sessions are hours apart, with its between-session σ compared against the back-to-back run of the same shape — σ spaced against 0.041 / 0.062 |
 | 7 | **Audit the utterance set's own floor**, which the ablations turned from a worry into a measurement: `sum_by_category-12` fails 12 of 12 across four manifests including the reference description, so its expected tool is contestable rather than the page being wrong. 🚦 Any change to a frozen set is a documented revision and a decision, not a fix | Every utterance whose failures are invariant to the manifest is listed with its selections, and a recorded decision per case: keep, retag, or revise in `1.4.0` — with the comparability cost of a revision stated |
 | 8 | 🚦 **Decide where the raw dataset lives.** The JSONL per run is the evidence behind every number and currently stays local; code is MIT, and data meant to be cited usually wants CC BY 4.0 | A decision recorded here: in-repo, separate dataset repo, or aggregate-only — with the licence named |
 | 9 | **Step 7 — Mode B adapters.** Spike whether the ChatGPT desktop in-app browser can be driven at all; it is still the highest-priority unknown, and it decides whether that column is automated or sampled | Either a driven trial against a real client, or a recorded negative result that fixes the sampling design |
@@ -980,3 +980,37 @@ Six in `browser\webmcp.test.mjs`, against a fake session rather than Chrome, bec
 - ⚠️ `not_discovered` remains unobserved. Edge and the ChatGPT in-app browser are where a divergence would plausibly appear, and neither is measured yet.
 - ⚠️ The browser view is read once per trial, after the manifest settles. A tool added or removed *later* in the trial is not tracked, so a page that mutates its tool set mid-conversation is out of scope for now.
 - ⚠️ `WebMCP.invokeTool` still unused: execution goes through the page API, while a real client would use the browser path. That is a compatibility row nobody has measured.
+
+---
+
+## 2026-08-31 (early morning) — Item 6 scheduled: three sessions, six hours apart, driven by the OS
+
+Every published run in this project measures sessions that ran **minutes** apart. That establishes process independence — separate processes, separate browsers, cold profiles — and says nothing about drift in the provider, the machine or the day, because there is no time between them. `--gap` has existed since the orchestrator was written and has never been used.
+
+**Shape, chosen so the comparison is direct:** the degraded twin at 3 sessions × 1 repeat over all 160 utterances, concurrency 3, judge `glm-5.3` — byte-for-byte the shape of `reports\twin-degraded-1.3.0-glm-5.3-s3r1.*`, whose between-session σ was measured back-to-back at 0.041 on `sum_by_category` and 0.062 on `top_expenses`. The degraded arm was picked over the clean one deliberately: its rates sit mid-range, where drift can actually show, while the clean arm is at the ceiling where σ is 0 by construction.
+
+**Mechanism: Windows Task Scheduler, not `--gap`.** A single `run --gap 21600` process would have to survive twelve hours of sleeping, with the machine awake and the process unkilled, and it would take the whole measurement with it if either failed. Four `schtasks` entries under `\webmcp-gauge\` instead, each a short-lived process:
+
+| Task | Local time | What it runs |
+|---|---|---|
+| `spaced-session-1` | 04:15 (fired 04:18) | `scripts\spaced-session.cmd 1` |
+| `spaced-session-2` | 10:15 | `scripts\spaced-session.cmd 2` |
+| `spaced-session-3` | 16:15 | `scripts\spaced-session.cmd 3` |
+| `spaced-report` | 17:15 | `scripts\spaced-session.cmd report` → `run --resume`, which fills any gaps, reconciles and emits the report |
+
+Each session writes into one shared checkpoint at `artifacts\spaced-degraded\`, which is exactly how `run` drives its own children, so the resume and coverage machinery is unchanged. Removal is one line: `schtasks /Delete /TN "webmcp-gauge\spaced-session-1" /F` and so on, or `/TN "\webmcp-gauge\" /F` for the folder.
+
+**`--gap` is still tested, just not used here.** A new orchestrator test runs three fake sessions with and without `gapSeconds` and asserts the difference is at least two gaps — the flag was never exercised before, and scheduling around it is not a reason to leave it unverified. 115 tests pass.
+
+### The finding that came out of scheduling it
+
+**A scheduled task cannot see the judge key, and the first firing proved it rather than the second.** The 04:15 run exited 1 in under a second with `No judge API key found for https://agentrouter.org/v1`. The key lives only inside the interactive session that normally launches the harness — it is not a persisted user variable, so nothing the Task Scheduler starts can read it. Had I scheduled all three and walked away, the whole twelve-hour measurement would have produced three empty logs and one report over zero trials.
+
+Fixed the way `.env.example` has always documented: the credentials now live in a git-ignored `.env` and `node --env-file=.env` loads them, which keeps the secret project-scoped and removable by deleting one file. Re-fired session 1 **through the scheduler** rather than by hand, so the scheduled path itself is what got verified: 7 trials on the checkpoint within fifteen seconds.
+
+The general lesson is one this project keeps re-learning in new clothes: **an unattended run must be proven unattended.** The exit-code contract, the coverage diff, the durable failure log and the stall watchdog all exist because a long run fails in ways nobody is watching — and none of them would have helped here, because a process that dies in 900 ms with a clear error is not a stall, a gap or a breach. It is a setup mistake, and the only defence is firing the first one while you are still looking.
+
+### Still open until ~17:15 today
+- 🟡 Sessions 2 and 3 have not run. The comparison — between-session σ spaced against σ back-to-back, same shape, same judge — is not a result yet.
+- ⚠️ Six hours is not days. If drift is a slow function of provider deployments, a same-day spacing may still miss it; that would be an argument for a 24-hour repeat rather than evidence of stability.
+- ⚠️ The machine has to stay awake and logged on. A missed firing shows up as missing trials in the coverage diff, so it will be visible rather than silent, and `--resume` closes it.

@@ -133,6 +133,28 @@ const tick = setInterval(async () => {
   });
 });
 
+test('--gap actually spaces the sessions out, which is the only way drift can be measured', async () => {
+  await withTempDir(async (dir) => {
+    const binPath = await fakeSession(dir, 'quick-session.mjs', 'process.exitCode = 0;\n');
+
+    const shape = { binPath, args: [], progressPaths: [join(dir, 'sweep.jsonl')], pollIntervalMs: 50 };
+    const startedBackToBack = Date.now();
+    await runSessions({ sessions: 3, ...shape });
+    const backToBackMs = Date.now() - startedBackToBack;
+
+    const startedSpaced = Date.now();
+    await runSessions({ sessions: 3, gapSeconds: 0.4, ...shape });
+    const spacedMs = Date.now() - startedSpaced;
+
+    // Two gaps for three sessions - the wait goes before every session except the
+    // first, or the run would end with a pointless sleep.
+    assert.ok(
+      spacedMs - backToBackMs >= 700,
+      `expected roughly two 400ms gaps, got ${spacedMs}ms against ${backToBackMs}ms`
+    );
+  });
+});
+
 test('the failure log counts as progress, so an all-failing session is not killed', async () => {
   await withTempDir(async (dir) => {
     // A session whose every trial fails writes only to the failure log. Watching the

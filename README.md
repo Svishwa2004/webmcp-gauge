@@ -2,7 +2,7 @@
 
 Measures whether an AI agent actually calls the tools your web page exposes through WebMCP.
 
-**Status: pre-implementation.** The design is settled and documented, the package is scaffolded, and the reference browser is confirmed — Chrome `152.0.7977.65` exposes `document.modelContext` and returns all seven tools of the reference page. No measurement code is written yet: `webmcp-gauge --help` lists `probe`, `lint` and `run` as not implemented.
+**Status: first trials running.** The reference browser is confirmed (Chrome `152.0.7977.65` exposes `document.modelContext` and returns all seven tools of the reference page), the utterance set is frozen at `1.2.0` — 140 utterances plus 20 negative controls — and `webmcp-gauge trial` runs one utterance end to end against a live page: capture the settled manifest, ask a judge model which tool to call, classify, execute, classify again. Two live trials return `ok` with `glm-5.3` judging. The full sweep, the linter and the report emitters are not built yet.
 
 ## The problem
 

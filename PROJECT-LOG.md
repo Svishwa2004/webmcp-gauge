@@ -21,7 +21,8 @@ Append-only record of every change, decision, and verification in this project. 
 | Plain-language explainer | ✅ `docs\explainer.md` |
 | Start guide + pipeline flow | ✅ `docs\getting-started.md` |
 | Publishing policy | ✅ **Decided** — private during judging, aggregate after; conflict of interest disclosed |
-| Code | 🟡 **Scaffold only** — `package.json`, `bin\webmcp-gauge.mjs` (`--help` / `--version` work, no command implemented), three probe expressions in `probes\`. No harness yet |
+| Code | ✅ **Trial engine runs end to end** — `bin\webmcp-gauge.mjs trial`, `core\taxonomy.mjs`, `core\trial.mjs`, `browser\session.mjs`, `browser\webmcp.mjs`, `judges\openai-compatible.mjs`. 34 tests pass (22 fixture, 12 taxonomy). Sweep, linter and report emitters not built |
+| Judge | ✅ **`glm-5.3` at `https://agentrouter.org/v1`** — verified with a real chat call, then two live trials. Distinct from the authoring model, as required |
 | Node / npm | ✅ `v24.18.0` / `12.0.2` |
 | Local Chrome | ✅ `152.0.7977.65` — **#268 not reproduced here.** With `#enable-webmcp-testing` on, `document.modelContext` is present and returns all 7 Airlock tools |
 | WebMCP CDP domain | ✅ Present on this build: commands `enable`, `disable`, `invokeTool`, `cancelInvocation`; events `toolsAdded`, `toolsRemoved`, `toolInvoked`, `toolResponded` |
@@ -36,7 +37,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** step 3 of §2 in `docs\getting-started.md` — one trial end to end. It needs a judge adapter and an OpenAI-compatible endpoint plus model, and the model must not be `deepseek v4 by agentrouter`, which authored the now-frozen utterance set.
+**Immediate next action:** step 4 of §2 in `docs\getting-started.md` — the full sweep. The single-trial path is proven, so what step 4 adds is repetition and aggregation: 7 × 20 × R trials plus the 20 controls, Wilson intervals, per-tool rollup, and the control false-positive rate reported separately from invocation rate. Two things to decide before spending tokens on it: R, and whether the sweep runs one tab per trial (correct, slow) or reuses a tab per tool (faster, contaminating).
 
 ---
 
@@ -465,3 +466,50 @@ The general rule behind #4 is worth more than the fix and is now enforced: **an 
 - 🟡 Judge endpoint and model for step 3 — OpenAI-compatible, and not the authoring model.
 - ⚠️ The harness must implement the `clear_highlights` seed protocol before that tool's rate means anything.
 - ⚠️ Unmeasured by design: privacy-mode payload differences, and multi-call sequences such as discover-then-filter.
+
+---
+
+## 2026-08-30 (early hours) — Step 3 done: a real trial, end to end, with a real judge
+
+`webmcp-gauge trial` runs one utterance against the live page and returns exactly one outcome from the taxonomy with the judge's raw response attached. Two live trials, both `ok`.
+
+**Judge: `glm-5.3` at `https://agentrouter.org/v1`**, chosen by the maintainer and distinct from the authoring model, which the CLI enforces rather than trusts — it refuses to run when `--judge` equals `fixture.authoring.modelId`. Verified before anything depended on it: a real chat completion returned `READY` in 1.9 s. Presence in a provider's model list would have proved nothing about quota or entitlement.
+
+**Trial 1 — `sum_by_category-05`**, "Give me the category totals and highlight Groceries in the table."
+
+- Manifest settled in 1046 ms, 7 tools, surface `[ontoolchange, executeTool, getTools, registerTool, constructor]`.
+- Judge selected `sum_by_category` with `{"highlight": "Groceries"}` — correct tool, correct argument. 5.9 s, 1099 prompt / 207 completion tokens, of which 187 were reasoning.
+- Execution returned all twelve category totals (Groceries 576,485.41 across 95 rows) and the page changed observably: `tbody.has-highlight`, note "Agent highlighted: Groceries: 95 rows", 870 rows dimmed.
+- Outcome **`ok`**.
+
+**Trial 2 — `clear_highlights-09`**, "Clear that — I want to ask about something else." This one exercises the seed protocol invented during the review pass, and it worked exactly as designed: the harness first applied `sum_by_category(highlight: "Transport")` as unscored setup (363 rows highlighted, 602 dimmed), the judge then chose `clear_highlights` with no arguments, and the observation went from `has-highlight` to empty. Outcome **`ok`**. Without the seed, that utterance would have had no referent and a reasonable refusal would have been recorded as a description failure.
+
+### The compatibility finding, which is the real product of the day
+
+`executeTool` on Chrome `152.0.7977.65` accepts **`executeTool(registeredTool, jsonString)`** — the first argument must be the object handed back by `getTools()`, the second a JSON *string*. Both documented guesses failed, with messages precise enough to be worth quoting:
+
+- `executeTool({name, arguments})` — the draft's shape from #246 — → *"Failed to execute 'executeTool' on 'ModelContext': 2 arguments required, but only 1 present."*
+- `executeTool(name, jsonString)` — the older shape → *"The provided value is not of type 'RegisteredTool'."*
+- `executeTool(registeredTool, args)` with an object second argument also failed; only the JSON string was accepted.
+
+Neither the draft nor the type surface verified against Chrome 151 describes this. `browser\webmcp.mjs` therefore tries four shapes in order and reports which one the build accepted, and every trial record carries the rejected attempts with their messages — that list is compatibility-matrix data, not debug noise. `docs\concept.md` §3 and the §7 troubleshooting table now both carry the measured signature instead of the inferred one.
+
+### Two bugs of my own, both found by running the thing
+
+- **Flag values were parsed as positionals.** Filtering argv for tokens not starting with `--` looks equivalent to parsing and is not: `--utterance sum_by_category-05` left the id as positional[0], which became the target URL, and Chrome answered *"Cannot navigate to invalid URL"*. Replaced with a single argv walk.
+- **A failed navigate killed the process.** The load-event waiter was created before `Page.navigate` was sent, so when the send rejected, the waiter's timeout fired later as an unhandled rejection and took the process down instead of surfacing the real error. Now the waiter is detached when the command itself fails.
+
+Both were mine, both surfaced within seconds of the first real run, and neither would have been visible from reading the code.
+
+### What the engine does and does not do
+
+- `core\taxonomy.mjs` decides one outcome per trial, and **refuses to guess `not_discovered`**: separating "the page never registered it" from "the browser never surfaced it" needs the browser's own view, so without `browserToolNames` the trial proceeds rather than inventing a diagnosis. 12 unit tests cover the buckets, including that `silent_fail` requires *both* an empty payload and an unchanged page, since a read-only tool legitimately changes no DOM.
+- Argument checking enforces everything the frozen fixture declares: exact `expectedArgs`, `requiredArgKeys` presence, `argConstraints` direction, `forbiddenArgKeys` absence, and rejection of keys absent from the tool's own `inputSchema`.
+- `judges\openai-compatible.mjs` does no retrying and no repair of malformed output. A judge that cannot follow the response contract is a measurement, not an error to paper over.
+- Key selection is deterministic and reported. The first implementation took whichever `QWEN_CUSTOM_API_KEY_*` variable enumerated first and silently grabbed an Anthropic-scoped key for an OpenAI endpoint — it worked, which is worse than failing. Candidates are now ranked by endpoint host with the OpenAI-scoped name preferred, and `keySource` appears in every trial record.
+
+### Still open
+- 🟡 Step 4, the full sweep: R repeats, Wilson intervals, per-tool rollup, controls scored separately. Decide R and whether each trial gets its own tab before spending tokens.
+- ⚠️ `not_discovered` stays unreachable until the sweep reads `WebMCP.toolsAdded` from the browser side. The domain exists on this build; the plumbing does not.
+- ⚠️ `browser\session.mjs` still leans on an already-running flagged Chrome. Launching and tearing down the browser is not automated, so a CI gate is not yet possible.
+- ⚠️ Trial outputs go to `artifacts\` (git-ignored). Report emitters — JSON, Markdown, badge — do not exist.

@@ -31,8 +31,8 @@ Append-only record of every change, decision, and verification in this project. 
 | Ground check (does Chrome 152 see WebMCP?) | ✅ **Answered 2026-08-30 — yes.** Gate 1 cleared; Chrome 152 is the reference client |
 | Documented paths | ✅ **Corrected 2026-08-30** in `README.md`-adjacent docs and this log's header: live tree is `D:\Projects\Hackthon-projects\` with `WebMCP\` (`airlock\`, `webmcp-challenge\`, `_spike\`) beside `webmcp-gauge\`. Pre-2026-08-30 log entries keep the old `Hackathon\` paths as frozen history |
 | Dependencies | ✅ `chrome-remote-interface@0.33.3` exact-pinned, lockfile committed-pending; `npm audit` → 0 vulnerabilities, 4 packages |
-| Utterance set | 🟡 **`1.1.0-draft`, revised in review 2026-08-30, still not frozen** — `fixtures\airlock.utterances.json`, 7 × 20 at a pinned 7/7/6 tag mix **plus 20 negative controls**, guarded by 20 passing validation tests. Blocked on review sign-off and on recording the authoring model id |
-| Git | ✅ Repo at `webmcp-gauge\` on `main`, `origin/main` at `2551fa4` (four commits: `9cf9de7`, `a8f0560`, `bafe6e0`, `2551fa4`) — the `1.1.0-draft` review revision and this entry are uncommitted |
+| Utterance set | 🟡 **`1.2.0-draft`, revised twice on 2026-08-30, still not frozen** — `fixtures\airlock.utterances.json`, 7 × 20 at a pinned 7/7/6 tag mix **plus 20 negative controls**, guarded by 22 passing validation tests. Blocked on review sign-off and on recording the authoring model id |
+| Git | ✅ Repo at `webmcp-gauge\` on `main`, tracking `origin/main`, pushed after every step. The head commit is not repeated here — it went stale twice in one evening; `git log -1` is authoritative, and each entry below names the commit it produced |
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
@@ -422,3 +422,25 @@ Also folded in while rebalancing, and worth flagging because it was not on the a
 - 🟡 The revision is uncommitted.
 - ⚠️ The harness must implement the seed-call protocol before any `clear_highlights` number is meaningful. Until then that tool's rate is not measurable, only guessable.
 - 🟡 Step 3 still needs the judge endpoint and model decision, which must differ from the authoring model.
+
+---
+
+## 2026-08-30 (night, later still) — Four measurement gaps closed; `1.2.0-draft`
+
+Read the seven blocks out line by line with the maintainer. That pass found no bad wording; it found four things the set could not measure, all approved and fixed. Validation is now **22 tests, 22 passing**, and the tag mix survived every edit at 7/7/6.
+
+**1. Argument over-reach was invisible.** All 34 argument cases tested whether a model passes the arguments it *should*; none tested whether it withholds one it was told not to use. `sum_by_category-18` is now "Category totals only, please — don't mark anything up in the table." with a new `forbiddenArgKeys: ["highlight"]`. A model that highlights anyway scores `bad_args`. A test asserts at least one such case exists, so the gap cannot silently reopen.
+
+**2. Nothing probed a documented boundary.** The `limit` cases were 3, 5, 10, 15 and 20 — all inside the tool's documented cap of 25. `top_expenses-04` is now "Show me the top fifty." with `requiredArgKeys: ["limit"]` and `argConstraints: { limit: { gte: 25 } }`. The tool clamps internally, so 25 or 50 are both right; silently shrinking the request to the default 5, or refusing, is not.
+
+**3. `monthly_trend-13` was accidentally dataset-dependent.** "Was August worse than July?" is unambiguous only because this file happens to span Sep 2025 – Aug 2026 and contains exactly one of each. Point the fixture at a two-year file and the utterance quietly becomes ambiguous while still looking fine. Now "Was August 2026 worse than July 2026?", with the reason recorded in the entry itself.
+
+**4. `filter_rows-14` was unanswerable at trial time.** It read "I want to see what the medical bills looked like" and expected `category: "Healthcare"` — but the tool manifest does not enumerate category names, and trials run fresh-context with the manifest only. A model has no way to learn the token `Healthcare`, so a correct refusal would have scored `bad_args`, and the fixture would have manufactured a failure out of its own private knowledge of the CSV. Now "I'm curious about the Healthcare side of things."
+
+The general rule behind #4 is worth more than the fix and is now enforced: **an utterance may only expect a `category` or `highlight` value that its own words supply.** A test checks every such expectation appears in the utterance text. That invariant would have caught this line before it was ever committed, and will catch the next one — including any the maintainer adds by hand.
+
+### Still open
+- 🟡 Sign-off, `authoring.modelId`, `reviewedBy`, then `frozen: true`.
+- 🟡 The `1.2.0-draft` fixes and this entry are uncommitted.
+- ⚠️ Unmeasured by design, and recorded so it is a choice rather than an oversight: privacy-mode behaviour (tools return different payloads with it on or off) gets no utterance, and multi-call sequences — discover then filter — are outside the one-utterance-one-trial protocol.
+- 🟡 Step 3 needs the judge endpoint and model decision.

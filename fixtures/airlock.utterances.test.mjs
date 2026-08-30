@@ -164,6 +164,36 @@ test('expected and required argument keys exist in the tool schema', () => {
   }
 });
 
+test('forbidden argument keys are real, exclusive, and at least one exists', () => {
+  let forbiddenCases = 0;
+  for (const { tool, id, forbiddenArgKeys, expectedArgs, requiredArgKeys } of allUtterances) {
+    if (forbiddenArgKeys === undefined) continue;
+    forbiddenCases += 1;
+    for (const key of forbiddenArgKeys) {
+      assert.ok(TOOL_ARG_KEYS[tool].includes(key), `${id} forbids unknown arg ${key} for ${tool}`);
+      assert.ok(!(key in (expectedArgs ?? {})), `${id} both expects and forbids ${key}`);
+      assert.ok(!(requiredArgKeys ?? []).includes(key), `${id} both requires and forbids ${key}`);
+    }
+  }
+  assert.ok(
+    forbiddenCases > 0,
+    'no utterance forbids an argument, so argument over-reach is never measured'
+  );
+});
+
+test('expected category and highlight values appear in the utterance itself', () => {
+  for (const { id, text, expectedArgs } of allUtterances) {
+    for (const key of ['category', 'highlight']) {
+      const value = expectedArgs?.[key];
+      if (value === undefined) continue;
+      assert.ok(
+        text.toLowerCase().includes(value.toLowerCase()),
+        `${id} expects ${key}="${value}" but never says it — the manifest does not enumerate category names, so this is unanswerable at trial time`
+      );
+    }
+  }
+});
+
 test('expected category values exist in the dataset', () => {
   for (const { id, expectedArgs } of allUtterances) {
     const category = expectedArgs?.category ?? expectedArgs?.highlight;

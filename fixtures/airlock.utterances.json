@@ -1,8 +1,8 @@
 {
-  "version": "1.1.0-draft",
+  "version": "1.2.0-draft",
   "frozen": false,
   "drafted": "2026-08-30",
-  "reviewStatus": "DRAFT — revised 2026-08-30 in a review pass with the maintainer. Still not frozen: authoring model id unrecorded, reviewer not recorded.",
+  "reviewStatus": "DRAFT — revised twice on 2026-08-30 with the maintainer: review pass (1.1.0) then four gap fixes (1.2.0). Still not frozen: authoring model id unrecorded, reviewer not recorded.",
   "authoring": {
     "writtenBy": "Assistant draft inside a Qwen Code session, 2026-08-30, revised the same day against maintainer-approved review findings. The exact model identity is not self-verifiable from inside the session; the operator must record it here before the first run.",
     "modelId": "UNRECORDED — fill this in",
@@ -41,7 +41,9 @@
     },
     "expectedArgs": "Argument values the phrasing pins down. Absent means a no-argument call is correct.",
     "requiredArgKeys": "Keys that must be present, where the value is a defensible judgement call rather than a single right answer.",
+    "forbiddenArgKeys": "Keys the utterance explicitly rules out. Passing one is over-reach and scores bad_args. Without at least one such case the set measures under-use of arguments but never over-use.",
     "argConstraints": "Direction checks for judgement-call arguments: { key: { gt | gte | lt | lte: number } }. Presence alone is not enough — 'be stricter' answered with a lower threshold is wrong in the way that matters, and a presence-only check would score it as correct. Any key here must also appear in requiredArgKeys.",
+    "categoryVocabularyRule": "An utterance may only expect a category or highlight value that its own words supply. The tool manifest does not enumerate category names, so at trial time — fresh context, manifest only — a model cannot know that 'medical bills' means the token 'Healthcare'. Expecting it would score a correct refusal as bad_args. Enforced by a test.",
     "setup": "State a tool's utterances presuppose. Trials run in fresh contexts, so an utterance like 'clear that' has no referent unless the harness creates one first.",
     "scoring": "expected tool + valid args = ok. Selecting another listed tool is wrong_tool even when a human might defend it; ambiguity that shows up as a low rate on a specific utterance is a finding about the tool descriptions, not a bug in this file.",
     "controlScoring": "For controls the taxonomy inverts: not_selected is the PASS, and any tool selection is the failure — reported as wrong_tool. Invocation rate and control false-positive rate are separate numbers and must never be pooled: a client that calls something for every utterance would otherwise look excellent."
@@ -118,7 +120,7 @@
         { "id": "sum_by_category-15", "text": "Which parts of my life are eating the budget?", "tag": "oblique" },
         { "id": "sum_by_category-16", "text": "Category totals — and can you highlight Subscriptions while you're at it.", "tag": "paraphrase", "expectedArgs": { "highlight": "Subscriptions" } },
         { "id": "sum_by_category-17", "text": "How is my spending distributed across categories?", "tag": "paraphrase" },
-        { "id": "sum_by_category-18", "text": "Totals by category, please.", "tag": "plain" },
+        { "id": "sum_by_category-18", "text": "Category totals only, please — don't mark anything up in the table.", "tag": "plain", "forbiddenArgKeys": ["highlight"], "note": "The only over-eager-argument case in the set: every other utterance tests whether a model passes the arguments it should, this one tests whether it withholds one it was told not to use." },
         { "id": "sum_by_category-19", "text": "Tell me the total for each category and shade the Dining rows in the table.", "tag": "plain", "expectedArgs": { "highlight": "Dining" } },
         { "id": "sum_by_category-20", "text": "What's the split of spend across the different categories?", "tag": "paraphrase" }
       ]
@@ -139,7 +141,7 @@
         { "id": "filter_rows-11", "text": "Just the Utilities charges between 2025-09-01 and 2026-02-28.", "tag": "plain", "expectedArgs": { "category": "Utilities", "from": "2025-09-01", "to": "2026-02-28" } },
         { "id": "filter_rows-12", "text": "Everything above 15000 in Transport.", "tag": "plain", "expectedArgs": { "category": "Transport", "min_amount": 15000 } },
         { "id": "filter_rows-13", "text": "What happened in the first week of September 2025?", "tag": "oblique", "expectedArgs": { "from": "2025-09-01", "to": "2025-09-07" } },
-        { "id": "filter_rows-14", "text": "I want to see what the medical bills looked like.", "tag": "oblique", "expectedArgs": { "category": "Healthcare" } },
+        { "id": "filter_rows-14", "text": "I'm curious about the Healthcare side of things.", "tag": "oblique", "expectedArgs": { "category": "Healthcare" }, "note": "Names the category token deliberately: the manifest does not enumerate category names, so an utterance saying 'medical bills' would be unanswerable without a prior discovery call and a correct refusal would score as bad_args." },
         { "id": "filter_rows-15", "text": "Small stuff only — nothing above 1000.", "tag": "oblique", "expectedArgs": { "max_amount": 1000 } },
         { "id": "filter_rows-16", "text": "Show the Education spending from 2026 onwards.", "tag": "paraphrase", "expectedArgs": { "category": "Education", "from": "2026-01-01" } },
         { "id": "filter_rows-17", "text": "April 2026 felt expensive — what actually went out that month?", "tag": "oblique", "expectedArgs": { "from": "2026-04-01", "to": "2026-04-30" } },
@@ -163,7 +165,7 @@
         { "id": "monthly_trend-10", "text": "Which months were unusually heavy?", "tag": "oblique" },
         { "id": "monthly_trend-11", "text": "Compare the months against each other.", "tag": "paraphrase" },
         { "id": "monthly_trend-12", "text": "Summarise the spending per month.", "tag": "plain" },
-        { "id": "monthly_trend-13", "text": "Was August worse than July?", "tag": "oblique" },
+        { "id": "monthly_trend-13", "text": "Was August 2026 worse than July 2026?", "tag": "oblique", "note": "Years stated explicitly: the current dataset happens to contain exactly one July and one August, so a bare 'was August worse than July' would silently become ambiguous the moment this fixture is pointed at a multi-year file." },
         { "id": "monthly_trend-14", "text": "Show me the seasonal pattern in my spending, if there is one.", "tag": "oblique" },
         { "id": "monthly_trend-15", "text": "How much per month, across the whole period?", "tag": "paraphrase" },
         { "id": "monthly_trend-16", "text": "What's my average spend per month, and which months beat it?", "tag": "paraphrase" },
@@ -204,7 +206,7 @@
         { "id": "top_expenses-01", "text": "What were my biggest single purchases?", "tag": "plain" },
         { "id": "top_expenses-02", "text": "Show me the top ten expenses.", "tag": "plain", "expectedArgs": { "limit": 10 } },
         { "id": "top_expenses-03", "text": "What's the largest single charge in here?", "tag": "paraphrase", "note": "No limit expectation: naming the largest out of a default page of rows is a correct answer, so pinning limit=1 would score a good response as bad_args." },
-        { "id": "top_expenses-04", "text": "Biggest expenses, please.", "tag": "plain" },
+        { "id": "top_expenses-04", "text": "Show me the top fifty.", "tag": "plain", "requiredArgKeys": ["limit"], "argConstraints": { "limit": { "gte": 25 } }, "note": "Over-cap case: the tool documents a cap of 25 and clamps internally, so passing 50 or 25 are both correct. What is wrong is silently shrinking the request to the 5 default, or refusing. Nothing else in the set probes behaviour at a documented boundary." },
         { "id": "top_expenses-05", "text": "Give me the three most expensive rows.", "tag": "plain", "expectedArgs": { "limit": 3 } },
         { "id": "top_expenses-06", "text": "Which individual transactions were the largest?", "tag": "paraphrase" },
         { "id": "top_expenses-07", "text": "Top spends?", "tag": "paraphrase" },

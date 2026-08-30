@@ -867,3 +867,19 @@ Two predictions worth stating plainly, because the first sweep falsified their s
 Six arms, sequential, one judge and one browser build: the degraded and clean manifests at 3 sessions × 1 repeat over all 160 utterances, and the four ablations at 3 sessions over only the tools they touch (`--tools`, `--no-controls`), which is 1,320 trials rather than the 2,240 a full cross would cost. The untouched tools already sit at the ceiling in both `1.0.0` arms, so spending trials on them again would buy nothing.
 
 Their numbers are the point of item 4 and are not in this commit.
+
+### Addendum, same night — the sweep hung, and nothing was watching
+
+The first attempt at those six arms **stalled for ninety minutes** on trial 160 of 160 of the degraded arm's first session: no error, no progress line, no exit. The cause was three unbounded waits, all of them mine:
+
+- `send()` in `browser\session.mjs` put a promise in a pending map and *never timed it out*. A CDP command that gets no reply left the caller waiting forever.
+- The HTTP calls to the browser's own endpoints — `/json/new` to open a tab, `/json/close` to close one — used `fetch` with no signal.
+- The websocket open had an `error` listener but no deadline, so a socket that neither opened nor errored hung too.
+
+Every one is now bounded by the session's existing 30 s `timeoutMs`, and above them `runSessionSweep` has a **per-trial deadline** (180 s by default, against an observed median under ten seconds). A trial that overruns is recorded as `trial_timeout` and retried by `--resume`, exactly like every other non-measurement. The abandoned work gets a bare `catch` because it settles later and an unhandled rejection would take the process down instead.
+
+Three tests cover the invariant: a promise that never settles rejects with `code: 'DEADLINE'`, work that finishes is untouched and a real error arrives as itself rather than as a timeout, and an abandoned trial that rejects afterwards cannot crash the run. 103 tests pass.
+
+Two lessons worth keeping. **A hang is the worst failure mode a long unattended run can have**, because it is indistinguishable from work in progress — the exit-code contract, the coverage diff and the failure log all assume the process eventually stops, and none of them fires while it sits there. And the durability fix earned itself back within the hour: the six failures accumulated before the stall (three `judge_truncated`, three `judge_unavailable`) were on disk and readable *during* the stall, where the old end-of-session append would have lost all six when the process was killed.
+
+The 153 trials the stalled attempt did measure are kept — the checkpoint is per trial, and `--resume` picks up from there.

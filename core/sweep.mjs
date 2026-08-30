@@ -19,6 +19,29 @@ import { dirname } from 'node:path';
 import { openSession } from '../browser/session.mjs';
 import { runTrial } from './trial.mjs';
 
+/**
+ * Bounds one trial. Every wait inside a trial is bounded on its own now, but a
+ * sweep is a long-running unattended thing and a stall is its worst failure mode:
+ * the run that produced this comment sat on trial 160 of 160 for ninety minutes,
+ * printing nothing, because a CDP command never answered and nothing was watching.
+ * A trial that overruns is recorded as a non-measurement and retried by --resume,
+ * which is what every other unmeasurable trial already does.
+ */
+const withDeadline = (promise, ms, label) => {
+  let timer;
+  const guard = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error(`${label} did not finish within ${ms}ms`);
+      error.code = 'DEADLINE';
+      reject(error);
+    }, ms);
+  });
+  return Promise.race([promise, guard]).finally(() => clearTimeout(timer));
+};
+
+/** Exported for tests: the deadline is the invariant, not an implementation detail. */
+export const __withDeadline = withDeadline;
+
 export const trialKey = (session, repeat, utteranceId) => `${session}:${repeat}:${utteranceId}`;
 
 /**
@@ -141,6 +164,12 @@ export const runSessionSweep = async ({
   port,
   checkpointPath,
   failureLogPath = null,
+  /**
+   * Generous on purpose: the judge alone may take 60s, and a trial is a navigation,
+   * a manifest settle, a judge call and an execution. The observed median is under
+   * ten seconds, so this catches stalls rather than slow work.
+   */
+  trialTimeoutMs = 180000,
   onProgress = () => {},
 }) => {
   const plan = buildPlan({ fixture, repeatsPerSession, tools, includeControls });
@@ -172,18 +201,30 @@ export const runSessionSweep = async ({
 
       let tab;
       try {
-        tab = await openSession({ port });
-        const record = await runTrial({
-          session: tab,
-          judge,
-          url,
-          toolName: item.toolName,
-          utterance: item.utterance,
-          expectation: item.kind === 'tool' ? item.utterance : {},
-          setup: item.setup,
-          fixtureVersion: fixture.version,
-          controlMode: item.kind === 'control',
-        });
+        // The work is started as its own promise so the deadline can stop *waiting*
+        // for it. Abandoned work still settles later, and its rejection must not
+        // reach the process as an unhandled one, hence the bare catch.
+        const attempt = (async () => {
+          tab = await openSession({ port });
+          return runTrial({
+            session: tab,
+            judge,
+            url,
+            toolName: item.toolName,
+            utterance: item.utterance,
+            expectation: item.kind === 'tool' ? item.utterance : {},
+            setup: item.setup,
+            fixtureVersion: fixture.version,
+            controlMode: item.kind === 'control',
+          });
+        })();
+        attempt.catch(() => {});
+
+        const record = await withDeadline(
+          attempt,
+          trialTimeoutMs,
+          `trial ${item.utterance.id} (session ${session}, repeat ${item.repeat})`
+        );
 
         if (record.outcome === null) {
           // The trial ran but produced no measurement - an unreachable or truncated
@@ -208,7 +249,7 @@ export const runSessionSweep = async ({
           session,
           repeat: item.repeat,
           utteranceId: item.utterance.id,
-          kind: 'trial_threw',
+          kind: error.code === 'DEADLINE' ? 'trial_timeout' : 'trial_threw',
           error: String(error.message ?? error),
         });
       } finally {

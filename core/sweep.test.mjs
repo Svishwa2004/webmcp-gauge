@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { appendFailures, buildPlan, readCheckpoint, readFailures, trialKey } from './sweep.mjs';
+import { appendFailures, buildPlan, readCheckpoint, readFailures, trialKey, __withDeadline as withDeadline } from './sweep.mjs';
 
 const withTempDir = async (body) => {
   const dir = await mkdtemp(join(tmpdir(), 'webmcp-gauge-sweep-'));
@@ -74,6 +74,50 @@ test('a malformed log line fails loudly rather than silently dropping a failure'
     await writeFile(path, '{"session":1,"repeat":1,"utteranceId":"a-01"}\nnot json\n', 'utf8');
     await assert.rejects(() => readFailures(path), SyntaxError);
   });
+});
+
+test('a trial that never settles is stopped waiting for, and says so with a code', async () => {
+  // The stall this exists to prevent: 90 minutes on one trial with no output, because
+  // a CDP command never answered. A deadline turns that into a non-measurement the
+  // sweep records and --resume retries.
+  const neverSettles = new Promise(() => {});
+  await assert.rejects(
+    () => withDeadline(neverSettles, 20, 'trial x-01'),
+    (error) => {
+      assert.equal(error.code, 'DEADLINE');
+      assert.match(error.message, /trial x-01 did not finish within 20ms/);
+      return true;
+    }
+  );
+});
+
+test('the deadline does not interfere with work that finishes, or with its errors', async () => {
+  assert.equal(await withDeadline(Promise.resolve('measured'), 1000, 'fast'), 'measured');
+
+  // A real failure must arrive as itself, not as a timeout: the sweep classifies
+  // trial_threw and trial_timeout differently and the distinction is diagnostic.
+  await assert.rejects(
+    () => withDeadline(Promise.reject(new Error('page threw')), 1000, 'failing'),
+    (error) => {
+      assert.equal(error.message, 'page threw');
+      assert.equal(error.code, undefined);
+      return true;
+    }
+  );
+});
+
+test('an abandoned trial that rejects later cannot crash the process', async () => {
+  // The worker attaches a bare catch to the attempt for exactly this reason: after
+  // the deadline wins, nothing is awaiting the original promise any more.
+  let failLater;
+  const attempt = new Promise((_, reject) => {
+    failLater = reject;
+  });
+  attempt.catch(() => {});
+
+  await assert.rejects(() => withDeadline(attempt, 10, 'trial y-02'));
+  failLater(new Error('CDP Runtime.evaluate did not answer within 30000ms'));
+  await new Promise((resolve) => setTimeout(resolve, 20));
 });
 
 test('the plan covers every utterance once per repeat, controls included', () => {

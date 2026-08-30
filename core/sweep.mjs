@@ -1,19 +1,25 @@
 /**
- * The sweep: every utterance, R times, one fresh tab per trial.
+ * One measurement session: every utterance, P repeats deep, one fresh tab per trial.
+ *
+ * A session owns its browser process and its cold profile, and runs in its own
+ * OS process, so nothing is shared with the sessions before or after it - not the
+ * page cache, not the renderer, not the judge's HTTP connection pool. That
+ * separation is the whole point: repeats inside a session are correlated by
+ * construction, and the first two sweeps reported their sigma as if it described
+ * reproducibility.
  *
  * A fresh tab per trial is the expensive choice and the correct one - reusing a
- * tab means trial N's highlighting is trial N+1's starting state, and the number
- * then measures the order of the utterance file.
+ * tab means trial N's highlighting is trial N+1's starting state.
  *
  * Every completed trial is appended to a JSONL checkpoint before the next one
- * starts, so a 480-trial run that dies at 300 loses nothing and resumes.
+ * starts, so a run that dies mid-session loses nothing and resumes.
  */
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { openSession } from '../browser/session.mjs';
 import { runTrial } from './trial.mjs';
 
-const trialKey = (repeat, utteranceId) => `${repeat}:${utteranceId}`;
+export const trialKey = (session, repeat, utteranceId) => `${session}:${repeat}:${utteranceId}`;
 
 export const readCheckpoint = async (path) => {
   try {
@@ -22,18 +28,26 @@ export const readCheckpoint = async (path) => {
       .split('\n')
       .filter((line) => line.trim().length > 0)
       .map((line) => JSON.parse(line));
-    return { records, keys: new Set(records.map((r) => trialKey(r.repeat, r.utteranceId))) };
+    return {
+      records,
+      keys: new Set(records.map((r) => trialKey(r.session ?? 1, r.repeat, r.utteranceId))),
+    };
   } catch (error) {
     if (error.code === 'ENOENT') return { records: [], keys: new Set() };
     throw error;
   }
 };
 
-/** Flattens the fixture into the trial plan, controls included, R repeats deep. */
-export const buildPlan = ({ fixture, repeats, tools = null, includeControls = true }) => {
+/** Flattens the fixture into one session's trial plan, controls included. */
+export const buildPlan = ({
+  fixture,
+  repeatsPerSession = 1,
+  tools = null,
+  includeControls = true,
+}) => {
   const plan = [];
 
-  for (let repeat = 1; repeat <= repeats; repeat += 1) {
+  for (let repeat = 1; repeat <= repeatsPerSession; repeat += 1) {
     for (const toolBlock of fixture.tools) {
       if (tools && !tools.includes(toolBlock.name)) continue;
       for (const utterance of toolBlock.utterances) {
@@ -57,7 +71,8 @@ export const buildPlan = ({ fixture, repeats, tools = null, includeControls = tr
   return plan;
 };
 
-const toCheckpointRecord = (item, record) => ({
+const toCheckpointRecord = ({ item, record, session, sessionMeta }) => ({
+  session,
   repeat: item.repeat,
   kind: item.kind,
   utteranceId: item.utterance.id,
@@ -73,19 +88,16 @@ const toCheckpointRecord = (item, record) => ({
   judge: record.judge,
   seed: record.seed ?? null,
   startedAt: record.trial.startedAt,
+  sessionMeta,
 });
 
-/**
- * Runs the plan with bounded concurrency. Tabs are independent documents, so
- * parallel trials do not share page state; what they do share is CPU and the
- * judge's rate limit, so the concurrency used is recorded in the report - settle
- * timings are not comparable across different values.
- */
-export const runSweep = async ({
+export const runSessionSweep = async ({
   fixture,
   judge,
   url,
-  repeats = 3,
+  session = 1,
+  sessionMeta = null,
+  repeatsPerSession = 1,
   tools = null,
   includeControls = true,
   concurrency = 1,
@@ -93,29 +105,31 @@ export const runSweep = async ({
   checkpointPath,
   onProgress = () => {},
 }) => {
-  const plan = buildPlan({ fixture, repeats, tools, includeControls });
-  const { records: existing, keys: done } = checkpointPath
+  const plan = buildPlan({ fixture, repeatsPerSession, tools, includeControls });
+  const { keys: done } = checkpointPath
     ? await readCheckpoint(checkpointPath)
-    : { records: [], keys: new Set() };
-  const pending = plan.filter((item) => !done.has(trialKey(item.repeat, item.utterance.id)));
+    : { keys: new Set() };
+  const pending = plan.filter(
+    (item) => !done.has(trialKey(session, item.repeat, item.utterance.id))
+  );
 
   if (checkpointPath) await mkdir(dirname(checkpointPath), { recursive: true });
 
-  const collected = [...existing];
+  const written = [];
   const failures = [];
   let completed = 0;
   let cursor = 0;
 
-  const worker = async (workerIndex) => {
+  const worker = async () => {
     while (cursor < pending.length) {
       const item = pending[cursor];
       cursor += 1;
 
-      let session;
+      let tab;
       try {
-        session = await openSession({ port });
+        tab = await openSession({ port });
         const record = await runTrial({
-          session,
+          session: tab,
           judge,
           url,
           toolName: item.toolName,
@@ -131,47 +145,44 @@ export const runSweep = async ({
           // judge says nothing about the page. It stays out of the checkpoint so a
           // later --resume retries it instead of baking a non-result into the rates.
           failures.push({
+            session,
             repeat: item.repeat,
             utteranceId: item.utterance.id,
             kind: record.harnessFailure?.kind ?? 'unknown',
             error: record.harnessFailure?.detail ?? 'no outcome and no reason given',
           });
         } else {
-          const checkpointRecord = toCheckpointRecord(item, record);
-          collected.push(checkpointRecord);
+          const checkpointRecord = toCheckpointRecord({ item, record, session, sessionMeta });
+          written.push(checkpointRecord);
           if (checkpointPath) {
             await appendFile(checkpointPath, `${JSON.stringify(checkpointRecord)}\n`, 'utf8');
           }
         }
       } catch (error) {
-        // A trial that could not be run is not an outcome: recording it as one
-        // would put harness failures inside the measurement.
         failures.push({
+          session,
           repeat: item.repeat,
           utteranceId: item.utterance.id,
           kind: 'trial_threw',
           error: String(error.message ?? error),
         });
       } finally {
-        if (session) await session.close().catch(() => {});
+        if (tab) await tab.close().catch(() => {});
       }
 
       completed += 1;
-      onProgress({ completed, total: pending.length, item, workerIndex, failures: failures.length });
+      onProgress({ completed, total: pending.length, item, session, failures: failures.length });
     }
   };
 
-  const startedAt = new Date().toISOString();
   const startedMs = Date.now();
-  await Promise.all(
-    Array.from({ length: Math.max(1, concurrency) }, (_, index) => worker(index))
-  );
+  await Promise.all(Array.from({ length: Math.max(1, concurrency) }, () => worker()));
 
   return {
-    records: collected,
+    session,
+    written,
     failures,
-    plan: { total: plan.length, alreadyDone: existing.length, attempted: pending.length },
-    timing: { startedAt, finishedAt: new Date().toISOString(), elapsedMs: Date.now() - startedMs },
-    settings: { repeats, concurrency, tools, includeControls, url, port: port ?? null },
+    plan: { total: plan.length, attempted: pending.length },
+    elapsedMs: Date.now() - startedMs,
   };
 };

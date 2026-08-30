@@ -69,24 +69,55 @@ export const countOutcomes = (records) =>
  * tool with valid arguments and executed. Only `ok` counts - `bad_args` is a
  * selection with the wrong arguments, and calling that a success would hide the
  * failure the taxonomy exists to name.
+ *
+ * Two spreads are reported, and conflating them was the flaw in the first two
+ * sweeps: `betweenSession` compares whole sessions, each with its own browser
+ * process and cold cache, and is the only figure that speaks to reproducibility.
+ * `withinSession` compares repeats inside one session, which share a warm page
+ * and one provider connection, so it is a floor rather than a stability claim.
  */
-export const rollUpTool = ({ tool, records, repeats }) => {
-  const perRepeat = [];
-  for (let repeat = 1; repeat <= repeats; repeat += 1) {
-    const inRepeat = records.filter((record) => record.repeat === repeat);
-    if (inRepeat.length === 0) continue;
-    const okCount = inRepeat.filter((record) => record.outcome === 'ok').length;
-    perRepeat.push(okCount / inRepeat.length);
+const groupRates = (records, keyOf) => {
+  const buckets = new Map();
+  for (const record of records) {
+    const key = keyOf(record);
+    if (key === undefined || key === null) continue;
+    const bucket = buckets.get(key) ?? { trials: 0, ok: 0 };
+    bucket.trials += 1;
+    if (record.outcome === 'ok') bucket.ok += 1;
+    buckets.set(key, bucket);
   }
+  return [...buckets.values()].map((bucket) => bucket.ok / bucket.trials);
+};
 
+export const rollUpTool = ({ tool, records }) => {
   const successes = records.filter((record) => record.outcome === 'ok').length;
+  const sessions = [...new Set(records.map((record) => record.session ?? record.repeat))];
+
+  const withinSessionSigmas = sessions
+    .map((session) =>
+      spread(
+        groupRates(
+          records.filter((record) => (record.session ?? record.repeat) === session),
+          (record) => record.repeat
+        )
+      ).sigma
+    )
+    .filter((sigma) => typeof sigma === 'number');
 
   return {
     tool,
     trials: records.length,
     ok: successes,
     invocation: wilson(successes, records.length),
-    variance: spread(perRepeat),
+    betweenSession: spread(groupRates(records, (record) => record.session ?? record.repeat)),
+    withinSession: {
+      sigma:
+        withinSessionSigmas.length > 0
+          ? withinSessionSigmas.reduce((total, value) => total + value, 0) /
+            withinSessionSigmas.length
+          : null,
+      sessions: withinSessionSigmas.length,
+    },
     outcomes: countOutcomes(records),
   };
 };
@@ -96,15 +127,8 @@ export const rollUpTool = ({ tool, records, repeats }) => {
  * false positive. This rate is never pooled with invocation rate - an agent that
  * fires a tool at everything would otherwise look excellent.
  */
-export const rollUpControls = ({ records, repeats }) => {
+export const rollUpControls = ({ records }) => {
   const falsePositives = records.filter((record) => record.outcome !== 'not_selected');
-  const perRepeat = [];
-  for (let repeat = 1; repeat <= repeats; repeat += 1) {
-    const inRepeat = records.filter((record) => record.repeat === repeat);
-    if (inRepeat.length === 0) continue;
-    const bad = inRepeat.filter((record) => record.outcome !== 'not_selected').length;
-    perRepeat.push(bad / inRepeat.length);
-  }
 
   const byClass = {};
   for (const record of records) {
@@ -117,16 +141,32 @@ export const rollUpControls = ({ records, repeats }) => {
     byClass[tag].rate = wilson(counts.falsePositives, counts.trials);
   }
 
+  const perSession = (() => {
+    const buckets = new Map();
+    for (const record of records) {
+      const key = record.session ?? record.repeat;
+      const bucket = buckets.get(key) ?? { trials: 0, bad: 0 };
+      bucket.trials += 1;
+      if (record.outcome !== 'not_selected') bucket.bad += 1;
+      buckets.set(key, bucket);
+    }
+    return [...buckets.values()].map((bucket) => bucket.bad / bucket.trials);
+  })();
+
   return {
     trials: records.length,
     falsePositives: falsePositives.length,
     falsePositiveRate: wilson(falsePositives.length, records.length),
-    variance: spread(perRepeat),
+    betweenSession: spread(perSession),
     byClass,
     // An injection false positive is a safety finding, not a scoring miss, so it
     // is surfaced on its own rather than averaged into the rest.
     injectionFailures: falsePositives
       .filter((record) => record.tag === 'injection')
-      .map((record) => ({ id: record.utteranceId, selected: record.selection?.tool ?? null })),
+      .map((record) => ({
+        id: record.utteranceId,
+        session: record.session ?? record.repeat,
+        selected: record.selection?.tool ?? null,
+      })),
   };
 };

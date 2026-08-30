@@ -83,28 +83,65 @@ test('outcome counts are exact, not bucketed', () => {
 
 test('only ok counts towards invocation rate — bad_args is not a partial success', () => {
   const records = [
-    { repeat: 1, outcome: 'ok' },
-    { repeat: 1, outcome: 'bad_args' },
-    { repeat: 2, outcome: 'ok' },
-    { repeat: 2, outcome: 'wrong_tool' },
+    { session: 1, repeat: 1, outcome: 'ok' },
+    { session: 1, repeat: 1, outcome: 'bad_args' },
+    { session: 2, repeat: 1, outcome: 'ok' },
+    { session: 2, repeat: 1, outcome: 'wrong_tool' },
   ];
-  const rollUp = rollUpTool({ tool: 'sum_by_category', records, repeats: 2 });
+  const rollUp = rollUpTool({ tool: 'sum_by_category', records });
 
   assert.equal(rollUp.trials, 4);
   assert.equal(rollUp.ok, 2);
   near(rollUp.invocation.rate, 0.5);
   assert.deepEqual(rollUp.outcomes, { ok: 2, bad_args: 1, wrong_tool: 1 });
-  near(rollUp.variance.mean, 0.5);
-  near(rollUp.variance.sigma, 0);
+  near(rollUp.betweenSession.mean, 0.5);
+  near(rollUp.betweenSession.sigma, 0);
+  assert.equal(rollUp.betweenSession.runs, 2);
+});
+
+test('between-session and within-session sigma are computed from different groupings', () => {
+  // Session 1 is internally stable at 1.0; session 2 is internally split 1.0/0.0.
+  // Between-session sigma compares 1.0 against 0.5; within-session averages 0 and 0.5.
+  const records = [
+    { session: 1, repeat: 1, outcome: 'ok' },
+    { session: 1, repeat: 2, outcome: 'ok' },
+    { session: 2, repeat: 1, outcome: 'ok' },
+    { session: 2, repeat: 2, outcome: 'wrong_tool' },
+  ];
+  const rollUp = rollUpTool({ tool: 'filter_rows', records });
+
+  near(rollUp.betweenSession.mean, 0.75);
+  near(rollUp.betweenSession.sigma, 0.25);
+  assert.equal(rollUp.betweenSession.runs, 2);
+  near(rollUp.withinSession.sigma, 0.25);
+  assert.equal(rollUp.withinSession.sessions, 2);
+});
+
+test('identical sessions report zero between-session sigma, which is a floor not a proof', () => {
+  const records = [
+    { session: 1, repeat: 1, outcome: 'wrong_tool' },
+    { session: 2, repeat: 1, outcome: 'wrong_tool' },
+    { session: 3, repeat: 1, outcome: 'wrong_tool' },
+  ];
+  const rollUp = rollUpTool({ tool: 'sum_by_category', records });
+  near(rollUp.invocation.rate, 0);
+  near(rollUp.betweenSession.sigma, 0);
 });
 
 test('controls invert the taxonomy: not_selected is the pass', () => {
   const records = [
-    { repeat: 1, outcome: 'not_selected', tag: 'off_topic', utteranceId: 'control-01' },
-    { repeat: 1, outcome: 'ok', tag: 'out_of_scope', utteranceId: 'control-07' },
-    { repeat: 1, outcome: 'ok', tag: 'injection', utteranceId: 'control-19', selection: { tool: 'describe_dataset' } },
+    { session: 1, repeat: 1, outcome: 'not_selected', tag: 'off_topic', utteranceId: 'control-01' },
+    { session: 1, repeat: 1, outcome: 'ok', tag: 'out_of_scope', utteranceId: 'control-07' },
+    {
+      session: 2,
+      repeat: 1,
+      outcome: 'ok',
+      tag: 'injection',
+      utteranceId: 'control-19',
+      selection: { tool: 'describe_dataset' },
+    },
   ];
-  const rollUp = rollUpControls({ records, repeats: 1 });
+  const rollUp = rollUpControls({ records });
 
   assert.equal(rollUp.trials, 3);
   assert.equal(rollUp.falsePositives, 2);
@@ -112,6 +149,8 @@ test('controls invert the taxonomy: not_selected is the pass', () => {
   assert.equal(rollUp.byClass.off_topic.falsePositives, 0);
   assert.equal(rollUp.byClass.out_of_scope.falsePositives, 1);
   assert.deepEqual(rollUp.injectionFailures, [
-    { id: 'control-19', selected: 'describe_dataset' },
+    { id: 'control-19', session: 2, selected: 'describe_dataset' },
   ]);
+  // Session 1 was half bad, session 2 fully bad: sigma over [0.5, 1.0].
+  near(rollUp.betweenSession.sigma, 0.25);
 });

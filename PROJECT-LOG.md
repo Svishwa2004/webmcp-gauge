@@ -21,9 +21,11 @@ Append-only record of every change, decision, and verification in this project. 
 | Plain-language explainer | ✅ `docs\explainer.md` |
 | Start guide + pipeline flow | ✅ `docs\getting-started.md` |
 | Publishing policy | ✅ **Decided** — private during judging, aggregate after; conflict of interest disclosed |
-| Code | ✅ **Sweep runs end to end** — `bin\webmcp-gauge.mjs` (`trial`, `run`), `core\{taxonomy,trial,sweep,stats}.mjs`, `browser\{session,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`. 44 tests pass. Linter and Mode B adapters not built |
+| Code | ✅ **Sweep runs end to end, sessions isolated** — `bin\webmcp-gauge.mjs` (`trial`, `run`, `session`), `core\{taxonomy,trial,sweep,orchestrate,stats}.mjs`, `browser\{launch,session,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`. 47 tests pass. Linter, badge and Mode B adapters not built |
+| Browser lifecycle | ✅ **Self-managed since 2026-08-30** — the harness seeds a cold profile with only the WebMCP flag and launches `--headless=new` Chrome per session on a free port, then tears it down. `--port` still attaches to a hand-started browser, and the report flags that sessions were not isolated |
 | First measurement | ✅ **Two full sweeps, 2026-08-30** — `1.3.0`: six tools at 100% [94.0%, 100.0%], `sum_by_category` 95.0%, controls 1/60 false positives, zero harness failures. Reports at `reports\airlock-1.3.0-glm-5.3-r3.md`, superseded `1.2.0` beside it |
-| σ caveat | ⚠️ Reported σ is **within-session**: repeats share a browser process, a warm cache and one provider session. Comparing the two sweeps exposed movement that σ=0.000 hid, so treat published σ as a floor rather than a stability claim |
+| σ reporting | ✅ **Split since 2026-08-30** — reports carry σ **between sessions** (separate processes, browsers, cold profiles: the reproducibility figure) and σ **within session** (repeats sharing a warm page and one provider connection: a floor). The `1.2.0` and `1.3.0` sweeps predate the split and published the within-session figure only |
+| Headless | ✅ Chrome `152.0.7977.65` exposes WebMCP under `--headless=new` with the seeded flag — so a CI gate is now possible, though the exit-code semantics still need work |
 | Judge | ✅ **`glm-5.3` at `https://agentrouter.org/v1`** — verified with a real chat call, then two live trials. Distinct from the authoring model, as required |
 | Node / npm | ✅ `v24.18.0` / `12.0.2` |
 | Local Chrome | ✅ `152.0.7977.65` — **#268 not reproduced here.** With `#enable-webmcp-testing` on, `document.modelContext` is present and returns all 7 Airlock tools |
@@ -39,7 +41,25 @@ Append-only record of every change, decision, and verification in this project. 
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** two candidates, in this order. (1) **Between-session repeats** — the variance gate passed on within-session σ, and comparing the two sweeps showed that σ=0.000 hid an utterance flipping 2/3 → 3/3 wrong and a control flipping 0 → 1. Until R spans separate browser launches and provider sessions, no σ this harness prints is a stability claim. (2) **Step 6, the L0 linter** with a deliberately broken fixture page, which is what turns "the harness is sound" into "the metric discriminates". Also queued, and blocked on Gate 4: reporting `sum_by_category-12` to the subject as a description weakness.
+**Immediate next action:** the session-isolated sweep (3 sessions × 2 repeats, 960 trials) is running; when it lands, compare σ between sessions against σ within session — that comparison is the first honest reproducibility figure this project has, and it decides whether Gate 2 stands.
+
+## What to do next, in order
+
+Ordered by what unblocks the most, with the condition that closes each one. Anything marked 🚦 needs an explicit go-ahead before it happens.
+
+| # | Next step | Done when |
+|---|---|---|
+| 1 | **Close the session-isolated sweep.** Read σ between sessions against σ within session, and re-mark Gate 2 on the honest figure | A report exists with both σ columns populated, and Gate 2 in `docs\getting-started.md` says "passed", "passed with caveat" or "failed" on the between-session number rather than the within-session one |
+| 2 | **Fix exit codes for CI.** Today any harness failure exits 1, so an incomplete run and a failed threshold are indistinguishable. Split them: `0` complete, `2` incomplete measurement, `1` reserved for a rate below `--fail-under` | `run --fail-under 0.9` exits 1 on a breach, 0 on a pass, 2 when trials could not be measured — with a test for each |
+| 3 | **Step 6 — the L0 linter and a deliberately broken fixture page.** This is the discrimination proof: every number so far comes from a page chosen for being good | The linter flags each documented failure mode (invalid names, colliding descriptions, over-parameterised schemas, budget headroom) on the broken fixture, **and** a sweep against that page reports a materially lower invocation rate than Airlock. If it does not, the metric does not discriminate and that finding is the deliverable |
+| 4 | **Make `not_discovered` reachable.** Subscribe to `WebMCP.toolsAdded` / `toolsRemoved` and pass the browser's own tool list into classification | A page that registers a tool the browser never surfaces classifies as `not_discovered` rather than `not_registered` — likely needs a synthetic fixture, since Airlock has never shown the gap |
+| 5 | **Time-spaced sessions.** `--gap` exists but has never been used; back-to-back sessions measure process independence, not drift | A run whose sessions are hours or days apart, with its between-session σ compared against a back-to-back run of the same shape |
+| 6 | 🚦 **Report `sum_by_category-12` to Airlock's author** as a description weakness, with the six-trial evidence and the observation that `sum_by_category-02` passes every time | Sent, on an explicit go-ahead (Gate 4), and the response recorded here |
+| 7 | 🚦 **Decide where the raw dataset lives.** The 1.4 MB JSONL per run is the evidence behind every number and currently stays local; code is MIT, and data meant to be cited usually wants CC BY 4.0 | A decision recorded here: in-repo, separate dataset repo, or aggregate-only — with the licence named |
+| 8 | **Step 7 — Mode B adapters.** Spike whether the ChatGPT desktop in-app browser can be driven at all; it is still the highest-priority unknown, and it decides whether that column is automated or sampled | Either a driven trial against a real client, or a recorded negative result that fixes the sampling design |
+| 9 | **Badge and Action wrappers**, once 2 and 3 are done and a threshold means something | `webmcp-gauge run` emits a badge, and a GitHub Action runs it on a sample repo |
+
+Deliberately deferred, and recorded so they are choices rather than oversights: privacy-mode payload differences get no utterance; multi-call sequences (discover then filter) are outside the one-utterance-one-trial protocol; control classes are too small for a safety claim (injection is 0 of 6, `[0.0%, 39.0%]`); and `cdp-eval.mjs` still exits `-1073740791` on Windows after printing valid JSON, which is tolerable for probing and not for a gate.
 
 ---
 
@@ -607,3 +627,33 @@ This is the over-eagerness the controls were added to catch: nothing in the mani
 - ⚠️ Discrimination still unproven: every tool but one reads 100% on a page chosen for being good. Step 6's deliberately broken fixture is what tests whether the metric can tell good from bad.
 - ⚠️ Control classes remain too small for safety claims: injection is 0 of 6, `[0.0%, 39.0%]`.
 - ⚠️ No browser lifecycle management, so no CI gate; `not_discovered` still unreachable without the browser-side tool list.
+
+---
+
+## 2026-08-30 (midday) — Sessions are now real: own process, own browser, cold profile
+
+The variance problem is fixed at the level it was broken. A "repeat" used to mean another pass inside the same process against the same warm browser; a **session** now means its own OS process, its own Chrome, and a profile created seconds earlier.
+
+**The enabling discovery, measured rather than assumed:** a brand-new `user-data-dir` containing nothing but
+
+```json
+{"browser":{"enabled_labs_experiments":["enable-webmcp-testing@1"]}}
+```
+
+is enough for Chrome `152.0.7977.65` to expose `document.modelContext` — **and it works in `--headless=new`**. Verified by probe: 7 tools, settled in 1035 ms, `HeadlessChrome/152.0.0.0`. No copied profile, no flag UI, no browser started by hand. Two items came off the open list at once: sessions can have genuinely cold caches, and **a CI gate is possible**, because headless Chrome sees WebMCP.
+
+**Why a child process per session, and not just a fresh browser.** Node pools HTTP connections per process, so sessions inside one process reuse keep-alive sockets to the judge — a session that talks to the provider over the same socket as the last one is not independent in the way a reproducibility claim needs. `run` is now an orchestrator that spawns `session` children; each child launches its own Chrome, runs the plan, appends to the shared checkpoint, and exits. Crash isolation comes free: a session that dies takes only its own trials with it.
+
+**Two spreads, never merged.** `core/stats.mjs` now reports `betweenSession` (rates compared across sessions) and `withinSession` (mean of per-session repeat spreads). The report prints both columns with a sentence saying the second is a floor, and carries a new **"What a session does not isolate"** section naming the shared machine, the shared network path, uncontrolled provider-side state, and the fact that back-to-back sessions are not day-to-day drift. That belongs in the artifact, not a commit message: the person who needs it is reading the number a month from now.
+
+**The launch bug, which was mine and cost the first smoke run.** `--user-data-dir` was passed as a relative path, so Chrome started against a directory that was not the one seeded with the flag and never opened its debugging port. The only symptom was `Chrome did not expose DevTools on 9845 within 30000ms (fetch failed)` — a timeout that says nothing about the cause, because `stdio: 'ignore'` was swallowing Chrome's own stderr. Fixed two ways: the path is resolved to absolute, and `WEBMCP_GAUGE_CHROME_LOG=1` passes Chrome's stderr through. Both are now documented in §1.1, including the trap itself.
+
+**Smoke test — 2 sessions × 2 repeats, `top_expenses` only:** 78 of 78 `ok`, and the isolation is visible in the data rather than asserted. Session 1 ran on port 8077 (pid 27548), session 2 on port 10899 (pid 28532), each with its own profile directory, both recorded per trial and printed in the report's browser table. Two trials produced no measurement and were excluded: one `judge_unavailable` (fetch failed) and one **`trial_threw` — "timed out waiting for `Page.loadEventFired`"**, which is the first non-result contributed by the browser rather than the judge. The separation held: neither touched a rate.
+
+⚠️ **Exit-code semantics need revisiting before this is a CI gate.** The CLI exits 1 whenever any harness failure occurred, so a run that measured everything it could still reports failure. That is the right instinct — an incomplete measurement should not look clean — but a gate wants "exit 1 means the rate fell below threshold", not "two trials need a `--resume`". Noted, not changed.
+
+### Still open
+- 🟡 The full session-isolated sweep (3 sessions × 2 repeats, 960 trials) is running; its numbers are the point of this work and are not in yet.
+- ⚠️ Sessions are back-to-back. `--gap` exists but was not used, so this measures process and browser independence, not drift across hours or days.
+- ⚠️ Exit codes, as above.
+- ⚠️ Discrimination still unproven until step 6's deliberately broken fixture; `not_discovered` still unreachable without the browser-side tool list.

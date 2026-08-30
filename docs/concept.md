@@ -124,15 +124,16 @@ The taxonomy is the product. A single pass/fail tells a developer nothing; `not_
 K is small and outcomes are binomial, so a bare percentage is not defensible. Every reported rate carries:
 
 - a **95% Wilson score interval** (correct for small-*n* proportions, unlike the normal approximation),
-- **R repeated runs** with the observed spread, because agent behaviour is non-deterministic,
+- **two spreads, never merged** — σ **between sessions**, where each session is a separate OS process with its own browser and cold profile, and σ **within session**, where repeats share a warm page and one provider connection. Only the first speaks to reproducibility; the second is a floor. Conflating them is not a hypothetical: this project's first two sweeps reported the within-session figure, and a tool showed σ 0.000 while failing every repeat of one utterance, because identical failures collapse the spread to zero,
 - the **judge model identifier and version**, because invocation rate is a property of *(page, client, model)* and not of the page alone,
-- the **client build string** (browser version, OT token state, flag state).
+- the **client build string** (browser version, OT token state, flag state), and what a session did *not* isolate — shared machine, shared network path, uncontrolled provider-side state, and whether sessions were spaced in time at all.
 
 A report line reads:
 
 ```
 summarise_spending   Chrome 153 / gemini-3-flash-preview
-  invocation 0.35  95% CI [0.19, 0.55]  K=20 R=3 σ=0.04
+  invocation 0.35  95% CI [0.19, 0.55]  K=20  sessions=3 x repeats=2
+  σ between sessions 0.04   σ within session 0.01
   not_selected 11  bad_args 2  ok 7
 ```
 
@@ -199,7 +200,7 @@ webmcp-gauge/
 
 **Mechanics, grounded in what already works locally** (see [Appendix B](#appendix-b-local-assets-already-in-hand)):
 
-1. Launch Chrome with a dedicated profile and `--remote-debugging-port`, WebMCP enabled by flag or OT token. A clean baseline profile already exists at `_spike/chrome-baseline`.
+1. Launch Chrome with a dedicated profile and `--remote-debugging-port`, WebMCP enabled by flag or OT token. **Measured 2026-08-30:** a brand-new `user-data-dir` whose `Local State` contains only `{"browser":{"enabled_labs_experiments":["enable-webmcp-testing@1"]}}` is sufficient, and it works under `--headless=new` — so the harness launches and tears down its own browser per session, every session gets a cold cache, and a CI gate is possible. A clean baseline profile also exists at `_spike/chrome-baseline` for interactive probing.
 2. `WebMCP.enable` and the `toolsAdded` event give discovery ground truth straight from the browser, independent of any page instrumentation.
 3. `Runtime.evaluate` drives `document.modelContext.getTools()` and `executeTool()` — **note the live signature divergence, now measured rather than inferred (2026-08-30, Chrome `152.0.7977.65`)**: `getTools()` resolves a `Promise`, so every read must be awaited, and `executeTool` accepts **`executeTool(registeredTool, jsonString)`** — the object handed back by `getTools()` plus a JSON *string*. The draft's `{name, arguments}` object (#246, 2026-08-17) is rejected with "2 arguments required, but only 1 present", and passing the tool's name as a string is rejected with "The provided value is not of type 'RegisteredTool'". Neither the draft nor the type surface verified against Chrome 151 describes this shape. This is compatibility-matrix row one, and it was available on day one.
 4. The judge adapter receives the manifest plus one utterance and returns a tool choice with arguments. Swapping judges must be a flag, never a rewrite — the metric is model-relative, so pinning and reporting the judge is mandatory.

@@ -44,9 +44,21 @@ The procedure below stays because it is not a one-off: re-run it on every Chrome
 
 ### 1.1 Launch a flagged Chrome on the throwaway profile
 
+**As of 2026-08-30 you no longer have to do this by hand for a sweep.** `webmcp-gauge run` launches its own browser per session: a brand-new profile whose `Local State` contains nothing but
+
+```json
+{"browser":{"enabled_labs_experiments":["enable-webmcp-testing@1"]}}
+```
+
+which is enough for Chrome 152 to expose `document.modelContext`, and it works in `--headless=new` — measured, not assumed. That gives every session a genuinely cold cache, and it means a CI gate is possible. Set `WEBMCP_GAUGE_CHROME_LOG=1` to see Chrome's own stderr when a launch fails; without it a bad launch looks like nothing but a DevTools timeout.
+
+The manual route below is still what you want for interactive probing, and `--port` attaches the harness to a browser you started yourself — at the cost of sessions sharing a process and a page cache, which the report then flags.
+
 ```
 "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9333 --user-data-dir="D:\Projects\Hackthon-projects\WebMCP\_spike\chrome-baseline" --no-first-run --no-default-browser-check about:blank
 ```
+
+⚠️ If you pass a **relative** `--user-data-dir`, Chrome may start against a different directory than the one you seeded and never open the debugging port. The only symptom is a timeout; the harness resolves the path to an absolute one for exactly this reason.
 
 Port **9333**, not 9222: on this machine an unrelated Chrome listens on 9222 and answers `404` on `/json/version`, so it looks alive to a port check and is useless as a debug target. Confirm whichever port you pick actually answers before blaming the page:
 
@@ -142,10 +154,12 @@ Step 2 has one rule that cannot be bent: **the model that writes the utterances 
 This is the pipeline the whole product is built around. Every stage maps to something that already exists or is a thin wrapper on it.
 
 ```
-launch → attach → load → wait → capture manifest → select → classify → execute → classify → reset → aggregate
+session → launch → attach → load → wait → capture manifest → select → classify → execute → classify → reset → aggregate
 ```
 
-1. **Launch** — flagged Chrome, throwaway profile, `--remote-debugging-port=<a port you verified answers /json/version>` (9333 here; 9222 is taken on this machine).
+0. **Session** — the outer loop, and the one that took two sweeps to get right. A session is one OS process, one browser, one cold profile: `webmcp-gauge run --sessions 3` spawns three `session` children, each launching its own Chrome from a fresh `user-data-dir`. Repeats *inside* a session share a warm page, a renderer and one judge connection pool, so their σ describes session stability; only σ **between** sessions speaks to reproducibility. The report prints both and never merges them.
+
+1. **Launch** — the harness seeds a cold profile with the WebMCP flag and starts `--headless=new` Chrome on a free port, per session. `--port` attaches to a browser you started instead, and the report then records that sessions were not isolated.
 2. **Attach** — fresh tab via `PUT /json/new`, then `Page.enable`, `Runtime.enable`, `WebMCP.enable`. *(Pattern: `cdp-eval.mjs`.)*
 3. **Load** — navigate, wait for `Page.loadEventFired`.
 4. **Wait for registration** — `getTools()` returns a **Promise** on Chrome 152, so await it, and wait for the returned set to *stop changing* rather than to be non-empty: a mid-registration read against Airlock returned 3 of 7 tools with no error. Prefer the `WebMCP.toolsAdded` / `toolsRemoved` events over polling. Treating "not yet" as "not registered" is the easiest way to produce a wrong number.

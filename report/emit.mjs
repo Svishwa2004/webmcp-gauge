@@ -28,6 +28,7 @@ export const buildReport = ({
   fixture,
   records,
   harnessFailures = [],
+  recoveredFailures = 0,
   judge,
   settings,
   sessionResults = [],
@@ -104,6 +105,7 @@ export const buildReport = ({
     },
     controls: controlRecords.length > 0 ? rollUpControls({ records: controlRecords }) : null,
     harnessFailures,
+    recoveredFailures,
     sessionResults,
     timing,
   };
@@ -199,13 +201,23 @@ export const toMarkdown = (report) => {
     lines.push('');
   }
 
-  if (report.harnessFailures.length > 0) {
+  if (report.harnessFailures.length > 0 || report.recoveredFailures > 0) {
     lines.push('## Harness failures');
     lines.push('');
     lines.push(
-      'Trials that produced no measurement at all — an unreachable or truncated judge says nothing about the page. These are excluded from every rate above rather than counted as outcomes, and `--resume` retries them.'
+      'Trials that produced no measurement at all — an unreachable or truncated judge, or a page that never loaded, says nothing about the page under test. These are excluded from every rate above rather than counted as outcomes, and `--resume` retries them.'
     );
     lines.push('');
+    if (report.recoveredFailures > 0) {
+      lines.push(
+        `**${report.recoveredFailures} earlier failure${report.recoveredFailures === 1 ? '' : 's'} recovered by \`--resume\`** and are counted in the rates above.`
+      );
+      lines.push('');
+    }
+    if (report.harnessFailures.length === 0) {
+      lines.push('No outstanding gaps: every planned trial has a measurement.');
+      lines.push('');
+    }
     for (const failure of report.harnessFailures) {
       lines.push(
         `- \`${failure.utteranceId}\` (session ${failure.session ?? '?'}, repeat ${failure.repeat}, ${failure.kind ?? 'unknown'}): ${failure.error}`

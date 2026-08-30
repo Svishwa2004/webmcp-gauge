@@ -1,0 +1,355 @@
+{
+  "schema": "webmcp-gauge/report/2",
+  "generatedAt": "2026-08-30T06:43:59.534Z",
+  "subject": {
+    "url": "https://airlock-app.netlify.app",
+    "name": "airlock"
+  },
+  "stamps": {
+    "utteranceSet": {
+      "version": "1.3.0",
+      "frozen": true,
+      "authoringModel": "deepseek v4 by agentrouter"
+    },
+    "judge": {
+      "model": "glm-5.3",
+      "baseUrl": "https://agentrouter.org/v1",
+      "requested": "glm-5.3"
+    },
+    "harness": {
+      "sessions": 3,
+      "repeatsPerSession": 2,
+      "concurrency": 1,
+      "gapSeconds": 0,
+      "isolatedSessions": true
+    },
+    "browsers": [
+      {
+        "session": 1,
+        "isolated": true,
+        "browserPid": 9076,
+        "port": "10792",
+        "build": "Chrome/152.0.7977.65",
+        "headless": true,
+        "profileDir": "D:\\Projects\\Hackthon-projects\\webmcp-gauge\\artifacts\\sweep-sessions\\sessions\\session-1",
+        "startedAt": "2026-08-30T06:09:30.699Z"
+      },
+      {
+        "session": 2,
+        "isolated": true,
+        "browserPid": 16236,
+        "port": "12236",
+        "build": "Chrome/152.0.7977.65",
+        "headless": true,
+        "profileDir": "D:\\Projects\\Hackthon-projects\\webmcp-gauge\\artifacts\\sweep-sessions\\sessions\\session-2",
+        "startedAt": "2026-08-30T06:18:51.264Z"
+      },
+      {
+        "session": 3,
+        "isolated": true,
+        "browserPid": 2024,
+        "port": "3087",
+        "build": "Chrome/152.0.7977.65",
+        "headless": true,
+        "profileDir": "D:\\Projects\\Hackthon-projects\\webmcp-gauge\\artifacts\\sweep-sessions\\sessions\\session-3",
+        "startedAt": "2026-08-30T06:29:25.066Z"
+      }
+    ]
+  },
+  "isolationCaveats": [
+    "Sessions share the machine, the OS network stack and the route to the provider.",
+    "Provider-side state (routing, caches, rate-limit counters, model version behind a slug) is not controlled.",
+    "Sessions ran back to back, so this measures process and browser independence, not day-to-day drift.",
+    "Each session ran in its own OS process with its own browser and a cold profile, so no HTTP connection pool, renderer or page cache was shared."
+  ],
+  "invocation": {
+    "overall": {
+      "trials": 840,
+      "ok": 832
+    },
+    "perTool": [
+      {
+        "tool": "describe_dataset",
+        "trials": 120,
+        "ok": 120,
+        "invocation": {
+          "rate": 1,
+          "low": 0.9689808335812966,
+          "high": 1,
+          "n": 120,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 1,
+          "sigma": 0,
+          "min": 1,
+          "max": 1,
+          "runs": 3
+        },
+        "withinSession": {
+          "sigma": 0,
+          "sessions": 3
+        },
+        "outcomes": {
+          "ok": 120
+        }
+      },
+      {
+        "tool": "sum_by_category",
+        "trials": 120,
+        "ok": 113,
+        "invocation": {
+          "rate": 0.9416666666666667,
+          "low": 0.8844740796636988,
+          "high": 0.9714589899997798,
+          "n": 120,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 0.9416666666666668,
+          "sigma": 0.01178511301977575,
+          "min": 0.925,
+          "max": 0.95,
+          "runs": 3
+        },
+        "withinSession": {
+          "sigma": 0.008333333333333323,
+          "sessions": 3
+        },
+        "outcomes": {
+          "ok": 113,
+          "wrong_tool": 7
+        }
+      },
+      {
+        "tool": "filter_rows",
+        "trials": 120,
+        "ok": 119,
+        "invocation": {
+          "rate": 0.9916666666666667,
+          "low": 0.9543037087549504,
+          "high": 0.9985274442666578,
+          "n": 120,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 0.9916666666666667,
+          "sigma": 0.011785113019775804,
+          "min": 0.975,
+          "max": 1,
+          "runs": 3
+        },
+        "withinSession": {
+          "sigma": 0.00833333333333334,
+          "sessions": 3
+        },
+        "outcomes": {
+          "ok": 119,
+          "wrong_tool": 1
+        }
+      },
+      {
+        "tool": "monthly_trend",
+        "trials": 120,
+        "ok": 120,
+        "invocation": {
+          "rate": 1,
+          "low": 0.9689808335812966,
+          "high": 1,
+          "n": 120,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 1,
+          "sigma": 0,
+          "min": 1,
+          "max": 1,
+          "runs": 3
+        },
+        "withinSession": {
+          "sigma": 0,
+          "sessions": 3
+        },
+        "outcomes": {
+          "ok": 120
+        }
+      },
+      {
+        "tool": "find_anomalies",
+        "trials": 120,
+        "ok": 120,
+        "invocation": {
+          "rate": 1,
+          "low": 0.9689808335812966,
+          "high": 1,
+          "n": 120,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 1,
+          "sigma": 0,
+          "min": 1,
+          "max": 1,
+          "runs": 3
+        },
+        "withinSession": {
+          "sigma": 0,
+          "sessions": 3
+        },
+        "outcomes": {
+          "ok": 120
+        }
+      },
+      {
+        "tool": "top_expenses",
+        "trials": 120,
+        "ok": 120,
+        "invocation": {
+          "rate": 1,
+          "low": 0.9689808335812966,
+          "high": 1,
+          "n": 120,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 1,
+          "sigma": 0,
+          "min": 1,
+          "max": 1,
+          "runs": 3
+        },
+        "withinSession": {
+          "sigma": 0,
+          "sessions": 3
+        },
+        "outcomes": {
+          "ok": 120
+        }
+      },
+      {
+        "tool": "clear_highlights",
+        "trials": 120,
+        "ok": 120,
+        "invocation": {
+          "rate": 1,
+          "low": 0.9689808335812966,
+          "high": 1,
+          "n": 120,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 1,
+          "sigma": 0,
+          "min": 1,
+          "max": 1,
+          "runs": 3
+        },
+        "withinSession": {
+          "sigma": 0,
+          "sessions": 3
+        },
+        "outcomes": {
+          "ok": 120
+        }
+      }
+    ],
+    "perTag": {
+      "plain": {
+        "trials": 294,
+        "ok": 294,
+        "rate": 1
+      },
+      "paraphrase": {
+        "trials": 294,
+        "ok": 294,
+        "rate": 1
+      },
+      "oblique": {
+        "trials": 252,
+        "ok": 244,
+        "rate": 0.9682539682539683
+      }
+    }
+  },
+  "controls": {
+    "trials": 120,
+    "falsePositives": 0,
+    "falsePositiveRate": {
+      "rate": 0,
+      "low": 0,
+      "high": 0.031019166418703486,
+      "n": 120,
+      "z": 1.959963984540054
+    },
+    "betweenSession": {
+      "mean": 0,
+      "sigma": 0,
+      "min": 0,
+      "max": 0,
+      "runs": 3
+    },
+    "byClass": {
+      "off_topic": {
+        "trials": 30,
+        "falsePositives": 0,
+        "rate": {
+          "rate": 0,
+          "low": 0,
+          "high": 0.11351339317396876,
+          "n": 30,
+          "z": 1.959963984540054
+        }
+      },
+      "out_of_scope": {
+        "trials": 78,
+        "falsePositives": 0,
+        "rate": {
+          "rate": 0,
+          "low": 0,
+          "high": 0.04693780971219429,
+          "n": 78,
+          "z": 1.959963984540054
+        }
+      },
+      "injection": {
+        "trials": 12,
+        "falsePositives": 0,
+        "rate": {
+          "rate": 0,
+          "low": 2.1025014877572554e-17,
+          "high": 0.24249400665524087,
+          "n": 12,
+          "z": 1.959963984540054
+        }
+      }
+    },
+    "injectionFailures": []
+  },
+  "harnessFailures": [],
+  "recoveredFailures": 10,
+  "sessionResults": [
+    {
+      "session": 1,
+      "code": 0,
+      "error": null,
+      "elapsedMs": 1591
+    },
+    {
+      "session": 2,
+      "code": 0,
+      "error": null,
+      "elapsedMs": 1517
+    },
+    {
+      "session": 3,
+      "code": 0,
+      "error": null,
+      "elapsedMs": 1474
+    }
+  ],
+  "timing": {
+    "startedAt": "2026-08-30T06:43:54.920Z",
+    "finishedAt": "2026-08-30T06:43:59.531Z",
+    "elapsedMs": 4608
+  }
+}

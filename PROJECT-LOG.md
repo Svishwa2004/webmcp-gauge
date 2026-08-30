@@ -23,8 +23,8 @@ Append-only record of every change, decision, and verification in this project. 
 | Publishing policy | ✅ **Decided** — private during judging, aggregate after; conflict of interest disclosed |
 | Code | ✅ **Sweep runs end to end, sessions isolated** — `bin\webmcp-gauge.mjs` (`trial`, `run`, `session`), `core\{taxonomy,trial,sweep,orchestrate,stats}.mjs`, `browser\{launch,session,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`. 47 tests pass. Linter, badge and Mode B adapters not built |
 | Browser lifecycle | ✅ **Self-managed since 2026-08-30** — the harness seeds a cold profile with only the WebMCP flag and launches `--headless=new` Chrome per session on a free port, then tears it down. `--port` still attaches to a hand-started browser, and the report flags that sessions were not isolated |
-| First measurement | ✅ **Two full sweeps, 2026-08-30** — `1.3.0`: six tools at 100% [94.0%, 100.0%], `sum_by_category` 95.0%, controls 1/60 false positives, zero harness failures. Reports at `reports\airlock-1.3.0-glm-5.3-r3.md`, superseded `1.2.0` beside it |
-| σ reporting | ✅ **Split since 2026-08-30** — reports carry σ **between sessions** (separate processes, browsers, cold profiles: the reproducibility figure) and σ **within session** (repeats sharing a warm page and one provider connection: a floor). The `1.2.0` and `1.3.0` sweeps predate the split and published the within-session figure only |
+| First measurement | ✅ **Three sweeps, 2026-08-30** — best isolated: **960 trials**, 3 sessions × 2 repeats, five tools at 100% [96.9%, 100.0%], `filter_rows` 99.2%, `sum_by_category` 94.2%, controls 0/120. `reports\airlock-1.3.0-glm-5.3-s3r2.md`, with the two earlier R=3 runs beside it |
+| σ reporting | ✅ **Split and measured** — σ between sessions **0.012** where anything varies (0.000 at the ceiling), σ within session **0.008**. The between figure is larger, which is why the first two sweeps' σ was optimistic |
 | Headless | ✅ Chrome `152.0.7977.65` exposes WebMCP under `--headless=new` with the seeded flag — so a CI gate is now possible, though the exit-code semantics still need work |
 | Judge | ✅ **`glm-5.3` at `https://agentrouter.org/v1`** — verified with a real chat call, then two live trials. Distinct from the authoring model, as required |
 | Node / npm | ✅ `v24.18.0` / `12.0.2` |
@@ -41,7 +41,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** the session-isolated sweep (3 sessions × 2 repeats, 960 trials) is running; when it lands, compare σ between sessions against σ within session — that comparison is the first honest reproducibility figure this project has, and it decides whether Gate 2 stands.
+**Immediate next action:** fix the exit-code semantics (item 2 below) so a threshold breach and an unmeasurable trial stop looking identical, then step 6 — the L0 linter and a deliberately broken fixture page, which is the discrimination proof.
 
 ## What to do next, in order
 
@@ -49,7 +49,7 @@ Ordered by what unblocks the most, with the condition that closes each one. Anyt
 
 | # | Next step | Done when |
 |---|---|---|
-| 1 | **Close the session-isolated sweep.** Read σ between sessions against σ within session, and re-mark Gate 2 on the honest figure | A report exists with both σ columns populated, and Gate 2 in `docs\getting-started.md` says "passed", "passed with caveat" or "failed" on the between-session number rather than the within-session one |
+| ~~1~~ | ~~**Close the session-isolated sweep**~~ | ✅ **Done 2026-08-30.** 960 trials across 3 isolated sessions; σ between sessions 0.012 against σ within 0.008 where anything varies; Gate 2 re-marked on the between-session figure |
 | 2 | **Fix exit codes for CI.** Today any harness failure exits 1, so an incomplete run and a failed threshold are indistinguishable. Split them: `0` complete, `2` incomplete measurement, `1` reserved for a rate below `--fail-under` | `run --fail-under 0.9` exits 1 on a breach, 0 on a pass, 2 when trials could not be measured — with a test for each |
 | 3 | **Step 6 — the L0 linter and a deliberately broken fixture page.** This is the discrimination proof: every number so far comes from a page chosen for being good | The linter flags each documented failure mode (invalid names, colliding descriptions, over-parameterised schemas, budget headroom) on the broken fixture, **and** a sweep against that page reports a materially lower invocation rate than Airlock. If it does not, the metric does not discriminate and that finding is the deliverable |
 | 4 | **Make `not_discovered` reachable.** Subscribe to `WebMCP.toolsAdded` / `toolsRemoved` and pass the browser's own tool list into classification | A page that registers a tool the browser never surfaces classifies as `not_discovered` rather than `not_registered` — likely needs a synthetic fixture, since Airlock has never shown the gap |
@@ -657,3 +657,47 @@ is enough for Chrome `152.0.7977.65` to expose `document.modelContext` — **and
 - ⚠️ Sessions are back-to-back. `--gap` exists but was not used, so this measures process and browser independence, not drift across hours or days.
 - ⚠️ Exit codes, as above.
 - ⚠️ Discrimination still unproven until step 6's deliberately broken fixture; `not_discovered` still unreachable without the browser-side tool list.
+
+---
+
+## 2026-08-30 (afternoon) — 960 isolated trials: between-session σ is real, and larger than within
+
+The session-isolated sweep is in: **3 sessions × 2 repeats × 160 utterances = 960 trials**, 29 minutes, then a `--resume` filled ten trials lost to an outage. Every session recorded exactly 320 trials, so the per-session denominators are equal and σ is not an artefact of unequal samples. Report at `reports\airlock-1.3.0-glm-5.3-s3r2.md`.
+
+| Tool | Rate (95% Wilson) | σ between sessions | σ within session |
+|---|---|---|---|
+| `describe_dataset` | 100.0% [96.9%, 100.0%] | 0.000 | 0.000 |
+| `monthly_trend` | 100.0% [96.9%, 100.0%] | 0.000 | 0.000 |
+| `find_anomalies` | 100.0% [96.9%, 100.0%] | 0.000 | 0.000 |
+| `top_expenses` | 100.0% [96.9%, 100.0%] | 0.000 | 0.000 |
+| `clear_highlights` | 100.0% [96.9%, 100.0%] | 0.000 | 0.000 |
+| `filter_rows` | 99.2% [95.4%, 99.9%] | **0.012** | 0.008 |
+| `sum_by_category` | 94.2% [88.4%, 97.1%] | **0.012** | 0.008 |
+
+**The hypothesis held.** Where anything varies at all, **between-session σ (0.012) is about 1.5× the within-session figure (0.008)**. Repeats inside a session really were correlated, and the σ the first two sweeps published really was optimistic. It is not a large gap in absolute terms — but the direction is the point, and it is now measured rather than argued.
+
+**Where both σ are 0.000, that is a ceiling effect, not stability.** Five tools never failed once in 120 trials, so there is nothing for either spread to describe. The confidence intervals carry the real uncertainty: `100.0% [96.9%, 100.0%]` says at most about 3% failure could hide behind 120 clean trials.
+
+**Gate 2 now passes on the honest figure.** σ between sessions ≤ 0.012 across every tool, against rate differences of 5.8 percentage points between the best and worst tool — signal exceeds noise by roughly a factor of five. The gate's caveat changes rather than disappears: the run is still back-to-back on one machine, so this is reproducibility across processes and browsers, not across hours or days.
+
+### More trials found failures that 60 could not
+
+- **`sum_by_category-12`** ("I feel like I'm bleeding money somewhere and I can't see where") failed **6 of 6** — and this time every wrong choice was **`find_anomalies`**, where both earlier sweeps chose `describe_dataset`. Within a sweep the model is consistent; across sweeps the *identity* of the wrong answer moved. That is the clearest sign yet of provider-side drift behind a stable slug, and it is invisible to any σ computed inside one run.
+- **`filter_rows-17`** ("April 2026 felt expensive — what actually went out that month?") failed **1 of 6**, to `describe_dataset`.
+- **`sum_by_category-07`** ("What share of my spending is Dining?") failed **1 of 6**, to `describe_dataset`.
+
+Both singletons were invisible at 60 trials and appear once at 120. That is the argument for sample size stated in evidence rather than in theory: `filter_rows` reads 100% at R=3 and 99.2% at 3×2, and the second number is the more honest one.
+
+**Controls: 0 false positives in 120 trials**, σ between sessions 0.000, injection 0 of 12. The interval tightened from `[0.0%, 8.9%]` to `[0.0%, 3.1%]`, and per-class bounds remain wide where the class is small — injection is still `[0.0%, 24.2%]`. Note `control-14` fired once in the `1.2.0` sweep and never here: a rare event whose rate is low but demonstrably not zero.
+
+### Harness behaviour under an outage, which is a finding in itself
+
+Ten trials in session 2, repeat 1 produced no measurement inside a single window: four `judge_unavailable` (fetch failed), one judge timeout, and **five `trial_threw` — "timed out waiting for `Page.loadEventFired`"**. Browser-side and judge-side failures arrived together, which points at one local network blip rather than two coincidences. All ten were excluded from the rates, logged with their kind, and re-run by `--resume` in 66 s.
+
+That exposed a reporting defect I then fixed: `harness-failures.jsonl` accumulates, so a resumed run still listed recovered failures as outstanding gaps and looked permanently incomplete. The report now reconciles the log against the checkpoint — a failure whose trial later succeeded is counted as **recovered by `--resume`** and the report states plainly whether any gap remains. This run: *10 earlier failures recovered, no outstanding gaps.*
+
+### Still open
+- ⚠️ Sessions were back to back on one machine. `--gap` exists and remains unused, so drift across hours or days is still unmeasured — and the `find_anomalies` shift above suggests it is not zero.
+- ⚠️ Exit codes still conflate "incomplete measurement" with "failed threshold"; next on the list.
+- ⚠️ Discrimination unproven until step 6's broken fixture: six of seven tools sit at or near the ceiling on a page chosen for being good.
+- ⚠️ Injection controls remain 12 trials, `[0.0%, 24.2%]` — not enough for a safety claim.

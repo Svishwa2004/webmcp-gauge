@@ -274,12 +274,24 @@ if (command === 'trial') {
   });
 
   const { records } = await readCheckpoint(checkpointPath);
-  const harnessFailures = await readFailures(`${outDir}/harness-failures.jsonl`);
+  const loggedFailures = await readFailures(`${outDir}/harness-failures.jsonl`);
+
+  // A failure whose trial later succeeded on --resume is history, not a hole. The
+  // report must not list it as a gap in the current measurement, or a resumed run
+  // looks permanently incomplete; it is counted as recovered instead.
+  const measured = new Set(
+    records.map((record) => `${record.session ?? 1}:${record.repeat}:${record.utteranceId}`)
+  );
+  const harnessFailures = loggedFailures.filter(
+    (failure) => !measured.has(`${failure.session ?? 1}:${failure.repeat}:${failure.utteranceId}`)
+  );
+  const recoveredFailures = loggedFailures.length - harnessFailures.length;
 
   const report = buildReport({
     fixture,
     records,
     harnessFailures,
+    recoveredFailures,
     judge: { model: judgeModel, baseUrl: judgeBaseUrl, requested: judgeModel },
     settings: {
       url,

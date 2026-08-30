@@ -10,7 +10,7 @@ Append-only record of every change, decision, and verification in this project. 
 
 ---
 
-## Current State (updated 2026-08-29)
+## Current State (updated 2026-08-30)
 
 | Item | Status |
 |---|---|
@@ -21,18 +21,20 @@ Append-only record of every change, decision, and verification in this project. 
 | Plain-language explainer | ✅ `docs\explainer.md` |
 | Start guide + pipeline flow | ✅ `docs\getting-started.md` |
 | Publishing policy | ✅ **Decided** — private during judging, aggregate after; conflict of interest disclosed |
-| Code | ❌ **None written.** Pre-implementation |
+| Code | ❌ **No product code.** Three probe expressions exist in `probes\` (ground-check artifacts, not the harness) |
 | Node / npm | ✅ `v24.18.0` / `12.0.2` |
-| Local Chrome | ✅ `152.0.7977.65` — ⚠️ **the exact build named in unresolved spec issue #268** as *not* showing tools |
+| Local Chrome | ✅ `152.0.7977.65` — **#268 not reproduced here.** With `#enable-webmcp-testing` on, `document.modelContext` is present and returns all 7 Airlock tools |
+| WebMCP CDP domain | ✅ Present on this build: commands `enable`, `disable`, `invokeTool`, `cancelInvocation`; events `toolsAdded`, `toolsRemoved`, `toolInvoked`, `toolResponded` |
 | Reference subject | ✅ Airlock — 7 tools, 27 passing tests, live at `https://airlock-app.netlify.app` |
-| Reusable rig | ✅ `_spike\cdp-eval.mjs` (zero-dep, raw WebSocket) and `_spike\cdp-command.mjs` (needs `chrome-remote-interface`, resolves only from `airlock\`) |
-| Clean Chrome profile | ✅ `_spike\chrome-baseline\` exists |
-| Ground check (does Chrome 152 see WebMCP?) | 🟡 **Not yet run** — this is the gate on everything else |
-| Git | ✅ Repo at `webmcp-gauge\` on `main`, root commit `fe72fe8`, remote `origin` → `https://github.com/Svishwa2004/webmcp-gauge`. **Nothing pushed yet** |
-| Remote visibility | ⚠️ **Public** — conflicts with the logged private-until-the-report decision; see the rename entry |
+| Reusable rig | ✅ `_spike\cdp-eval.mjs` (zero-dep, raw WebSocket; ⚠️ exits `-1073740791` on Windows after printing valid JSON) and `_spike\cdp-command.mjs` (needs `chrome-remote-interface`, resolves only from `airlock\`, **port 9222 hardcoded**) |
+| Clean Chrome profile | ✅ `_spike\chrome-baseline\` — WebMCP flag now enabled in it (`enabled_labs_experiments: ["enable-webmcp-testing@1"]`) |
+| Ground check (does Chrome 152 see WebMCP?) | ✅ **Answered 2026-08-30 — yes.** Gate 1 cleared; Chrome 152 is the reference client |
+| Documented paths | ❌ **Stale.** Docs say `D:\Projects\Hackathon\...`; the real tree is `D:\Projects\Hackthon-projects\WebMCP\_spike\` and `D:\Projects\Hackthon-projects\webmcp-gauge\` |
+| Git | ✅ Repo at `webmcp-gauge\` on `main`, pushed to `origin/main` at `9216e31`, upstream tracking set — 🟡 this log entry and `probes\` are uncommitted, awaiting go-ahead |
+| Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** run §1 of `docs\getting-started.md` — launch flagged Chrome 152 on the `_spike\chrome-baseline` profile, probe `https://airlock-app.netlify.app` with `cdp-eval.mjs`, and record whether `document.modelContext` exists and `getTools()` returns 7. Both outcomes are useful; the result decides the reference client and may hand over the project's first spec-repo contribution.
+**Immediate next action:** step 1 of §2 in `docs\getting-started.md` — scaffold the package (`package.json`, `bin\webmcp-gauge.mjs --help`, `npm i -E chrome-remote-interface@0.33.3`). Two corrections belong in the same pass: the stale `D:\Projects\Hackathon\...` paths throughout the docs, and the `getTools()`-returns-an-array assumption in the §1.2 probe snippet (it returns a Promise on Chrome 152).
 
 ---
 
@@ -180,3 +182,72 @@ What survived: a **two-part name**, `webmcp-<distinctive>`, so the distinctive h
 - 🟡 **Repo visibility** — flip to private before the first push, or consciously revise the publishing policy. Not resolved unilaterally; this blocks the push.
 - 🟡 Ground check still not run. Unchanged, and still the gate on everything else.
 - The rename, restructure and remote are local only. Nothing committed since `fe72fe8`, nothing pushed.
+
+---
+
+## 2026-08-29 18:35 UTC (2026-08-30 local) — Repo verified private, first push
+
+The visibility blocker from the entry above is closed, and the repository now exists on GitHub.
+
+- **Private, verified two ways rather than taken on trust.** Unauthenticated `GET /repos/Svishwa2004/webmcp-gauge` → **404** (a public repo returns 200 with a payload). Anonymous `git ls-remote` with `GIT_TERMINAL_PROMPT=0` and the credential helper disabled → **exit 128, `fatal: could not read Username`** (a public repo connects and returns refs). Both are the private signatures.
+- **Two earlier checks, at 18:30 and 18:33 UTC, still reported `private=False visibility=public`** with fresh, uncached responses. The push was held on both occasions rather than assuming the setting had taken effect. The change landed between 18:34 and 18:35 UTC. Worth remembering: GitHub's visibility control sits behind a Danger Zone dialog that requires typing the full repo name, and abandoning it silently changes nothing.
+- **Commits:** `fe72fe8` (docs, licence, git config) and `9216e31` (rename to webmcp-gauge, docs restructured into `docs/`, README added). Git recorded all three doc moves as renames — `CONCEPT.md => docs/concept.md (94%)`, `EXPLAINER.md => docs/explainer.md (99%)`, `GETTING-STARTED.md => docs/getting-started.md (87%)` — so history follows the files.
+- **Push:** `git push -u origin main` → `* [new branch] main -> main`, 18 objects, 38.14 KiB, upstream tracking set. `git ls-remote --heads origin` confirms `refs/heads/main` = `9216e31cd2af32df16a40b0a87ea19201cdee3ea`; working tree clean.
+
+### Still open
+- 🟡 Ground check still not run — unchanged, and still the gate on everything else.
+- 📅 Scheduled, not open: flip the repo to public at the report launch (~Sep 23), once judging has closed.
+- This log entry itself is uncommitted; it records the push after the fact rather than predicting it.
+
+---
+
+## 2026-08-30 — Ground check run: Chrome 152 **does** see WebMCP. Gate 1 cleared
+
+§1 of `docs\getting-started.md` is answered. Chrome `152.0.7977.65` — the exact build spec issue **#268** reports as *not* showing tools — exposes `document.modelContext` and returns all seven Airlock tools once `chrome://flags/#enable-webmcp-testing` is enabled. So Chrome 152 is the reference client, and this is a **counter-example that narrows #268**: whatever that report describes, it is not "this build cannot see WebMCP".
+
+### How it was run
+
+- Environment re-verified live rather than trusted from the previous entry: `node v24.18.0`, `npm 12.0.2`, Chrome `152.0.7977.65` (read from the binary's `ProductVersion`), `https://airlock-app.netlify.app` → `HTTP 200`, 4832 bytes.
+- **Port 9222 was occupied** by an unrelated Chrome (PID 15692) that returned `404` on `/json/version`, so it was unusable as a debug target. Used `9333` via `CDP_PORT`, which `cdp-eval.mjs` already supports.
+- Flagged Chrome launched on the throwaway profile: `--remote-debugging-port=9333 --user-data-dir="...\WebMCP\_spike\chrome-baseline" --no-first-run --no-default-browser-check`.
+- **First probe returned `present: false`** with `hasDocument: false` and `hasNavigator: false`. Not the interesting answer: the profile's `Local State` had no `enabled_labs_experiments` key at all, i.e. the flag had never been set there. The `--enable-features=` token is still unverified and was deliberately not guessed; the flag was enabled through the UI instead. Confirmed afterwards, not assumed: `"enabled_labs_experiments":["enable-webmcp-testing@1"]`.
+- New probe expressions live in `probes\`: `expr-modelcontext.js` (presence + surface), `expr-modelcontext-shape.js` (return-type forensics), `expr-tools-settle.js` (registration time series).
+
+### What the flagged run actually returned
+
+```json
+{"present":true,"aliasIsSameObject":false,
+ "surface":["ontoolchange","executeTool","getTools","registerTool","constructor"],
+ "frozen":false,"count":null,"names":null}
+```
+
+Four findings, each of which changes something downstream:
+
+1. ✅ **`navigator.modelContext` is gone on 152.** `'modelContext' in navigator` → `false`. That closes the open question carried from 2026-08-29 (deprecated in 150, removed in 152); on this build only `document.modelContext` exists, and the two are *not* aliases of one object because the second name no longer exists at all.
+2. ✅ **`getTools()` returns a `Promise`, not an array.** `{"returned":{"ctor":"Promise","thenable":true}}` → awaited → `{"ctor":"Array"}`. The probe snippet published in §1.2 of `getting-started.md` reads it synchronously and therefore reports `count: null` on this build. That snippet is wrong as written and must be corrected; more importantly, the harness must await it, and any client where it *is* synchronous becomes a compatibility-matrix row rather than an assumption.
+3. ✅ **The registration race is real, and was hit on the first try.** One run observed exactly three tools — `describe_dataset`, `filter_rows`, `sum_by_category` — while a 10-second time-series run saw all seven, stable from the first read (`atMs: 1`). Airlock's `src\tools.ts` issues seven sequential `await registerTool({...})` calls, so a probe can land mid-registration and read a partial set. Consequence for the pipeline (§3 step 4): **waiting for a non-empty tool list is not sufficient** — the harness must wait for the *set to stop changing*, or it will silently report a subset as the whole and every downstream rate will be wrong. This is precisely the failure mode the product exists to catch, observed against a known-good page before any product code was written.
+4. ✅ **Tool descriptors carry more than the spec fields.** First descriptor's keys: `annotations`, `description`, `inputSchema`, `name`, `origin`, `title`, `window`. `origin` and `window` were not in the recorded draft surface; capture them, they belong in the manifest.
+
+Final settled read, for the record: `count: 7` — `clear_highlights`, `describe_dataset`, `filter_rows`, `find_anomalies`, `monthly_trend`, `sum_by_category`, `top_expenses`.
+
+### The browser's own view (§1.4) — answered a different way
+
+`cdp-command.mjs` hardcodes port `9222` and lives in the shared `_spike\` rig, so it was left untouched rather than edited for this probe. The same question was answered read-only from `http://127.0.0.1:9333/json/protocol`:
+
+- **Domain `WebMCP` exists on this build.** Commands: `enable`, `disable`, `invokeTool`, `cancelInvocation`. Events: `toolsAdded`, `toolsRemoved`, `toolInvoked`, `toolResponded`.
+- Note the name: the protocol says **`invokeTool`**, while the page API says `executeTool`. Two vocabularies for one operation, which is exactly the drift the compat layer is for.
+- Architecturally this is better news than the doc assumed: `toolsAdded` / `toolsRemoved` give an event-driven answer to the registration race above instead of polling, and `invokeTool` means a trial can be driven through the *browser's* invocation path rather than by calling page JavaScript — much closer to what a real client does.
+
+### Defects found in the existing rig
+
+- ⚠️ `cdp-eval.mjs` prints correct JSON and then dies: `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94`, exit code `-1073740791`. Reproduced on all four runs. Tolerable for a manual probe, **unacceptable for a CI gate** — the exit path needs fixing when this graduates into `browser\`.
+- ❌ Every path in `docs\getting-started.md` and in the earlier entries of this log points at `D:\Projects\Hackathon\...`. The real tree is `D:\Projects\Hackthon-projects\WebMCP\_spike\` and `D:\Projects\Hackthon-projects\webmcp-gauge\`, with `airlock\` and `webmcp-challenge\` under `WebMCP\`. Copy-pasting the documented commands fails outright.
+- ⚠️ `cdp-command.mjs` cannot target a non-default port. If it is reused, that limitation is inherited.
+
+### Still open
+- ⚠️ Whether #268's reporter differs by flag state, profile, or platform — this counter-example does not explain their result, it only bounds it. Filing anything to the spec repo is public contact and waits for an explicit go-ahead (Gate 4).
+- ⚠️ Can the ChatGPT desktop in-app browser be driven programmatically? Unchanged, and still the highest-priority unknown for Mode B.
+- ⚠️ Does Gemini-in-Chrome actually invoke page tools today?
+- ⚠️ Per-page tool budget, per client.
+- ❔ Mode A ↔ Mode B correlation — untouched.
+- 🟡 `probes\` and this entry are uncommitted; nothing pushed.

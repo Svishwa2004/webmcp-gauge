@@ -1,9 +1,22 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "frozen": true,
   "drafted": "2026-08-30",
   "frozenOn": "2026-08-30",
-  "reviewStatus": "FROZEN at 1.2.0 on 2026-08-30, after two revision passes the same day: review findings (1.1.0) and four measurement-gap fixes (1.2.0). Any change from here bumps the version, or numbers stop being comparable across commits.",
+  "reviewStatus": "FROZEN at 1.3.0 on 2026-08-30. Frozen at 1.2.0 earlier the same day, then bumped once after the first sweep showed one utterance was measuring the fixture rather than the page. See revisions.",
+  "revisions": [
+    {
+      "version": "1.2.0",
+      "date": "2026-08-30",
+      "change": "First frozen version: 140 utterances at a 7/7/6 tag mix plus 20 negative controls, after a line-by-line review pass and four measurement-gap fixes."
+    },
+    {
+      "version": "1.3.0",
+      "date": "2026-08-30",
+      "change": "Reworded filter_rows-14. At 1.2.0 it read \"I'm curious about the Healthcare side of things.\" and the judge chose describe_dataset in 3 of 3 runs, which is a defensible answer to a phrasing that asks for an overview - so the utterance was measuring this file's ambiguity rather than Airlock's tool descriptions, and it held filter_rows at 95.0%. The replacement asks for the individual charges, which only filter_rows serves.",
+      "reason": "Editing an instrument after seeing its output is how a metric gets massaged, so this change was made only on an explicit maintainer decision, with the superseded wording and the number it produced recorded here. Results from 1.2.0 stay published at reports/airlock-1.2.0-glm-5.3-r3.md and are not comparable line-for-line with 1.3.0."
+    }
+  ],
   "authoring": {
     "writtenBy": "Assistant draft inside a Qwen Code session, 2026-08-30, revised twice the same day against maintainer-approved review findings.",
     "modelId": "deepseek v4 by agentrouter",
@@ -143,7 +156,7 @@
         { "id": "filter_rows-11", "text": "Just the Utilities charges between 2025-09-01 and 2026-02-28.", "tag": "plain", "expectedArgs": { "category": "Utilities", "from": "2025-09-01", "to": "2026-02-28" } },
         { "id": "filter_rows-12", "text": "Everything above 15000 in Transport.", "tag": "plain", "expectedArgs": { "category": "Transport", "min_amount": 15000 } },
         { "id": "filter_rows-13", "text": "What happened in the first week of September 2025?", "tag": "oblique", "expectedArgs": { "from": "2025-09-01", "to": "2025-09-07" } },
-        { "id": "filter_rows-14", "text": "I'm curious about the Healthcare side of things.", "tag": "oblique", "expectedArgs": { "category": "Healthcare" }, "note": "Names the category token deliberately: the manifest does not enumerate category names, so an utterance saying 'medical bills' would be unanswerable without a prior discovery call and a correct refusal would score as bad_args." },
+        { "id": "filter_rows-14", "text": "I want to go through the Healthcare charges one by one.", "tag": "oblique", "expectedArgs": { "category": "Healthcare" }, "note": "Reworded at 1.3.0. The 1.2.0 wording (\"I'm curious about the Healthcare side of things.\") drew describe_dataset in 3 of 3 runs, defensibly - it reads as a request for an overview. This version asks for the individual charges, which no aggregate tool serves. It still names the category token because the manifest does not enumerate category names." },
         { "id": "filter_rows-15", "text": "Small stuff only — nothing above 1000.", "tag": "oblique", "expectedArgs": { "max_amount": 1000 } },
         { "id": "filter_rows-16", "text": "Show the Education spending from 2026 onwards.", "tag": "paraphrase", "expectedArgs": { "category": "Education", "from": "2026-01-01" } },
         { "id": "filter_rows-17", "text": "April 2026 felt expensive — what actually went out that month?", "tag": "oblique", "expectedArgs": { "from": "2026-04-01", "to": "2026-04-30" } },

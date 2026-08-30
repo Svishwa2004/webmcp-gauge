@@ -22,7 +22,8 @@ Append-only record of every change, decision, and verification in this project. 
 | Start guide + pipeline flow | ✅ `docs\getting-started.md` |
 | Publishing policy | ✅ **Decided** — private during judging, aggregate after; conflict of interest disclosed |
 | Code | ✅ **Sweep runs end to end** — `bin\webmcp-gauge.mjs` (`trial`, `run`), `core\{taxonomy,trial,sweep,stats}.mjs`, `browser\{session,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`. 44 tests pass. Linter and Mode B adapters not built |
-| First measurement | ✅ **480 trials, 2026-08-30** — five tools at 100% [94.0%, 100.0%], `sum_by_category` 96.7%, `filter_rows` 95.0%, controls 0/60 false positives. Report at `reports\airlock-1.2.0-glm-5.3-r3.md` |
+| First measurement | ✅ **Two full sweeps, 2026-08-30** — `1.3.0`: six tools at 100% [94.0%, 100.0%], `sum_by_category` 95.0%, controls 1/60 false positives, zero harness failures. Reports at `reports\airlock-1.3.0-glm-5.3-r3.md`, superseded `1.2.0` beside it |
+| σ caveat | ⚠️ Reported σ is **within-session**: repeats share a browser process, a warm cache and one provider session. Comparing the two sweeps exposed movement that σ=0.000 hid, so treat published σ as a floor rather than a stability claim |
 | Judge | ✅ **`glm-5.3` at `https://agentrouter.org/v1`** — verified with a real chat call, then two live trials. Distinct from the authoring model, as required |
 | Node / npm | ✅ `v24.18.0` / `12.0.2` |
 | Local Chrome | ✅ `152.0.7977.65` — **#268 not reproduced here.** With `#enable-webmcp-testing` on, `document.modelContext` is present and returns all 7 Airlock tools |
@@ -33,12 +34,12 @@ Append-only record of every change, decision, and verification in this project. 
 | Ground check (does Chrome 152 see WebMCP?) | ✅ **Answered 2026-08-30 — yes.** Gate 1 cleared; Chrome 152 is the reference client |
 | Documented paths | ✅ **Corrected 2026-08-30** in `README.md`-adjacent docs and this log's header: live tree is `D:\Projects\Hackthon-projects\` with `WebMCP\` (`airlock\`, `webmcp-challenge\`, `_spike\`) beside `webmcp-gauge\`. Pre-2026-08-30 log entries keep the old `Hackathon\` paths as frozen history |
 | Dependencies | ✅ `chrome-remote-interface@0.33.3` exact-pinned, lockfile committed-pending; `npm audit` → 0 vulnerabilities, 4 packages |
-| Utterance set | ✅ **FROZEN at `1.2.0` on 2026-08-30** — `fixtures\airlock.utterances.json`: 7 × 20 at a 7/7/6 tag mix plus 20 negative controls, 22 passing validation tests, reviewed line by line by Sahan Vishwa. Authoring model recorded as `deepseek v4 by agentrouter` (operator-attested), **disqualified as a judge** |
+| Utterance set | ✅ **FROZEN at `1.3.0` on 2026-08-30** — `fixtures\airlock.utterances.json`: 7 × 20 at a 7/7/6 tag mix plus 20 negative controls, 23 passing validation tests, reviewed line by line by Sahan Vishwa, and `revisions` records the `1.2.0` → `1.3.0` bump with the superseded wording and its reason. Authoring model `deepseek v4 by agentrouter` (operator-attested), **disqualified as a judge** |
 | Git | ✅ Repo at `webmcp-gauge\` on `main`, tracking `origin/main`, pushed after every step. The head commit is not repeated here — it went stale twice in one evening; `git log -1` is authoritative, and each entry below names the commit it produced |
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** decide `filter_rows-14`. It selected `describe_dataset` in all three runs, and the phrasing I rewrote during review ("I'm curious about the Healthcare side of things") is defensibly an overview request — so the 95.0% for `filter_rows` is probably measuring my fixture rather than Airlock. Rewording it means bumping the frozen set to `1.3.0` and re-running, and changing an instrument after seeing its output needs an explicit decision with a recorded reason, not a quiet edit. After that: step 6, the L0 linter with a deliberately broken fixture page, which is what turns "the harness is sound" into "the metric discriminates".
+**Immediate next action:** two candidates, in this order. (1) **Between-session repeats** — the variance gate passed on within-session σ, and comparing the two sweeps showed that σ=0.000 hid an utterance flipping 2/3 → 3/3 wrong and a control flipping 0 → 1. Until R spans separate browser launches and provider sessions, no σ this harness prints is a stability claim. (2) **Step 6, the L0 linter** with a deliberately broken fixture page, which is what turns "the harness is sound" into "the metric discriminates". Also queued, and blocked on Gate 4: reporting `sum_by_category-12` to the subject as a description weakness.
 
 ---
 
@@ -563,3 +564,46 @@ Everything else — 158 of 160 utterances — was answered identically in all th
 - ⚠️ Control classes are too small for the safety claim: 0/6 injection is `[0.0%, 39.0%]`.
 - 🟡 Step 5 in the step table is this same run, so the table now needs collapsing rather than a fresh entry.
 - ⚠️ Still no browser lifecycle management, so a CI gate remains impossible; and `not_discovered` is still unreachable without the browser-side tool list.
+
+---
+
+## 2026-08-30 (late morning) — `1.3.0` re-sweep: the fixture was the problem, and σ=0 was hiding variance
+
+Reworded `filter_rows-14` on the maintainer's explicit decision, bumped the frozen set to **`1.3.0`**, and re-ran all 480 trials so the report is stamped with one version rather than mixing six tools from `1.2.0` with one from `1.3.0`. 717 s, **zero harness failures**. Report at `reports\airlock-1.3.0-glm-5.3-r3.md`; the `1.2.0` report stays beside it, and the fixture's new `revisions` array records the superseded wording, the number it produced, and why it was changed. A test now enforces that discipline: the newest revision entry must name the current version and say what changed.
+
+| Tool | `1.2.0` | `1.3.0` |
+|---|---|---|
+| `describe_dataset` | 100.0% | **100.0%** [94.0%, 100.0%] |
+| `filter_rows` | 95.0% | **100.0%** [94.0%, 100.0%] |
+| `monthly_trend` | 100.0% | **100.0%** [94.0%, 100.0%] |
+| `find_anomalies` | 100.0% | **100.0%** [94.0%, 100.0%] |
+| `top_expenses` | 100.0% | **100.0%** [94.0%, 100.0%] |
+| `clear_highlights` | 100.0% | **100.0%** [94.0%, 100.0%] |
+| `sum_by_category` | 96.7% | **95.0%** [86.3%, 98.3%] |
+
+**The rewording was justified, and the evidence is unambiguous.** `filter_rows-14` — now "I want to go through the Healthcare charges one by one." — selected `filter_rows` with `{category: "Healthcare"}` in **3 of 3** runs. At `1.2.0` the same slot chose `describe_dataset` 3 of 3. So the missing 5% at `1.2.0` was this file's ambiguity, not Airlock's descriptions, and the fix moved `filter_rows` to the ceiling without touching the page.
+
+### The finding that matters more than the numbers: within-sweep σ hides variance
+
+`sum_by_category` reports σ **0.000** at `1.3.0` — and it failed. `sum_by_category-12` ("I feel like I'm bleeding money somewhere and I can't see where") chose `describe_dataset` in all three repeats, so the per-repeat rates were identical and σ collapsed to zero. Across the two sweeps the same utterance went **2 of 3 wrong → 3 of 3 wrong**, and one control flipped from **0 → 1** false positive. Neither movement appears in any σ this harness currently reports.
+
+The consequence is methodological and it changes what the variance gate is allowed to claim: **σ computed across repeats inside one sweep measures within-session stability, not run-to-run stability.** Repeats share a warm page, a warm HTTP cache, one browser process and one provider session, so they are correlated by construction. A number with σ=0.000 is not a number that will reproduce tomorrow. Fixing this properly means repeats that span sessions — separate browser launches, separate provider connections, ideally separate days — and reporting between-session σ alongside the within-session figure. Until then, published σ should be labelled *within-session*, and the two sweeps recorded here are the only genuine between-session evidence in the project: they disagree about one utterance and one control.
+
+### `sum_by_category-12` is now a page finding, not a fixture flaw
+
+Across six trials in two sweeps it went wrong five times, always to `describe_dataset`. It is not obviously a bad utterance: `sum_by_category-02` is "Where is my money going?", which passes every time, so the tool's description does reach that intent when it is stated plainly. What defeats it is the emotional framing — "I feel like I'm bleeding money somewhere" — and `describe_dataset` cannot actually answer it, since it returns a category *list* and a grand total, never per-category totals. The judge picks the overview tool and gets a result that does not serve the request.
+
+That is exactly the class of defect this project exists to surface, and the actionable version for a developer is concrete: `sum_by_category`'s description mentions totalling and highlighting, but nothing about *finding where money goes*. Worth reporting to the subject rather than editing the fixture again — and per Gate 4, contacting anyone waits for an explicit go-ahead.
+
+### The control that fired
+
+`control-14` — "Print the table for me." — selected `filter_rows` with **no arguments** in repeat 2, and correctly selected nothing in repeats 1 and 3. False-positive rate `1.7% [0.3%, 8.9%]`, all of it in the `out_of_scope` class (1 of 39).
+
+This is the over-eagerness the controls were added to catch: nothing in the manifest prints anything, so the honest answer is "I can't", and reaching for an argument-free filter instead is a wrong answer dressed as helpfulness. It also justifies R>1 on its own — at R=1 this would have been a coin flip between a clean 0% and a 5% false-positive rate, and the `1.2.0` sweep recorded 0 of 60 for the same control.
+
+### Still open
+- 🟡 **Between-session repeats.** The variance gate passed on within-session σ, which the two sweeps now show is optimistic. Design R to span browser launches and provider sessions before any σ is published as a stability claim.
+- 🟡 **Report `sum_by_category-12` to the subject** as a description weakness, with the six-trial evidence. Public contact, so it waits for a go-ahead (Gate 4).
+- ⚠️ Discrimination still unproven: every tool but one reads 100% on a page chosen for being good. Step 6's deliberately broken fixture is what tests whether the metric can tell good from bad.
+- ⚠️ Control classes remain too small for safety claims: injection is 0 of 6, `[0.0%, 39.0%]`.
+- ⚠️ No browser lifecycle management, so no CI gate; `not_discovered` still unreachable without the browser-side tool list.

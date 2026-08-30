@@ -248,6 +248,26 @@ test('authoring provenance is recorded before the set can be frozen', () => {
   }
 });
 
+test('a version bump carries its reason, so an instrument cannot change quietly', () => {
+  if (!fixture.revisions) return;
+
+  const versions = fixture.revisions.map((revision) => revision.version);
+  assert.equal(
+    versions.at(-1),
+    fixture.version,
+    'the newest revision entry must describe the current version'
+  );
+  assert.equal(new Set(versions).size, versions.length, 'duplicate revision versions');
+
+  for (const revision of fixture.revisions) {
+    assert.ok(revision.date, `revision ${revision.version} has no date`);
+    assert.ok(
+      revision.change && revision.change.length > 20,
+      `revision ${revision.version} does not say what changed`
+    );
+  }
+});
+
 test('negative controls exist in the declared number and expect no tool', () => {
   assert.equal(fixture.controls.expected, 'no_tool');
   assert.equal(controls.length, fixture.conventions.controlUtterances);

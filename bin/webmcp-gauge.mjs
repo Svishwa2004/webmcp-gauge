@@ -4,8 +4,9 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchSession } from '../browser/launch.mjs';
 import { openSession } from '../browser/session.mjs';
+import { EXIT, gateRun, parseFailUnder } from '../core/gate.mjs';
 import { runSessions } from '../core/orchestrate.mjs';
-import { readCheckpoint, runSessionSweep } from '../core/sweep.mjs';
+import { buildPlan, readCheckpoint, runSessionSweep, trialKey } from '../core/sweep.mjs';
 import { runTrial } from '../core/trial.mjs';
 import { createJudge } from '../judges/openai-compatible.mjs';
 import { buildReport, toMarkdown } from '../report/emit.mjs';
@@ -47,6 +48,15 @@ run / session options:
   --headful            show the browser instead of --headless=new
   --out <dir>          report directory (default artifacts/)
   --resume             reuse the JSONL checkpoint in the report directory
+  --fail-under <rate>  exit 1 when any tool's invocation rate is below this rate,
+                       e.g. 0.9. Compared against the point rate; the interval is
+                       reported beside it
+
+Exit codes (a gate is only useful if 1 means one thing):
+  0  every planned trial was measured, and nothing fell below --fail-under
+  1  a tool's invocation rate is below --fail-under — the page regressed
+  2  the run cannot answer: planned trials have no measurement (re-run with
+     --resume), or the arguments were unusable. Never a threshold breach
 
 The judge must not be the model that authored the utterance set; the set records
 which one that was. See docs/getting-started.md and .env.example.`;
@@ -77,27 +87,32 @@ const parseArgs = (argv) => {
   return { flags, positional };
 };
 
+/**
+ * Usage errors exit 2, the same code as an unmeasurable run: in both cases the
+ * command produced no number, which is the distinction a CI job needs. Exit 1 is
+ * reserved for a measured rate below the threshold.
+ */
 const fail = (message) => {
   console.error(`webmcp-gauge: ${message}`);
-  process.exit(2);
+  process.exit(EXIT.incomplete);
 };
 
 const command = process.argv[2];
 
 if (command === undefined || command === '--help' || command === '-h') {
   console.log(usage);
-  process.exit(0);
+  process.exit(EXIT.pass);
 }
 
 if (command === '--version' || command === '-v') {
   console.log(version);
-  process.exit(0);
+  process.exit(EXIT.pass);
 }
 
 if (!['trial', 'run', 'session'].includes(command)) {
   console.error(`webmcp-gauge: no such command '${command}'\n`);
   console.error(usage);
-  process.exit(2);
+  process.exit(EXIT.incomplete);
 }
 
 const { flags, positional } = parseArgs(process.argv.slice(3));
@@ -163,7 +178,19 @@ if (command === 'trial') {
       fixtureVersion: fixture.version,
     });
     console.log(JSON.stringify(record, null, 2));
-    process.exitCode = record.outcome === 'ok' ? 0 : 1;
+    // Same three-way split as `run`: an outcome of null is a trial that produced no
+    // measurement, which is not the page failing and must not read as one.
+    if (record.outcome === null) {
+      console.error(
+        `trial: no measurement — ${record.harnessFailure?.kind ?? 'unknown'}: ${record.harnessFailure?.detail ?? 'no reason given'}`
+      );
+      process.exitCode = EXIT.incomplete;
+    } else {
+      process.exitCode = record.outcome === 'ok' ? EXIT.pass : EXIT.breach;
+    }
+  } catch (error) {
+    console.error(`trial: threw before producing a measurement — ${error.message ?? error}`);
+    process.exitCode = EXIT.incomplete;
   } finally {
     await tab.close();
     if (browser) await browser.close();
@@ -220,7 +247,10 @@ if (command === 'trial') {
     if (result.failures.length > 0) {
       await appendFailures(`${outDir}/harness-failures.jsonl`, result.failures);
     }
-    process.exitCode = 0;
+    // A session that could not measure part of its plan exits 2, so a hand-run
+    // session and the orchestrator agree on what an incomplete measurement is.
+    // The parent does not depend on this: it recomputes coverage from the plan.
+    process.exitCode = result.failures.length > 0 ? EXIT.incomplete : EXIT.pass;
   } finally {
     if (browser) await browser.close();
   }
@@ -229,6 +259,13 @@ if (command === 'trial') {
   if (!Number.isInteger(sessions) || sessions < 1) fail('--sessions must be a positive integer');
   if (!Number.isInteger(repeatsPerSession) || repeatsPerSession < 1) {
     fail('--repeats must be a positive integer');
+  }
+
+  let failUnder = null;
+  try {
+    failUnder = parseFailUnder(flags['fail-under']);
+  } catch (error) {
+    fail(error.message);
   }
 
   if (flags.resume !== true) {
@@ -280,18 +317,35 @@ if (command === 'trial') {
   // report must not list it as a gap in the current measurement, or a resumed run
   // looks permanently incomplete; it is counted as recovered instead.
   const measured = new Set(
-    records.map((record) => `${record.session ?? 1}:${record.repeat}:${record.utteranceId}`)
+    records.map((record) => trialKey(record.session ?? 1, record.repeat, record.utteranceId))
   );
   const harnessFailures = loggedFailures.filter(
-    (failure) => !measured.has(`${failure.session ?? 1}:${failure.repeat}:${failure.utteranceId}`)
+    (failure) => !measured.has(trialKey(failure.session ?? 1, failure.repeat, failure.utteranceId))
   );
   const recoveredFailures = loggedFailures.length - harnessFailures.length;
+
+  // Completeness is derived from the plan, not from the failure log: a session
+  // killed mid-plan logs nothing, and a run that silently measured 900 of 960
+  // trials must not be allowed to exit 0 on a rate over the wrong denominator.
+  const plan = buildPlan({ fixture, repeatsPerSession, tools, includeControls });
+  const expectedKeys = [];
+  for (let session = 1; session <= sessions; session += 1) {
+    for (const item of plan) expectedKeys.push(trialKey(session, item.repeat, item.utterance.id));
+  }
+  const missing = expectedKeys.filter((key) => !measured.has(key));
+  const coverage = {
+    expectedTrials: expectedKeys.length,
+    measuredTrials: records.length,
+    missingTrials: missing.length,
+    missing: missing.slice(0, 10),
+  };
 
   const report = buildReport({
     fixture,
     records,
     harnessFailures,
     recoveredFailures,
+    coverage,
     judge: { model: judgeModel, baseUrl: judgeBaseUrl, requested: judgeModel },
     settings: {
       url,
@@ -307,13 +361,17 @@ if (command === 'trial') {
     timing: { startedAt, finishedAt: new Date().toISOString(), elapsedMs: Date.now() - startedMs },
   });
 
-  await mkdir(dirname(`${outDir}/report.json`), { recursive: true });
-  await writeFile(`${outDir}/report.json`, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-  await writeFile(`${outDir}/report.md`, toMarkdown(report), 'utf8');
+  const gate = gateRun({ report, failUnder });
+  const gated = { ...report, gate };
 
-  console.log(toMarkdown(report));
+  await mkdir(dirname(`${outDir}/report.json`), { recursive: true });
+  await writeFile(`${outDir}/report.json`, `${JSON.stringify(gated, null, 2)}\n`, 'utf8');
+  await writeFile(`${outDir}/report.md`, toMarkdown(gated), 'utf8');
+
+  console.log(toMarkdown(gated));
   console.error(`report.json and report.md written to ${outDir}/ · checkpoint ${checkpointPath}`);
-  process.exitCode = harnessFailures.length > 0 ? 1 : 0;
+  console.error(`gate: ${gate.summary}`);
+  process.exitCode = gate.code;
 }
 
 async function appendFailures(path, failures) {

@@ -21,11 +21,12 @@ Append-only record of every change, decision, and verification in this project. 
 | Plain-language explainer | ✅ `docs\explainer.md` |
 | Start guide + pipeline flow | ✅ `docs\getting-started.md` |
 | Publishing policy | ✅ **Decided** — private during judging, aggregate after; conflict of interest disclosed |
-| Code | ✅ **Sweep runs end to end, sessions isolated** — `bin\webmcp-gauge.mjs` (`trial`, `run`, `session`), `core\{taxonomy,trial,sweep,orchestrate,stats}.mjs`, `browser\{launch,session,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`. 47 tests pass. Linter, badge and Mode B adapters not built |
+| Code | ✅ **Sweep runs end to end, sessions isolated, gate wired** — `bin\webmcp-gauge.mjs` (`trial`, `run`, `session`), `core\{taxonomy,trial,sweep,orchestrate,stats,gate}.mjs`, `browser\{launch,session,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`. 66 tests pass. Linter, badge and Mode B adapters not built |
+| CI exit codes | ✅ **Split 2026-08-30** — `0` complete and above threshold, `1` a rate below `--fail-under`, `2` a run that could not measure its plan (or bad usage). Verified against the real 960-trial dataset: exit 1 at `--fail-under 0.95`, exit 0 at `0.9`. `report.json` carries `coverage` and `gate`; schema bumped to `webmcp-gauge/report/3` |
 | Browser lifecycle | ✅ **Self-managed since 2026-08-30** — the harness seeds a cold profile with only the WebMCP flag and launches `--headless=new` Chrome per session on a free port, then tears it down. `--port` still attaches to a hand-started browser, and the report flags that sessions were not isolated |
 | First measurement | ✅ **Three sweeps, 2026-08-30** — best isolated: **960 trials**, 3 sessions × 2 repeats, five tools at 100% [96.9%, 100.0%], `filter_rows` 99.2%, `sum_by_category` 94.2%, controls 0/120. `reports\airlock-1.3.0-glm-5.3-s3r2.md`, with the two earlier R=3 runs beside it |
 | σ reporting | ✅ **Split and measured** — σ between sessions **0.012** where anything varies (0.000 at the ceiling), σ within session **0.008**. The between figure is larger, which is why the first two sweeps' σ was optimistic |
-| Headless | ✅ Chrome `152.0.7977.65` exposes WebMCP under `--headless=new` with the seeded flag — so a CI gate is now possible, though the exit-code semantics still need work |
+| Headless | ✅ Chrome `152.0.7977.65` exposes WebMCP under `--headless=new` with the seeded flag, and the exit-code contract now makes a real CI gate possible |
 | Judge | ✅ **`glm-5.3` at `https://agentrouter.org/v1`** — verified with a real chat call, then two live trials. Distinct from the authoring model, as required |
 | Node / npm | ✅ `v24.18.0` / `12.0.2` |
 | Local Chrome | ✅ `152.0.7977.65` — **#268 not reproduced here.** With `#enable-webmcp-testing` on, `document.modelContext` is present and returns all 7 Airlock tools |
@@ -41,7 +42,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** fix the exit-code semantics (item 2 below) so a threshold breach and an unmeasurable trial stop looking identical, then step 6 — the L0 linter and a deliberately broken fixture page, which is the discrimination proof.
+**Immediate next action:** step 6 — the L0 linter and a deliberately broken fixture page, which is the discrimination proof. Every number so far comes from a page chosen for being well described.
 
 ## What to do next, in order
 
@@ -50,16 +51,16 @@ Ordered by what unblocks the most, with the condition that closes each one. Anyt
 | # | Next step | Done when |
 |---|---|---|
 | ~~1~~ | ~~**Close the session-isolated sweep**~~ | ✅ **Done 2026-08-30.** 960 trials across 3 isolated sessions; σ between sessions 0.012 against σ within 0.008 where anything varies; Gate 2 re-marked on the between-session figure |
-| 2 | **Fix exit codes for CI.** Today any harness failure exits 1, so an incomplete run and a failed threshold are indistinguishable. Split them: `0` complete, `2` incomplete measurement, `1` reserved for a rate below `--fail-under` | `run --fail-under 0.9` exits 1 on a breach, 0 on a pass, 2 when trials could not be measured — with a test for each |
+| ~~2~~ | ~~**Fix exit codes for CI**~~ | ✅ **Done 2026-08-30.** `0` complete and above threshold, `1` a rate below `--fail-under`, `2` unmeasurable or unusable arguments — incomplete outranks a breach, completeness comes from the plan rather than the failure log, and 19 new tests cover the contract including six that drive the real CLI |
 | 3 | **Step 6 — the L0 linter and a deliberately broken fixture page.** This is the discrimination proof: every number so far comes from a page chosen for being good | The linter flags each documented failure mode (invalid names, colliding descriptions, over-parameterised schemas, budget headroom) on the broken fixture, **and** a sweep against that page reports a materially lower invocation rate than Airlock. If it does not, the metric does not discriminate and that finding is the deliverable |
 | 4 | **Make `not_discovered` reachable.** Subscribe to `WebMCP.toolsAdded` / `toolsRemoved` and pass the browser's own tool list into classification | A page that registers a tool the browser never surfaces classifies as `not_discovered` rather than `not_registered` — likely needs a synthetic fixture, since Airlock has never shown the gap |
 | 5 | **Time-spaced sessions.** `--gap` exists but has never been used; back-to-back sessions measure process independence, not drift | A run whose sessions are hours or days apart, with its between-session σ compared against a back-to-back run of the same shape |
 | 6 | 🚦 **Report `sum_by_category-12` to Airlock's author** as a description weakness, with the six-trial evidence and the observation that `sum_by_category-02` passes every time | Sent, on an explicit go-ahead (Gate 4), and the response recorded here |
 | 7 | 🚦 **Decide where the raw dataset lives.** The 1.4 MB JSONL per run is the evidence behind every number and currently stays local; code is MIT, and data meant to be cited usually wants CC BY 4.0 | A decision recorded here: in-repo, separate dataset repo, or aggregate-only — with the licence named |
 | 8 | **Step 7 — Mode B adapters.** Spike whether the ChatGPT desktop in-app browser can be driven at all; it is still the highest-priority unknown, and it decides whether that column is automated or sampled | Either a driven trial against a real client, or a recorded negative result that fixes the sampling design |
-| 9 | **Badge and Action wrappers**, once 2 and 3 are done and a threshold means something | `webmcp-gauge run` emits a badge, and a GitHub Action runs it on a sample repo |
+| 9 | **Badge and Action wrappers**, now that exit codes mean something and once 3 proves a threshold discriminates | `webmcp-gauge run` emits a badge, and a GitHub Action runs it on a sample repo |
 
-Deliberately deferred, and recorded so they are choices rather than oversights: privacy-mode payload differences get no utterance; multi-call sequences (discover then filter) are outside the one-utterance-one-trial protocol; control classes are too small for a safety claim (injection is 0 of 6, `[0.0%, 39.0%]`); and `cdp-eval.mjs` still exits `-1073740791` on Windows after printing valid JSON, which is tolerable for probing and not for a gate.
+Deliberately deferred, and recorded so they are choices rather than oversights: privacy-mode payload differences get no utterance; multi-call sequences (discover then filter) are outside the one-utterance-one-trial protocol; control classes are too small for a safety claim (injection is 0 of 12, `[0.0%, 24.2%]`); the CI gate thresholds invocation rate only, because a control false-positive ceiling is a separate flag and a separate decision and letting `--fail-under` imply safety coverage would be worse than leaving it out; and `cdp-eval.mjs` still exits `-1073740791` on Windows after printing valid JSON, which is tolerable for probing and not for a gate.
 
 ---
 
@@ -701,3 +702,57 @@ That exposed a reporting defect I then fixed: `harness-failures.jsonl` accumulat
 - ⚠️ Exit codes still conflate "incomplete measurement" with "failed threshold"; next on the list.
 - ⚠️ Discrimination unproven until step 6's broken fixture: six of seven tools sit at or near the ceiling on a page chosen for being good.
 - ⚠️ Injection controls remain 12 trials, `[0.0%, 24.2%]` — not enough for a safety claim.
+
+---
+
+## 2026-08-30 (evening) — Exit codes split three ways, so a gate can mean something
+
+`--fail-under` exists and the exit code now answers one question per value: **0** the run measured its whole plan and nothing fell below the threshold, **1** it measured its whole plan and a rate is below the threshold, **2** it cannot say. Before this, any harness failure exited 1, so "two trials need a `--resume`" and "invocation rate fell off a cliff" were the same signal to a CI job — the defect flagged in the midday entry and left unfixed on purpose until it could be done properly.
+
+`core\gate.mjs` holds the decision as a pure function over the report object, which is why the contract is testable at all: 66 tests now pass, 19 of them new.
+
+### Verified on the real 960-trial dataset, not only on fixtures
+
+The `1.3.0` s3r2 checkpoint was copied to a scratch directory and re-gated with `--port 1` — a port nothing answers, which is safe because a complete checkpoint leaves no trial to run, so no browser is launched and no judge is called. Two runs over the same 960 real trials:
+
+```
+--fail-under 0.95 → exit 1
+gate: FAIL — 1 of 7 tools below --fail-under 95.0%: `sum_by_category` 94.2% [88.4%, 97.1%]
+over 120 trials. 960/960 planned trials measured, so the number is the page's, not the
+harness's. Note sum_by_category's interval still reaches 97.1%: the breach is inside the
+noise at this sample size.
+
+--fail-under 0.90 → exit 0
+gate: PASS — all 7 tools at or above --fail-under 90.0% (lowest `sum_by_category` 94.2%),
+960/960 planned trials measured.
+```
+
+The published report in `reports\` was not touched; the scratch directory was deleted afterwards. Its regenerated report also confirmed the reconciliation still holds on real data — *10 earlier failures recovered, no outstanding gaps*, coverage 960/960 — and correctly stamped itself **"shared browser, sessions not isolated"**, because a re-gate over `--port` is exactly that and must not claim the isolation of the run that produced the data.
+
+### Four decisions inside the split, each one a way to get a wrong answer
+
+**Incomplete outranks a breach.** A run with holes cannot certify a regression. Gaps are not random: this project's own outage took ten trials inside a single session-repeat window, so a rate computed over a run with holes is a rate over a denominator the run did not choose. Exit 2 says re-run; exit 1 says the page changed. The verdict still records the breach it saw, because that is the reason to re-run, not a number to publish.
+
+**Completeness is derived from the plan, not from the failure log.** A log only knows about trials that failed loudly; a session killed mid-plan writes nothing and would otherwise report as complete. `run` now rebuilds the plan for the S sessions it was asked for, diffs it against the checkpoint keys, and puts `coverage` — planned, measured, missing, and the first ten missing `session:repeat:utterance` keys — into the report. That also made the old subtraction honest: `harnessFailures` is what remains outstanding, `recoveredFailures` what `--resume` filled.
+
+**The threshold gates the point rate, not the Wilson lower bound.** Gating on the bound is superficially the conservative choice and is actually unusable: 20 of 20 has a lower bound of 83.9%, so a page that never missed once would breach `--fail-under 0.9` on sample size alone. The point rate is gated, the interval is printed beside it, and the verdict says so in words when a breach sits inside the interval — which the 94.2% case above does, at 95%.
+
+**Usage errors exit 2, not 1.** `--fail-under 90` is refused rather than silently gating every build against 9000%, and the message names the fix. A command that produced no number belongs with the unmeasurable cases; exit 1 stays reserved for a measured rate.
+
+Coherence carried to the other two commands: `trial` exits 0 on `ok`, 1 on a measured non-`ok` outcome, and 2 when the trial threw or produced no measurement — it used to exit 1 for both of the last two. `session` exits 2 when it could not measure part of its plan. The orchestrator does not depend on that, since it recomputes coverage itself, but a hand-run session and a gated run should not disagree about what an incomplete measurement is.
+
+### The tests, including six that drive the real binary
+
+`core\gate.test.mjs` (13 tests) covers each code, the precedence, the boundary (a rate exactly at the threshold passes), the ceiling case that justifies gating the point rate, and `parseFailUnder` refusing `90`, `-0.1` and `nine tenths`. Report fixtures are built through the real `buildReport` rather than hand-shaped, so a rename in the emitter breaks the gate tests loudly instead of leaving the gate reading `undefined`.
+
+`bin\webmcp-gauge.test.mjs` (6 tests) spawns the actual CLI. The trick that makes it hermetic and fast is the same one used for the manual verification: seed the checkpoint from `buildPlan`, pass `--resume --port 1`, and nothing needs a browser or a provider. One case deliberately drops three trials from the checkpoint so the resumed session *does* try to run them, fails against the dead port, and produces real `trial_threw` non-results — that path asserts exit 2, the failure kind in the summary, and `coverage.missingTrials === 3`.
+
+### Report schema moved to 3
+
+`report.json` gained `coverage` and `gate`, so `schema` is now `webmcp-gauge/report/3`. The bump is not cosmetic: in a schema-2 report the absence of `coverage` means *unknown*, not *complete*, and a consumer that assumed otherwise would read old reports as clean. The three published reports in `reports\` stay at schema 2 and stay valid; the Markdown gained a `**Gate:**` line and a coverage figure in its footer.
+
+### Still open
+- ⚠️ Controls are not gated. `--fail-under` thresholds invocation rate only, so a page that fires tools at unanswerable requests can pass. A false-positive ceiling is a separate flag and a separate decision, recorded in the deferred list rather than half-built.
+- ⚠️ The gate treats every tool equally. A page with one rarely-used tool and six critical ones has no way to say so, and per-tool thresholds are not designed yet.
+- ⚠️ Discrimination still unproven, which is now the whole of the next step: every rate the gate has ever compared came from a page chosen for being well described.
+- ⚠️ `not_discovered` still unreachable without the browser-side tool list; injection controls still 12 trials.

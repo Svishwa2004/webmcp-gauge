@@ -11,6 +11,10 @@
  * whole sessions that shared nothing but the machine, and within-session sigma,
  * which compares repeats that shared a browser and a warm cache. The first two
  * sweeps of this project reported the second and described it as the first.
+ *
+ * Schema 3 adds `coverage` and `gate`: whether the run measured what it planned to,
+ * and the verdict a CI job exits on. In schema 2 reports the absence of `coverage`
+ * means unknown rather than complete, which is why the version moved.
  */
 import { rollUpControls, rollUpTool } from '../core/stats.mjs';
 
@@ -29,6 +33,7 @@ export const buildReport = ({
   records,
   harnessFailures = [],
   recoveredFailures = 0,
+  coverage = null,
   judge,
   settings,
   sessionResults = [],
@@ -61,7 +66,7 @@ export const buildReport = ({
   }
 
   return {
-    schema: 'webmcp-gauge/report/2',
+    schema: 'webmcp-gauge/report/3',
     generatedAt: new Date().toISOString(),
     subject: { url: settings.url, name: fixture.subject?.name ?? null },
     stamps: {
@@ -104,6 +109,13 @@ export const buildReport = ({
       perTag: byTag,
     },
     controls: controlRecords.length > 0 ? rollUpControls({ records: controlRecords }) : null,
+    /**
+     * Whether the run measured what it planned to measure, derived from the plan
+     * against the checkpoint rather than from the failure log. A log only knows
+     * about trials that failed loudly: a session killed mid-plan leaves no entry
+     * and would otherwise report as complete.
+     */
+    coverage,
     harnessFailures,
     recoveredFailures,
     sessionResults,
@@ -125,6 +137,11 @@ export const toMarkdown = (report) => {
     `Authored by \`${report.stamps.utteranceSet.authoringModel ?? 'unrecorded'}\`, which is disqualified as a judge for these numbers.`
   );
   lines.push('');
+
+  if (report.gate) {
+    lines.push(`**Gate:** ${report.gate.summary} _(exit ${report.gate.code})_`);
+    lines.push('');
+  }
 
   lines.push('## Invocation rate');
   lines.push('');
@@ -201,7 +218,11 @@ export const toMarkdown = (report) => {
     lines.push('');
   }
 
-  if (report.harnessFailures.length > 0 || report.recoveredFailures > 0) {
+  if (
+    report.harnessFailures.length > 0 ||
+    report.recoveredFailures > 0 ||
+    (report.coverage?.missingTrials ?? 0) > 0
+  ) {
     lines.push('## Harness failures');
     lines.push('');
     lines.push(
@@ -214,7 +235,18 @@ export const toMarkdown = (report) => {
       );
       lines.push('');
     }
-    if (report.harnessFailures.length === 0) {
+    if ((report.coverage?.missingTrials ?? 0) > 0) {
+      lines.push(
+        `**${report.coverage.missingTrials} of ${report.coverage.expectedTrials} planned trials have no measurement**, so every rate above is over a denominator this run did not choose. Re-run with \`--resume\`.`
+      );
+      if (report.coverage.missing?.length > 0) {
+        lines.push('');
+        lines.push(
+          `Missing (session:repeat:utterance, first ${report.coverage.missing.length}): ${report.coverage.missing.map((key) => `\`${key}\``).join(', ')}`
+        );
+      }
+      lines.push('');
+    } else if (report.harnessFailures.length === 0) {
       lines.push('No outstanding gaps: every planned trial has a measurement.');
       lines.push('');
     }
@@ -227,7 +259,7 @@ export const toMarkdown = (report) => {
   }
 
   lines.push(
-    `_${report.invocation.overall.ok}/${report.invocation.overall.trials} tool trials returned \`ok\`. Generated ${report.generatedAt} in ${(report.timing.elapsedMs / 1000).toFixed(0)}s._`
+    `_${report.invocation.overall.ok}/${report.invocation.overall.trials} tool trials returned \`ok\`${report.coverage ? ` · ${report.coverage.expectedTrials - report.coverage.missingTrials}/${report.coverage.expectedTrials} planned trials measured` : ''}. Generated ${report.generatedAt} in ${(report.timing.elapsedMs / 1000).toFixed(0)}s._`
   );
 
   return `${lines.join('\n')}\n`;

@@ -2,9 +2,9 @@
 
 Measures whether an AI agent actually calls the tools your web page exposes through WebMCP.
 
-**Status: measuring.** The harness runs end to end and has produced real numbers against a live page. It launches its own browser per session — a cold profile seeded with the WebMCP flag, in headless Chrome — captures the settled tool manifest, asks a judge model which tool to call, classifies the choice, executes it, and classifies the result. The utterance set is frozen at `1.3.0` (140 utterances plus 20 negative controls), and two sweeps of 480 trials each are published under [`reports/`](reports/).
+**Status: measuring.** The harness runs end to end and has produced real numbers against a live page. It launches its own browser per session — a cold profile seeded with the WebMCP flag, in headless Chrome — captures the settled tool manifest, asks a judge model which tool to call, classifies the choice, executes it, and classifies the result. The utterance set is frozen at `1.3.0` (140 utterances plus 20 negative controls), and three sweeps are published under [`reports/`](reports/) — the best isolated one being 960 trials across three separate processes, browsers and cold profiles.
 
-What exists: `trial` (one utterance, one outcome), `run` (S isolated sessions × R repeats, Wilson intervals, control false-positive rate, stamped JSON and Markdown reports), JSONL checkpointing with `--resume`. What does not: the static linter, the Mode B adapters for real shipping clients, and the badge emitter.
+What exists: `trial` (one utterance, one outcome), `run` (S isolated sessions × R repeats, Wilson intervals, control false-positive rate, stamped JSON and Markdown reports), JSONL checkpointing with `--resume`, and a CI gate with split exit codes. What does not: the static linter, the Mode B adapters for real shipping clients, and the badge emitter.
 
 ## The problem
 
@@ -21,8 +21,8 @@ Every trial lands in exactly one bucket — `not_supported`, `not_registered`, `
 ## What gets built
 
 - **A static linter** — no browser, no model, no API key. Catches invalid tool names, colliding or ambiguous descriptions, over-parameterised schemas, and tool counts approaching the undocumented per-page budget. *Not built yet.*
-- **The harness** — drives real browsers over the Chrome DevTools Protocol, fires the utterance set at the page's registered tools, classifies every outcome, and emits a JSON report plus a CI gate. *Built, minus the gate.*
-- **A public dataset** — the cross-client compatibility record and invocation-rate corpus, regenerated as browsers change, published with the code that produced every number. *Two runs so far, in `reports/`.*
+- **The harness** — drives real browsers over the Chrome DevTools Protocol, fires the utterance set at the page's registered tools, classifies every outcome, and emits a JSON report plus a CI gate. *Built.*
+- **A public dataset** — the cross-client compatibility record and invocation-rate corpus, regenerated as browsers change, published with the code that produced every number. *Three runs so far, in `reports/`.*
 
 ## How a number is reported
 
@@ -38,9 +38,24 @@ Conflating those two was a real defect in this project's first two sweeps: a too
 ```
 webmcp-gauge trial --utterance sum_by_category-05 --judge <model> --base-url <endpoint>
 webmcp-gauge run --sessions 3 --repeats 2 --out artifacts/run --judge <model> --base-url <endpoint>
+webmcp-gauge run --sessions 1 --fail-under 0.9 --judge <model> --base-url <endpoint>
 ```
 
 The judge must not be the model that wrote the utterances — the frozen set records which one did, and the CLI refuses to run if they match. Credentials come from the environment; see [`.env.example`](.env.example).
+
+### Exit codes
+
+A gate is only useful if `1` means one thing, so the three cases are separated:
+
+| Code | Meaning |
+|---|---|
+| `0` | Every planned trial was measured, and no tool's invocation rate fell below `--fail-under` |
+| `1` | Every planned trial was measured, and a rate is below `--fail-under` — the page regressed |
+| `2` | The run cannot answer: planned trials have no measurement (re-run with `--resume`), or the arguments were unusable |
+
+Incomplete outranks a breach on purpose. Gaps are not random — a judge outage or a page that never loaded can take out one tool's utterances and nothing else — so a rate over a run with holes is a rate over a denominator the run did not choose, and reporting that as a regression would be a lie with a plausible number. Completeness is derived from the plan against the checkpoint, not from the failure log, because a session killed mid-plan logs nothing.
+
+The threshold is compared against the **point rate**, not the Wilson lower bound: 20 of 20 has a lower bound of 83.9%, so gating on the bound would fail a flawless page on sample size alone. The interval is printed beside the rate instead, and the verdict says so when a breach sits inside it.
 
 ## Documentation
 

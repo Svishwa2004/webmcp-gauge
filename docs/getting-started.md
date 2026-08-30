@@ -219,6 +219,26 @@ Once §2 is done, the project runs on two rhythms rather than one:
 
 The correlation between the two is the product's central empirical claim. Track it as a number from the first week, not as an assumption.
 
+### The CI gate, and what each exit code is allowed to mean
+
+```
+webmcp-gauge run --sessions 1 --repeats 1 --fail-under 0.9 --out artifacts/ci
+```
+
+| Code | Meaning | What CI should do |
+|---|---|---|
+| `0` | Every planned trial measured, nothing below the threshold | Continue |
+| `1` | Every planned trial measured, a tool's rate is below `--fail-under` | Fail the build: this is the page |
+| `2` | The run cannot answer — planned trials have no measurement, or the arguments were unusable | Re-run with `--resume`; do not report a regression |
+
+Three decisions inside that table are load-bearing, and each one was a way to get a wrong answer:
+
+- **Incomplete outranks a breach.** Before this split, any harness failure exited 1, so "two trials need a `--resume`" and "the invocation rate fell off a cliff" were the same signal. Gaps are not random — the 960-trial sweep lost ten trials to one network blip, all inside a single session-repeat window — so a rate over a run with holes is a rate over a denominator the run did not choose.
+- **Completeness comes from the plan, not the failure log.** A log only knows about trials that failed loudly; a session killed mid-plan leaves no entry at all. The report therefore carries `coverage` — planned, measured, missing, and the first ten missing keys as `session:repeat:utterance`.
+- **The threshold gates the point rate, not the Wilson lower bound.** 20 of 20 has a lower bound of 83.9%, so gating on the bound would fail a page that never missed once, purely on sample size. The interval is printed beside the rate, and the verdict says when a breach sits inside it.
+
+The verdict is written into `report.json` as `gate` and into the Markdown as a `**Gate:**` line, so the artifact carries the same claim the exit code made. Control false positives are **not** gated yet: a false-positive ceiling is a separate flag and a separate decision, and pretending `--fail-under` covers safety would be worse than leaving it out.
+
 ---
 
 ## 6. Decision gates
@@ -257,6 +277,8 @@ Failure modes already documented in the field, and what each one means:
 | Whole feature silently off on a tool-heavy page | Per-page tool budget exceeded (296 tools reported disabling it entirely) | Run the budget probe, report headroom |
 | `executeTool` rejects your arguments | Signature drift. **Measured on Chrome 152**: the accepted form is `executeTool(registeredTool, jsonString)` — the first argument must be the object from `getTools()`, and the second a JSON *string*. `{name, arguments}` fails with "2 arguments required, but only 1 present", and a name string fails with "not of type 'RegisteredTool'" | `browser\webmcp.mjs` tries four shapes and reports which one worked; add a row rather than hard-coding one |
 | Judge picks nothing, repeatedly | Weak or ambiguous descriptions — the actual finding | Classify `not_selected` and report it; do not "fix" it by hinting the model |
+| `run` exits 2 saying planned trials have no measurement | A judge outage, a page that never loaded, or a session that died mid-plan. The rates printed are over an incomplete denominator | `run --resume --out <same dir>` fills exactly the missing trials; the report then counts them as recovered. Never read exit 2 as a threshold breach |
+| `run --fail-under 90` exits 2 immediately | The threshold is a rate, not a percentage — `90` would fail every build forever | Pass `0.9`. The CLI refuses the ambiguous form rather than gating on it |
 | `cdp-command.mjs` fails on import, or ignores your port | `chrome-remote-interface` doesn't resolve from `_spike\`, and the port is hardcoded to 9222 | Run it from `WebMCP\airlock\`, or from `webmcp-gauge\` where the dep is now pinned |
 | Devpost or other pages return 202 with an empty body | Bot challenge on plain fetches | Use a real browser for those; do not build a scraper around it |
 

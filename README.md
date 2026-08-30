@@ -2,9 +2,11 @@
 
 Measures whether an AI agent actually calls the tools your web page exposes through WebMCP.
 
-**Status: measuring.** The harness runs end to end and has produced real numbers against a live page. It launches its own browser per session — a cold profile seeded with the WebMCP flag, in headless Chrome — captures the settled tool manifest, asks a judge model which tool to call, classifies the choice, executes it, and classifies the result. The utterance set is frozen at `1.3.0` (140 utterances plus 20 negative controls), and three sweeps are published under [`reports/`](reports/) — the best isolated one being 960 trials across three separate processes, browsers and cold profiles.
+**Status: measuring, and the metric discriminates.** The harness runs end to end and has produced real numbers against a live page. It launches its own browser per session — a cold profile seeded with the WebMCP flag, in headless Chrome — captures the settled tool manifest, asks a judge model which tool to call, classifies the choice, executes it, and classifies the result. The utterance set is frozen at `1.3.0` (140 utterances plus 20 negative controls), and five reports are published under [`reports/`](reports/) — the best isolated reference run being 960 trials across three separate processes, browsers and cold profiles.
 
-What exists: `trial` (one utterance, one outcome), `run` (S isolated sessions × R repeats, Wilson intervals, control false-positive rate, stamped JSON and Markdown reports), JSONL checkpointing with `--resume`, and a CI gate with split exit codes. What does not: the static linter, the Mode B adapters for real shipping clients, and the badge emitter.
+The question that mattered most has an answer. Every early number came from a page chosen for being well described, so on 2026-08-30 the same frozen utterance set was fired at a deliberately mis-described twin of that page — one implementation, one dataset, two manifests. Clean manifest: **100.0%** (140/140). Degraded manifest: **80.0%** overall, with two tools at **35.0% [18.1%, 56.7%]** against a clean **[83.9%, 100.0%]**. The intervals do not overlap, and the taxonomy names which defect did it. Two of the seven predictions written down beforehand were wrong. Full write-up: [`reports/discrimination-2026-08-30.md`](reports/discrimination-2026-08-30.md).
+
+What exists: `lint` (static manifest rules, no judge or key), `trial` (one utterance, one outcome), `run` (S isolated sessions × R repeats, Wilson intervals, control false-positive rate, stamped JSON and Markdown reports), JSONL checkpointing with `--resume`, a CI gate with split exit codes, and a served fixture page for measuring pages this repo controls. What does not: the Mode B adapters for real shipping clients, and the badge emitter.
 
 ## The problem
 
@@ -20,7 +22,7 @@ Every trial lands in exactly one bucket — `not_supported`, `not_registered`, `
 
 ## What gets built
 
-- **A static linter** — no browser, no model, no API key. Catches invalid tool names, colliding or ambiguous descriptions, over-parameterised schemas, and tool counts approaching the undocumented per-page budget. *Not built yet.*
+- **A static linter** — no browser needed to reason, no model, no API key. Thirteen rules across four families: invalid or colliding tool names, missing, thin, duplicate or near-duplicate descriptions, over-parameterised and under-documented schemas, and tool counts approaching the undocumented per-page budget. Thresholds are calibrated so the reference page — the one measured at 100% over 960 trials — lints clean, because a default that flags a manifest known to work is a broken default. *Built.*
 - **The harness** — drives real browsers over the Chrome DevTools Protocol, fires the utterance set at the page's registered tools, classifies every outcome, and emits a JSON report plus a CI gate. *Built.*
 - **A public dataset** — the cross-client compatibility record and invocation-rate corpus, regenerated as browsers change, published with the code that produced every number. *Three runs so far, in `reports/`.*
 
@@ -36,12 +38,16 @@ Conflating those two was a real defect in this project's first two sweeps: a too
 ## Usage
 
 ```
+webmcp-gauge lint --url https://example.com
 webmcp-gauge trial --utterance sum_by_category-05 --judge <model> --base-url <endpoint>
 webmcp-gauge run --sessions 3 --repeats 2 --out artifacts/run --judge <model> --base-url <endpoint>
 webmcp-gauge run --sessions 1 --fail-under 0.9 --judge <model> --base-url <endpoint>
+webmcp-gauge run --serve fixtures/broken --url "twin.html?variant=degraded" --subject "twin" ...
 ```
 
-The judge must not be the model that wrote the utterances — the frozen set records which one did, and the CLI refuses to run if they match. Credentials come from the environment; see [`.env.example`](.env.example).
+`lint` needs no judge and no key — it reads the page's manifest and applies static rules. Everything else calls a judge model, which must not be the model that wrote the utterances: the frozen set records which one did, and the CLI refuses to run if they match. Credentials come from the environment; see [`.env.example`](.env.example).
+
+`--serve <dir>` publishes a directory on 127.0.0.1 and resolves `--url` against it, which is how the deliberately mis-described fixture page in [`fixtures/broken/`](fixtures/broken/) gets measured with the same frozen utterance set as the reference page.
 
 ### Exit codes
 

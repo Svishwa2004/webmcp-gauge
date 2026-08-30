@@ -161,20 +161,29 @@ Three layers, shipped in this order. Each is independently useful, which means e
 ### L0 — Static linter (no browser required)
 
 ```
-npx webmcp-gauge lint ./src          # source-tree mode
-npx webmcp-gauge lint https://…      # live-page mode
+webmcp-gauge lint --url https://…                              # live page
+webmcp-gauge lint --manifest ./tools.json                       # declared manifest
+webmcp-gauge lint --serve fixtures/broken --url twin.html       # a local fixture
 ```
 
-Encodes the documented silent-failure modes and model-ergonomics rules:
+**Built 2026-08-30.** Thirteen rules in four families, in `core/lint.mjs`, over one input: the manifest. Exit `0` clean, `1` findings at or above `--fail-on` (default `error`), `2` nothing to lint — no WebMCP surface, an unsettled tool set, or zero tools.
 
-- invalid tool names (the space-in-name silent failure, #145), naming collisions, near-duplicate names
-- descriptions that are empty, truncated, ambiguous between tools, or written for humans rather than models
-- over-parameterised schemas, missing `required`, unconstrained free-text where an `enum` belongs
-- registered tool count against the measured per-client budget, with a warning band
-- `execute` handlers that close over stale snapshots instead of reading live state — a real bug class already documented in `airlock/src/webmcp.ts`
-- missing `annotations` on obviously mutating tools
+| Family | Rules |
+|---|---|
+| names | `name/invalid-characters` · `name/too-long` · `name/duplicate` |
+| descriptions | `description/missing` · `description/thin` · `description/duplicate` · `description/near-duplicate` |
+| schemas | `schema/not-object` · `schema/required-without-description` · `schema/over-parameterised` · `schema/undocumented-property` · `schema/missing-type` |
+| budget | `budget/headroom` |
 
-Ships in a day, needs no browser, no model, no API key. This is the free on-ramp and the SEO surface.
+Two design decisions carry the weight:
+
+**Thresholds are calibrated, not invented.** The reference page has a measured invocation rate — 100% [96.9%, 100.0%] on five tools over 960 trials, 99.2% on the sixth — so the defaults are set where that page lints clean: descriptions ≥ 60 characters (its thinnest is 76), ≤ 6 schema properties (its largest tool has exactly 6), near-duplicate at 70% token overlap, budget warning at 64 tools against the 296 that has been reported to disable the feature silently. A default that flags a manifest known to work is a broken default, and every threshold is a flag.
+
+**A live manifest is not what the page declared.** Measured on Chrome `152.0.7977.65` (2026-08-30): `registerTool` **throws `"Invalid tool name"`** for a name containing a space, so #145's "silently does nothing" is not this build's behaviour — and the worst names can never appear in `getTools()`. They show up instead as a tool that is missing, which the harness scores `not_registered`. `--manifest` therefore lints what the source declares, and the live mode lints what the browser returns; both are needed and they answer different questions.
+
+What it deliberately does not do: rewrite descriptions, score "quality" on a scale, or claim a flagged manifest will invoke badly. That last claim belongs to L1, which measures it.
+
+Still not covered: `execute` handlers that close over stale snapshots, and missing `annotations` on obviously mutating tools — both need source analysis rather than a manifest, and the second cannot be decided from the manifest at all.
 
 ### L1 — The harness
 

@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>webmcp-gauge fixture — spending table</title>
+    <!--
+      The degraded twin of the reference page.
+
+      One implementation, one dataset, two manifests. ?variant=degraded (the
+      default) registers deliberately bad tool metadata; ?variant=clean registers
+      the reference page's own descriptions and schemas verbatim. Everything else -
+      the handlers, the 965-row CSV, the DOM markers the harness observes - is
+      identical between the two, so a rate difference between them is attributable
+      to what the manifest says and to nothing else.
+
+      Every defect is registered in tools.json with the prediction it was written
+      to test. Nothing here is tuned against a measured number.
+
+      ?flood=N additionally registers N filler tools, for the linter's budget rule
+      only; the measured sweeps never use it, because a tool-count effect would
+      confound the description effect.
+    -->
+    <style>
+      :root {
+        color-scheme: light;
+        --text: #16181d;
+        --dim: #9aa1ad;
+        --line: #e3e6ea;
+        --accent: #2f6bd8;
+      }
+      body {
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+        max-width: 60rem;
+        font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        color: var(--text);
+      }
+      h1 {
+        font-size: 1.35rem;
+        margin: 0 0 0.25rem;
+      }
+      .note,
+      #fixture-banner,
+      #tool-badge,
+      #status {
+        font-size: 0.85rem;
+        color: var(--dim);
+        margin: 0.35rem 0;
+      }
+      #fixture-banner {
+        padding: 0.5rem 0.7rem;
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--accent);
+        color: var(--text);
+      }
+      .table-wrap {
+        max-height: 26rem;
+        overflow: auto;
+        border: 1px solid var(--line);
+        margin-top: 0.75rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 0.35rem 0.6rem;
+        border-bottom: 1px solid var(--line);
+      }
+      th {
+        position: sticky;
+        top: 0;
+        background: #fff;
+      }
+      td.num {
+        text-align: right;
+      }
+      tbody.has-highlight tr {
+        color: var(--dim);
+      }
+      tbody.has-highlight tr.hit {
+        color: var(--text);
+        background: color-mix(in srgb, var(--accent) 10%, transparent);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Spending table</h1>
+    <p id="fixture-banner">
+      webmcp-gauge test fixture. Not a product, not deployed, and not the reference page — this one is
+      deliberately mis-described. Variant: <strong id="variant-name">…</strong>.
+    </p>
+    <p id="tool-badge" data-state="registering">registering WebMCP tools…</p>
+    <p id="status">loading rows…</p>
+    <p class="note" id="highlight-note" aria-live="polite"></p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Category</th>
+            <th class="num">Amount</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr class="empty">
+            <td colspan="4">No data loaded yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <script type="module">
+      const params = new URLSearchParams(location.search);
+      const variant = params.get('variant') === 'clean' ? 'clean' : 'degraded';
+      const flood = Math.max(0, Number.parseInt(params.get('flood') ?? '0', 10) || 0);
+      document.getElementById('variant-name').textContent =
+        variant + (flood > 0 ? ` + ${flood} filler tools` : '');
+
+      const rowsBody = document.getElementById('rows');
+      const noteEl = document.getElementById('highlight-note');
+      const badgeEl = document.getElementById('tool-badge');
+      const statusEl = document.getElementById('status');
+
+      let rows = [];
+      let highlighted = null;
+
+      const money = new Intl.NumberFormat('en-LK', {
+        style: 'currency',
+        currency: 'LKR',
+        maximumFractionDigits: 2,
+      });
+
+      /**
+       * The reference CSV has no quoted fields and exactly four columns per line
+       * (verified over all 965 rows), so a split parser is honest here. Anything
+       * cleverer would be untested code in a fixture.
+       */
+      const parseCsv = (text) => {
+        const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+        const header = lines[0].split(',').map((name) => name.trim().toLowerCase());
+        const index = {
+          date: header.indexOf('date'),
+          description: header.indexOf('description'),
+          category: header.indexOf('category'),
+          amount: header.indexOf('amount'),
+        };
+        return lines.slice(1).map((line, id) => {
+          const cells = line.split(',');
+          return {
+            id,
+            date: cells[index.date],
+            description: cells[index.description],
+            category: cells[index.category],
+            amount: Number.parseFloat(cells[index.amount]),
+          };
+        });
+      };
+
+      const render = () => {
+        const hits = highlighted ? new Set(highlighted.ids) : null;
+        const fragment = document.createDocumentFragment();
+        for (const row of rows) {
+          const tr = document.createElement('tr');
+          if (hits?.has(row.id)) tr.className = 'hit';
+          for (const value of [row.date, row.description, row.category]) {
+            const td = document.createElement('td');
+            td.textContent = value;
+            tr.append(td);
+          }
+          const amount = document.createElement('td');
+          amount.className = 'num';
+          amount.textContent = money.format(row.amount);
+          tr.append(amount);
+          fragment.append(tr);
+        }
+        rowsBody.className = hits && hits.size > 0 ? 'has-highlight' : '';
+        rowsBody.replaceChildren(fragment);
+        noteEl.textContent = highlighted ? `Agent highlighted: ${highlighted.note}` : '';
+      };
+
+      const setHighlight = (ids, note) => {
+        highlighted = ids && ids.length > 0 ? { ids, note } : null;
+        render();
+      };
+
+      const categories = () => [...new Set(rows.map((row) => row.category))].sort();
+      const total = (subset) => subset.reduce((sum, row) => sum + row.amount, 0);
+      const summarise = (row) => ({
+        date: row.date,
+        description: row.description,
+        category: row.category,
+        amount: row.amount,
+      });
+
+      const handlers = {
+        describe() {
+          const dates = rows.map((row) => row.date).sort();
+          return {
+            loaded: rows.length > 0,
+            rowCount: rows.length,
+            columns: ['date', 'description', 'category', 'amount'],
+            categories: categories(),
+            dateRange: { earliest: dates[0] ?? null, latest: dates.at(-1) ?? null },
+            totalAmount: Number(total(rows).toFixed(2)),
+          };
+        },
+
+        sumByCategory(args) {
+          const buckets = new Map();
+          for (const row of rows) {
+            const bucket = buckets.get(row.category) ?? { category: row.category, total: 0, count: 0 };
+            bucket.total += row.amount;
+            bucket.count += 1;
+            buckets.set(row.category, bucket);
+          }
+          const totals = [...buckets.values()]
+            .map((bucket) => ({ ...bucket, total: Number(bucket.total.toFixed(2)) }))
+            .sort((a, b) => b.total - a.total);
+
+          const wanted = args?.highlight ?? args?.cat;
+          if (wanted === undefined || wanted === null || wanted === '') {
+            setHighlight(null);
+            return { totals };
+          }
+
+          const match = totals.find(
+            (bucket) => bucket.category.toLowerCase() === String(wanted).toLowerCase()
+          );
+          if (!match) {
+            return {
+              error: 'unknown_category',
+              message: `No category named "${wanted}".`,
+              validCategories: categories(),
+            };
+          }
+
+          const ids = rows.filter((row) => row.category === match.category).map((row) => row.id);
+          setHighlight(ids, `${match.category}: ${ids.length} rows`);
+          return {
+            totals,
+            effect: `The ${ids.length} rows in "${match.category}" are now highlighted in the table; all other rows are dimmed.`,
+          };
+        },
+
+        filterRows(args = {}) {
+          const limit = Math.min(Math.max(Number(args.limit ?? 10) || 10, 1), 25);
+          const matches = rows.filter((row) => {
+            if (args.from && row.date < String(args.from)) return false;
+            if (args.to && row.date > String(args.to)) return false;
+            if (args.category && row.category.toLowerCase() !== String(args.category).toLowerCase()) {
+              return false;
+            }
+            if (args.min_amount !== undefined && row.amount < Number(args.min_amount)) return false;
+            if (args.max_amount !== undefined && row.amount > Number(args.max_amount)) return false;
+            return true;
+          });
+
+          if (matches.length === 0) {
+            setHighlight(null);
+            return {
+              matchCount: 0,
+              total: 0,
+              preview: [],
+              effect: 'No rows matched; the table is left unhighlighted.',
+            };
+          }
+
+          setHighlight(matches.map((row) => row.id), `${matches.length} matching rows`);
+          return {
+            matchCount: matches.length,
+            total: Number(total(matches).toFixed(2)),
+            preview: matches.slice(0, limit).map(summarise),
+            previewTruncated: matches.length > limit,
+            effect: `${matches.length} matching rows are now highlighted in the table; all other rows are dimmed.`,
+          };
+        },
+
+        monthlyTrend() {
+          const buckets = new Map();
+          for (const row of rows) {
+            const month = row.date.slice(0, 7);
+            const bucket = buckets.get(month) ?? { month, total: 0, count: 0 };
+            bucket.total += row.amount;
+            bucket.count += 1;
+            buckets.set(month, bucket);
+          }
+          const months = [...buckets.values()]
+            .map((bucket) => ({ ...bucket, total: Number(bucket.total.toFixed(2)) }))
+            .sort((a, b) => a.month.localeCompare(b.month));
+          const first = months[0]?.total ?? 0;
+          const last = months.at(-1)?.total ?? 0;
+          return {
+            months,
+            changeFirstToLast: first === 0 ? null : Number((((last - first) / first) * 100).toFixed(1)),
+          };
+        },
+
+        findAnomalies(args = {}) {
+          const threshold = Number(args.threshold ?? 2.5) || 2.5;
+          const byCategory = new Map();
+          for (const row of rows) {
+            byCategory.set(row.category, [...(byCategory.get(row.category) ?? []), row]);
+          }
+
+          const anomalies = [];
+          for (const group of byCategory.values()) {
+            if (group.length < 3) continue;
+            const mean = total(group) / group.length;
+            const variance =
+              group.reduce((sum, row) => sum + (row.amount - mean) ** 2, 0) / group.length;
+            const sigma = Math.sqrt(variance);
+            if (sigma === 0) continue;
+            for (const row of group) {
+              const zScore = (row.amount - mean) / sigma;
+              if (zScore >= threshold) {
+                anomalies.push({
+                  ...summarise(row),
+                  id: row.id,
+                  categoryMean: Number(mean.toFixed(2)),
+                  zScore: Number(zScore.toFixed(2)),
+                });
+              }
+            }
+          }
+
+          anomalies.sort((a, b) => b.zScore - a.zScore);
+          if (anomalies.length === 0) {
+            setHighlight(null);
+            return {
+              anomalyCount: 0,
+              anomalies: [],
+              effect: 'Nothing stood out at this threshold; the table is left unhighlighted.',
+            };
+          }
+
+          setHighlight(anomalies.map((row) => row.id), `${anomalies.length} unusual rows`);
+          return {
+            anomalyCount: anomalies.length,
+            anomalies: anomalies.slice(0, 25).map(({ id, ...rest }) => rest),
+            anomaliesTruncated: anomalies.length > 25,
+            effect: `${anomalies.length} unusual rows are now highlighted in the table; all other rows are dimmed.`,
+          };
+        },
+
+        topExpenses(args = {}) {
+          const limit = Math.min(Math.max(Number(args.limit ?? 5) || 5, 1), 25);
+          const ranked = [...rows].sort((a, b) => b.amount - a.amount).slice(0, limit);
+          setHighlight(ranked.map((row) => row.id), `top ${ranked.length} by amount`);
+          return {
+            rows: ranked.map(summarise),
+            total: Number(total(ranked).toFixed(2)),
+            effect: `The ${ranked.length} largest rows are now highlighted in the table; all other rows are dimmed.`,
+          };
+        },
+
+        clearHighlights() {
+          setHighlight(null);
+          return { effect: 'Highlighting cleared; all rows are shown normally.' };
+        },
+
+        noop() {
+          return { ok: true, note: 'This tool does nothing; it exists to occupy a manifest slot.' };
+        },
+      };
+
+      const registerAll = async (definitions) => {
+        const registered = [];
+        const rejected = [];
+        for (const definition of definitions) {
+          const handler = handlers[definition.impl] ?? handlers.noop;
+          const missing = definition.throwWhenMissing ?? [];
+          try {
+            await document.modelContext.registerTool({
+              name: definition.name,
+              description: definition.description,
+              inputSchema: definition.inputSchema,
+              annotations: definition.annotations,
+              async execute(args) {
+                // An over-parameterised schema is only a real defect if the page
+                // behaves like pages that have one: the handler insists on the
+                // parameters the schema declares required, and throws when they are
+                // absent. Returning an error object instead would score as ok,
+                // because a non-empty payload is indistinguishable from success.
+                const absent = missing.filter(
+                  (key) => args === null || args === undefined || args[key] === undefined
+                );
+                if (absent.length > 0) {
+                  throw new Error(`missing required parameter(s): ${absent.join(', ')}`);
+                }
+                return handler(args ?? {});
+              },
+            });
+            registered.push(definition.name);
+          } catch (error) {
+            rejected.push({ name: definition.name, error: String(error?.message ?? error) });
+          }
+        }
+        return { registered, rejected };
+      };
+
+      const floodDefinitions = (count) =>
+        Array.from({ length: count }, (_, index) => ({
+          name: `filler_tool_${String(index + 1).padStart(3, '0')}`,
+          impl: 'noop',
+          description: `Filler tool ${index + 1}. Registered only to push the manifest towards the undocumented per-page tool budget.`,
+          inputSchema: { type: 'object', properties: {} },
+          annotations: { readOnlyHint: true },
+        }));
+
+      const boot = async () => {
+        const [toolsFile, csv] = await Promise.all([
+          fetch('tools.json').then((response) => response.json()),
+          fetch('sample-expenses.csv').then((response) => response.text()),
+        ]);
+
+        rows = parseCsv(csv);
+        render();
+        statusEl.textContent = `${rows.length} rows parsed in-browser from ${toolsFile.dataset.file}. Nothing was uploaded.`;
+
+        if (!('modelContext' in document) || !document.modelContext) {
+          badgeEl.dataset.state = 'unsupported';
+          badgeEl.textContent = 'WebMCP unavailable — enable chrome://flags/#enable-webmcp-testing';
+          return;
+        }
+
+        const definitions = [...toolsFile.variants[variant], ...floodDefinitions(flood)];
+        const { registered, rejected } = await registerAll(definitions);
+
+        badgeEl.dataset.state = 'ready';
+        badgeEl.textContent = `${registered.length} WebMCP tools registered${rejected.length > 0 ? `, ${rejected.length} rejected` : ''} (variant: ${variant})`;
+        badgeEl.title = [
+          ...registered,
+          ...rejected.map((entry) => `REJECTED ${entry.name}: ${entry.error}`),
+        ].join('\n');
+
+        // Registration outcomes are a measurement in their own right: whether this
+        // build accepts a tool whose name contains a space is spec issue #145, and
+        // the harness reads this from the page rather than from a screenshot.
+        window.__fixtureRegistration = { variant, flood, registered, rejected };
+      };
+
+      boot().catch((error) => {
+        badgeEl.dataset.state = 'unsupported';
+        badgeEl.textContent = `fixture failed to boot: ${error?.message ?? error}`;
+      });
+    </script>
+  </body>
+</html>

@@ -97,6 +97,38 @@ const runCli = (dir, extra = []) =>
     child.on('close', (code) => resolve({ code, stdout, stderr }));
   });
 
+/**
+ * The static lint path needs no browser, no judge and no key, which is the claim
+ * being tested as much as the exit code: L0 is the free on-ramp, so no judge
+ * variable is passed here at all.
+ */
+const runLint = (extra = []) =>
+  new Promise((resolve) => {
+    const child = spawn(
+      process.execPath,
+      [binPath, 'lint', '--manifest', fileURLToPath(new URL('../fixtures/broken/tools.json', import.meta.url)), ...extra],
+      {
+        env: {
+          ...process.env,
+          WEBMCP_GAUGE_JUDGE_MODEL: '',
+          WEBMCP_GAUGE_JUDGE_BASE_URL: '',
+          WEBMCP_GAUGE_JUDGE_API_KEY: '',
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }
+    );
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    child.on('close', (code) => resolve({ code, stdout, stderr }));
+  });
+
 const withTempRun = async (body) => {
   const dir = await mkdtemp(join(tmpdir(), 'webmcp-gauge-exit-'));
   try {
@@ -200,4 +232,45 @@ test('--fail-under 90 is refused rather than gating every build against 9000%', 
     assert.equal(result.code, 2);
     assert.match(result.stderr, /use 0\.9, not 90/);
   });
+});
+
+test('lint runs with no judge configured at all and exits 0 on a clean manifest', async () => {
+  const result = await runLint(['--variant', 'clean']);
+
+  assert.equal(result.code, 0, result.stderr);
+  assert.match(result.stdout, /No findings/);
+});
+
+test('lint exits 1 on a manifest with error-level findings, and says it is not a measured rate', async () => {
+  const result = await runLint(['--variant', 'degraded']);
+
+  assert.equal(result.code, 1, result.stderr);
+  assert.match(result.stdout, /ERROR\s+name\/invalid-characters/);
+  assert.match(result.stderr, /not a measured invocation rate/);
+});
+
+test('--fail-on warning promotes advice to a failure, and the default does not', async () => {
+  // The clean manifest carries no findings at all until the description floor is
+  // raised past what the reference page ships, which then makes every description
+  // thin: warnings only, so the two --fail-on levels are separable on one input.
+  const advisory = await runLint(['--variant', 'clean', '--min-description', '400']);
+  assert.equal(advisory.code, 0, 'warnings alone must not fail a build by default');
+  assert.match(advisory.stdout, /WARN\s+description\/thin/);
+
+  const strict = await runLint(['--variant', 'clean', '--min-description', '400', '--fail-on', 'warning']);
+  assert.equal(strict.code, 1, strict.stderr);
+});
+
+test('lint exits 2 when the manifest cannot be read as one', async () => {
+  const result = await runLint(['--variant', 'no-such-variant']);
+
+  assert.equal(result.code, 2);
+  assert.match(result.stderr, /has no variants\.no-such-variant array/);
+});
+
+test('lint refuses a --fail-on level it does not implement rather than guessing', async () => {
+  const result = await runLint(['--variant', 'clean', '--fail-on', 'nit']);
+
+  assert.equal(result.code, 2);
+  assert.match(result.stderr, /takes 'error' or 'warning'/);
 });

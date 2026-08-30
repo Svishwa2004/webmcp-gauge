@@ -68,7 +68,17 @@ export const buildReport = ({
   return {
     schema: 'webmcp-gauge/report/3',
     generatedAt: new Date().toISOString(),
-    subject: { url: settings.url, name: fixture.subject?.name ?? null },
+    /**
+     * The subject label is explicit because the utterance set and the page under
+     * test are separable: the frozen Airlock set also drives a deliberately
+     * mis-described local twin, and a report that inherited the fixture's name
+     * would claim to have measured Airlock.
+     */
+    subject: {
+      url: settings.url,
+      name: settings.subjectName ?? fixture.subject?.name ?? null,
+      servedFrom: settings.servedFrom ?? null,
+    },
     stamps: {
       utteranceSet: {
         version: fixture.version,
@@ -129,6 +139,12 @@ export const toMarkdown = (report) => {
 
   lines.push(`# webmcp-gauge — ${report.subject.name ?? report.subject.url}`);
   lines.push('');
+  if (report.subject.servedFrom) {
+    lines.push(
+      `Subject: \`${report.subject.url}\`, served locally from \`${report.subject.servedFrom}\` — a fixture page in this repository, not a deployed site.`
+    );
+    lines.push('');
+  }
   lines.push(
     `Utterance set \`${report.stamps.utteranceSet.version}\`${report.stamps.utteranceSet.frozen ? ' (frozen)' : ' (DRAFT — numbers are not comparable)'} · judge \`${report.stamps.judge.model}\` · ${harness.sessions} session${harness.sessions === 1 ? '' : 's'} × ${harness.repeatsPerSession} repeat${harness.repeatsPerSession === 1 ? '' : 's'} · concurrency ${harness.concurrency}${harness.isolatedSessions ? '' : ' · **shared browser, sessions not isolated**'}`
   );

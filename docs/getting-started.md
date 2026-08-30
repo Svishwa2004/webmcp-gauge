@@ -142,7 +142,7 @@ Each step has a done-condition. Do not start the next one until the current one 
 | 3 | ✅ **Done 2026-08-30** — One trial, end to end | `core\trial.mjs`, `core\taxonomy.mjs`, `browser\session.mjs`, `browser\webmcp.mjs`, `judges\openai-compatible.mjs`, `webmcp-gauge trial` | Two live trials returned `ok` against Airlock with `glm-5.3` judging: `sum_by_category-05` (correct tool, `highlight: "Groceries"`, 95 rows highlighted) and `clear_highlights-09` via the seed protocol. Judge raw response attached to every record; 34 tests green |
 | 4 | ✅ **Done 2026-08-30** — Full sweep, three times | `webmcp-gauge run --sessions 3 --repeats 2`, `reports\airlock-1.3.0-glm-5.3-s3r2.md` | Latest and best-isolated run: **960 trials** across three separate processes, browsers and cold profiles. Five tools at 100% [96.9%, 100.0%], `filter_rows` 99.2%, `sum_by_category` 94.2%; controls 0 false positives in 120; 10 outage trials excluded then recovered by `--resume`. Earlier `1.2.0` and `1.3.0` R=3 runs kept as superseded history |
 | 5 | ✅ **Passed 2026-08-30 on between-session σ** — Variance gate | same command | σ between sessions **0.012** where anything varies, **0.000** at the ceiling, against a 5.8-point spread between best and worst tool. Confirmed larger than within-session σ (0.008), which is exactly why the earlier marking on within-session σ was optimistic |
-| 6 | L0 linter | `webmcp-gauge lint` | Flags every documented failure mode on a deliberately broken fixture page |
+| 6 | ✅ **Done 2026-08-30** — L0 linter + a deliberately broken fixture page | `webmcp-gauge lint`, `core\lint.mjs`, `fixtures\broken\` | 13 rules in four families, calibrated so the live reference page lints **0 errors, 0 warnings** while the degraded twin lints **6 errors, 13 warnings**. And the metric discriminates: same fixture page, same frozen utterance set, two manifests — **100.0% clean against 80.0% degraded**, with two tools at **35.0% [18.1%, 56.7%]** against a clean **[83.9%, 100.0%]**. Write-up: `reports\discrimination-2026-08-30.md` |
 | 7 | Mode B adapters | `--clients` | At least one real client measured; the ChatGPT column is honestly marked automated or sampled |
 
 Step 2 has one rule that cannot be bent: **the model that writes the utterances must not be the model being judged on them**, or the metric measures self-consistency instead of usability. Write them yourself, or generate with one model and judge with another, and freeze the file so numbers stay comparable across commits.
@@ -219,6 +219,22 @@ Once §2 is done, the project runs on two rhythms rather than one:
 
 The correlation between the two is the product's central empirical claim. Track it as a number from the first week, not as an assumption.
 
+### L0 in practice — lint before you measure
+
+```
+webmcp-gauge lint --url https://your-page.example            # live manifest
+webmcp-gauge lint --manifest ./tools.json                    # what the source declares
+webmcp-gauge lint --serve fixtures/broken --url "twin.html?variant=degraded"
+```
+
+No judge, no API key, seconds rather than minutes: it reads the manifest and applies thirteen rules across names, descriptions, schemas and tool-count budget. Exit `0` clean, `1` findings at or above `--fail-on` (default `error`), `2` nothing to lint — no WebMCP surface, a tool set that never settled, or zero tools.
+
+Run both modes, because they answer different questions. Chrome `152.0.7977.65` **throws `"Invalid tool name"`** when a page registers a name containing a space, so the worst names never reach `getTools()` and a live lint cannot see them; `--manifest` reads what the source declares. Conversely only the live mode catches what the browser actually did with what the page tried to register.
+
+Thresholds are calibrated on the reference page rather than invented, and all of them are flags (`--min-description`, `--max-properties`, `--budget-warn`). Verified 2026-08-30: the live reference page lints **0 errors, 0 warnings**, and the deliberately mis-described fixture twin lints **6 errors, 13 warnings**.
+
+A clean lint is not a measured invocation rate. L0 says the manifest is well formed; only `run` says an agent picks these tools.
+
 ### The CI gate, and what each exit code is allowed to mean
 
 ```
@@ -249,7 +265,7 @@ Explicit stop-and-think points, so momentum doesn't carry a broken premise forwa
 
 **Gate 2 — the variance gate (step 5).** ✅ **Passed 2026-08-30 on between-session σ**, which is the figure that was missing when this gate was first marked. Across 960 trials in three isolated sessions — separate OS processes, separate browsers, cold profiles — σ between sessions is **0.012** for the two tools that fail at all and **0.000** for the five that never do, against a 5.8-point spread between the best and worst tool. Signal exceeds noise by roughly five to one.
 
-Three caveats stay on the record. Where σ reads 0.000 the tool never failed in 120 trials, so that is a ceiling effect and the interval `[96.9%, 100.0%]` carries the real uncertainty. Sessions ran back to back on one machine, so drift across hours or days is unmeasured — and `sum_by_category-12`'s wrong answer moved from `describe_dataset` in two earlier sweeps to `find_anomalies` in all six trials of this one, which looks like provider-side drift no within-run σ can see. And discrimination is still unproven: these numbers come from a page chosen for being well described.
+Three caveats stay on the record. Where σ reads 0.000 the tool never failed in 120 trials, so that is a ceiling effect and the interval `[96.9%, 100.0%]` carries the real uncertainty. Sessions ran back to back on one machine, so drift across hours or days is unmeasured — and `sum_by_category-12`'s wrong answer moved from `describe_dataset` in two earlier sweeps to `find_anomalies` in all six trials of this one, which looks like provider-side drift no within-run σ can see. The third caveat — that discrimination was unproven because the numbers came from a page chosen for being well described — was **closed on 2026-08-30**: the same frozen set against a deliberately mis-described twin of the same page reads 80.0% overall and 35.0% [18.1%, 56.7%] on its two worst tools, against 100.0% [83.9%, 100.0%] for the clean twin. Intervals do not overlap, so the metric discriminates. See `reports\discrimination-2026-08-30.md`, including the two predictions it falsified.
 
 Between-session σ was also confirmed **larger than within-session σ** (0.012 against 0.008), which is why the earlier gate marking was optimistic rather than wrong. If a later run shows σ swamping the difference between a good and a bad description, the options are unchanged: raise K, pin the judge harder, redesign the trial, or publish the negative result. What is not an option is shipping a number you do not believe.
 

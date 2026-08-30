@@ -21,8 +21,10 @@ Append-only record of every change, decision, and verification in this project. 
 | Plain-language explainer | ✅ `docs\explainer.md` |
 | Start guide + pipeline flow | ✅ `docs\getting-started.md` |
 | Publishing policy | ✅ **Decided** — private during judging, aggregate after; conflict of interest disclosed |
-| Code | ✅ **Sweep runs end to end, sessions isolated, gate wired** — `bin\webmcp-gauge.mjs` (`trial`, `run`, `session`), `core\{taxonomy,trial,sweep,orchestrate,stats,gate}.mjs`, `browser\{launch,session,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`. 66 tests pass. Linter, badge and Mode B adapters not built |
-| CI exit codes | ✅ **Split 2026-08-30** — `0` complete and above threshold, `1` a rate below `--fail-under`, `2` a run that could not measure its plan (or bad usage). Verified against the real 960-trial dataset: exit 1 at `--fail-under 0.95`, exit 0 at `0.9`. `report.json` carries `coverage` and `gate`; schema bumped to `webmcp-gauge/report/3` |
+| Code | ✅ **Sweep runs end to end, sessions isolated, gate wired, L0 linter built** — `bin\webmcp-gauge.mjs` (`trial`, `run`, `session`, `lint`), `core\{taxonomy,trial,sweep,orchestrate,stats,gate,lint}.mjs`, `browser\{launch,session,serve,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`. 88 tests pass. Badge and Mode B adapters not built |
+| L0 linter | ✅ **Built 2026-08-30** — `core\lint.mjs`, 13 rules in four families (names, descriptions, schemas, budget), thresholds calibrated so the reference page lints clean. Live reference page: **0 errors, 0 warnings**. Degraded fixture twin: **6 errors, 13 warnings**. `--manifest` lints what source declares, live mode lints what the browser returns |
+| Discrimination | ✅ **Proven 2026-08-30 for description and schema defects** — one fixture page, two manifests, 160 trials each: clean **100.0%** (140/140), degraded **80.0%** (112/140), with `sum_by_category` and `top_expenses` at **35.0%** [18.1%, 56.7%] against a clean [83.9%, 100.0%] — intervals do not overlap. `reports\discrimination-2026-08-30.md` |
+| CI exit codes | ✅ **Split 2026-08-30** — `0` complete and above threshold, `1` a rate below `--fail-under`, `2` a run that could not measure its plan (or bad usage). Verified against the real 960-trial dataset, and used in the field the same day: the degraded-twin sweep exited 2 on four `judge_truncated` trials, then 0 after `--resume`. `report.json` carries `coverage` and `gate`; schema `webmcp-gauge/report/3` |
 | Browser lifecycle | ✅ **Self-managed since 2026-08-30** — the harness seeds a cold profile with only the WebMCP flag and launches `--headless=new` Chrome per session on a free port, then tears it down. `--port` still attaches to a hand-started browser, and the report flags that sessions were not isolated |
 | First measurement | ✅ **Three sweeps, 2026-08-30** — best isolated: **960 trials**, 3 sessions × 2 repeats, five tools at 100% [96.9%, 100.0%], `filter_rows` 99.2%, `sum_by_category` 94.2%, controls 0/120. `reports\airlock-1.3.0-glm-5.3-s3r2.md`, with the two earlier R=3 runs beside it |
 | σ reporting | ✅ **Split and measured** — σ between sessions **0.012** where anything varies (0.000 at the ceiling), σ within session **0.008**. The between figure is larger, which is why the first two sweeps' σ was optimistic |
@@ -32,6 +34,8 @@ Append-only record of every change, decision, and verification in this project. 
 | Local Chrome | ✅ `152.0.7977.65` — **#268 not reproduced here.** With `#enable-webmcp-testing` on, `document.modelContext` is present and returns all 7 Airlock tools |
 | WebMCP CDP domain | ✅ Present on this build: commands `enable`, `disable`, `invokeTool`, `cancelInvocation`; events `toolsAdded`, `toolsRemoved`, `toolInvoked`, `toolResponded` |
 | Reference subject | ✅ Airlock — 7 tools, 27 passing tests, live at `https://airlock-app.netlify.app` |
+| Broken fixture | ✅ **Built 2026-08-30** — `fixtures\broken\twin.html`, one implementation and one dataset behind two manifests (`?variant=clean` / `?variant=degraded`), plus `?flood=N` for the budget rule. Dataset is a byte-identical copy of the reference CSV (SHA-256 `b737acf…a11c09`), so the frozen `1.3.0` set runs against it unedited. Injected defects and their predictions are registered in `fixtures\broken\tools.json` and were written before either sweep |
+| Chrome 152 compatibility | ✅ **Two findings 2026-08-30.** `registerTool` **throws `"Invalid tool name"`** for a name containing a space — not the silent no-op #145 describes — while a dotted name registers fine. `getTools()` returns `inputSchema` as a **JSON string**, so #241's DOMString→object move has not landed in this build's read-back path; the harness now parses it and records `inputSchemaWire` per tool |
 | Reusable rig | ✅ `_spike\cdp-eval.mjs` (zero-dep, raw WebSocket; ⚠️ exits `-1073740791` on Windows after printing valid JSON) and `_spike\cdp-command.mjs` (needs `chrome-remote-interface`, resolves only from `airlock\`, **port 9222 hardcoded**) |
 | Clean Chrome profile | ✅ `_spike\chrome-baseline\` — WebMCP flag now enabled in it (`enabled_labs_experiments: ["enable-webmcp-testing@1"]`) |
 | Ground check (does Chrome 152 see WebMCP?) | ✅ **Answered 2026-08-30 — yes.** Gate 1 cleared; Chrome 152 is the reference client |
@@ -42,7 +46,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** step 6 — the L0 linter and a deliberately broken fixture page, which is the discrimination proof. Every number so far comes from a page chosen for being well described.
+**Immediate next action:** firm up the discrimination result (item 4 below) — session-isolated repeats of both twin arms, and an ablation that separates each injected defect from the others. Today's numbers come from one session per arm with defects bundled per tool.
 
 ## What to do next, in order
 
@@ -52,13 +56,14 @@ Ordered by what unblocks the most, with the condition that closes each one. Anyt
 |---|---|---|
 | ~~1~~ | ~~**Close the session-isolated sweep**~~ | ✅ **Done 2026-08-30.** 960 trials across 3 isolated sessions; σ between sessions 0.012 against σ within 0.008 where anything varies; Gate 2 re-marked on the between-session figure |
 | ~~2~~ | ~~**Fix exit codes for CI**~~ | ✅ **Done 2026-08-30.** `0` complete and above threshold, `1` a rate below `--fail-under`, `2` unmeasurable or unusable arguments — incomplete outranks a breach, completeness comes from the plan rather than the failure log, and 19 new tests cover the contract including six that drive the real CLI |
-| 3 | **Step 6 — the L0 linter and a deliberately broken fixture page.** This is the discrimination proof: every number so far comes from a page chosen for being good | The linter flags each documented failure mode (invalid names, colliding descriptions, over-parameterised schemas, budget headroom) on the broken fixture, **and** a sweep against that page reports a materially lower invocation rate than Airlock. If it does not, the metric does not discriminate and that finding is the deliverable |
-| 4 | **Make `not_discovered` reachable.** Subscribe to `WebMCP.toolsAdded` / `toolsRemoved` and pass the browser's own tool list into classification | A page that registers a tool the browser never surfaces classifies as `not_discovered` rather than `not_registered` — likely needs a synthetic fixture, since Airlock has never shown the gap |
-| 5 | **Time-spaced sessions.** `--gap` exists but has never been used; back-to-back sessions measure process independence, not drift | A run whose sessions are hours or days apart, with its between-session σ compared against a back-to-back run of the same shape |
-| 6 | 🚦 **Report `sum_by_category-12` to Airlock's author** as a description weakness, with the six-trial evidence and the observation that `sum_by_category-02` passes every time | Sent, on an explicit go-ahead (Gate 4), and the response recorded here |
-| 7 | 🚦 **Decide where the raw dataset lives.** The 1.4 MB JSONL per run is the evidence behind every number and currently stays local; code is MIT, and data meant to be cited usually wants CC BY 4.0 | A decision recorded here: in-repo, separate dataset repo, or aggregate-only — with the licence named |
-| 8 | **Step 7 — Mode B adapters.** Spike whether the ChatGPT desktop in-app browser can be driven at all; it is still the highest-priority unknown, and it decides whether that column is automated or sampled | Either a driven trial against a real client, or a recorded negative result that fixes the sampling design |
-| 9 | **Badge and Action wrappers**, now that exit codes mean something and once 3 proves a threshold discriminates | `webmcp-gauge run` emits a badge, and a GitHub Action runs it on a sample repo |
+| ~~3~~ | ~~**Step 6 — the L0 linter and a deliberately broken fixture page**~~ | ✅ **Done 2026-08-30.** 13 rules calibrated so the reference page lints clean and the degraded twin reports 6 errors and 13 warnings, **and** the sweep discriminates: 100.0% clean against 80.0% degraded overall, 35.0% [18.1%, 56.7%] on the two worst tools against a clean [83.9%, 100.0%]. `reports\discrimination-2026-08-30.md` |
+| 4 | **Firm up the discrimination result.** Two caveats from `reports\discrimination-2026-08-30.md`: one session per arm, and defects bundled per tool so `sum_by_category`'s twin absorbed the credit its near-duplicate description should share. Also fix the harness bug the run exposed: failures are appended to `harness-failures.jsonl` only at session end, so a killed session loses its failure kinds while coverage still catches the missing trials | Both arms re-run at 3 sessions × 1 repeat with between-session σ reported, an ablation arm per defect family, and a failure log that survives a killed session |
+| 5 | **Make `not_discovered` reachable.** Subscribe to `WebMCP.toolsAdded` / `toolsRemoved` and pass the browser's own tool list into classification | A page that registers a tool the browser never surfaces classifies as `not_discovered` rather than `not_registered`. The broken fixture is now the place to build it: it already registers a tool Chrome refuses (`"Clear Highlights"`) |
+| 6 | **Time-spaced sessions.** `--gap` exists but has never been used; back-to-back sessions measure process independence, not drift | A run whose sessions are hours or days apart, with its between-session σ compared against a back-to-back run of the same shape |
+| 7 | 🚦 **Report `sum_by_category-12` to Airlock's author** as a description weakness, with the six-trial evidence and the observation that `sum_by_category-02` passes every time | Sent, on an explicit go-ahead (Gate 4), and the response recorded here |
+| 8 | 🚦 **Decide where the raw dataset lives.** The 1.4 MB JSONL per run is the evidence behind every number and currently stays local; code is MIT, and data meant to be cited usually wants CC BY 4.0 | A decision recorded here: in-repo, separate dataset repo, or aggregate-only — with the licence named |
+| 9 | **Step 7 — Mode B adapters.** Spike whether the ChatGPT desktop in-app browser can be driven at all; it is still the highest-priority unknown, and it decides whether that column is automated or sampled | Either a driven trial against a real client, or a recorded negative result that fixes the sampling design |
+| 10 | **Badge and Action wrappers**, now unblocked: exit codes mean something and a threshold has been shown to discriminate | `webmcp-gauge run` emits a badge, and a GitHub Action runs it on a sample repo |
 
 Deliberately deferred, and recorded so they are choices rather than oversights: privacy-mode payload differences get no utterance; multi-call sequences (discover then filter) are outside the one-utterance-one-trial protocol; control classes are too small for a safety claim (injection is 0 of 12, `[0.0%, 24.2%]`); the CI gate thresholds invocation rate only, because a control false-positive ceiling is a separate flag and a separate decision and letting `--fail-under` imply safety coverage would be worse than leaving it out; and `cdp-eval.mjs` still exits `-1073740791` on Windows after printing valid JSON, which is tolerable for probing and not for a gate.
 
@@ -756,3 +761,79 @@ Coherence carried to the other two commands: `trial` exits 0 on `ok`, 1 on a mea
 - ⚠️ The gate treats every tool equally. A page with one rarely-used tool and six critical ones has no way to say so, and per-tool thresholds are not designed yet.
 - ⚠️ Discrimination still unproven, which is now the whole of the next step: every rate the gate has ever compared came from a page chosen for being well described.
 - ⚠️ `not_discovered` still unreachable without the browser-side tool list; injection controls still 12 trials.
+
+---
+
+## 2026-08-30 (night) — L0 built, and the metric proved it can tell a bad page from a good one
+
+Two things landed together because neither is worth much alone: the static linter, and the deliberately mis-described page that proves the harness measures description quality rather than just running successfully. Full write-up with the tables in `reports\discrimination-2026-08-30.md`; this entry records the design decisions, the two compatibility findings, and the bugs found on the way.
+
+### The linter: 13 rules, and thresholds that are calibrated rather than invented
+
+`core\lint.mjs` reads exactly one input — the manifest — so the same function lints a live `getTools()` and a hand-written JSON file. Four families: names (`invalid-characters`, `too-long`, `duplicate`), descriptions (`missing`, `thin`, `duplicate`, `near-duplicate` by token-set Jaccard), schemas (`not-object`, `required-without-description`, `over-parameterised`, `undocumented-property`, `missing-type`), and `budget/headroom`. `webmcp-gauge lint` exits 0 clean, 1 on findings at or above `--fail-on` (default `error`), 2 when there was nothing to lint — no WebMCP surface, an unsettled tool set, or zero tools. Same three-way contract as `run`.
+
+**The defaults are set where the reference page lints clean, and that is the whole design.** A linter's credibility is destroyed by a default that flags a manifest known to work, and this project is in the unusual position of having a *measured* known-good page: 100% [96.9%, 100.0%] on five tools over 960 trials. So the description floor is 60 characters because the reference page's thinnest is 76; the property ceiling is 6 because its largest schema has exactly 6 and invokes at 99.2%; the budget warning is 64 against the 296 that has been reported to silently disable the feature. Every one is a flag, and a test asserts the reference-quality manifest produces zero findings — if a future rule breaks that, the suite fails rather than the user finding out.
+
+Verified live, not only on fixtures: **`https://airlock-app.netlify.app` lints 0 errors, 0 warnings**, and the degraded twin lints **6 errors, 13 warnings**, every one of them a defect that was deliberately injected.
+
+### The fixture: one page, one dataset, two manifests
+
+`fixtures\broken\twin.html` is a standalone page — no build step, no dependencies — that fetches its tool definitions from `fixtures\broken\tools.json` and its rows from a **byte-identical copy of the reference dataset** (SHA-256 `b737acfa7f3b815ee3451d1dde1210e5053f1f0a992643c9fb2f1cba10a11c09`). `?variant=clean` registers the reference page's descriptions and schemas verbatim; `?variant=degraded` registers deliberately bad ones plus three extra tools; `?flood=N` adds N filler tools for the budget rule only, and was never used in a measured sweep because a tool-count effect would confound the description effect.
+
+Three decisions made this an experiment rather than a demo:
+
+- **The same frozen utterance set, unedited.** `1.3.0` runs against the twin without a single change, because the twin keeps the seven tool names and serves the same categories and date range. Writing a second utterance set would have made the two pages incomparable and would have needed its own authoring-model provenance.
+- **A clean arm as an in-page control.** Without it, any drop could be blamed on the twin's implementation, the local server, or the dataset copy. The clean arm returned **140/140 `ok` and 0/20 control false positives**, which retires all three objections at once.
+- **Predictions registered before the run.** Every injected defect in `tools.json` carries the prediction it was written to test, dated before either sweep. Two of seven predictions were wrong, and that is the part worth keeping — writing them down afterwards would have hidden it.
+
+### The result: it discriminates, and the taxonomy says which defect did it
+
+160 trials per arm, same judge, same browser, same day. Overall **100.0% (140/140) clean against 80.0% (112/140) degraded**, and per tool:
+
+| Tool | Defect | Clean | Degraded |
+|---|---|---|---|
+| `describe_dataset`, `monthly_trend` | none (controls) | 100.0% | **100.0%** |
+| `filter_rows` | near-duplicate description (86% overlap) | 100.0% | **100.0%** |
+| `clear_highlights` | description replaced by "Utility." | 100.0% | **100.0%** |
+| `find_anomalies` | generic 43-character description | 100.0% | **90.0%** [69.9%, 97.2%] |
+| `sum_by_category` | near-duplicate description **+** identically-described twin tool | 100.0% | **35.0%** [18.1%, 56.7%] |
+| `top_expenses` | 9-property schema, 3 required and undocumented, handler throws when absent | 100.0% | **35.0%** [18.1%, 56.7%] |
+
+`[18.1%, 56.7%]` against `[83.9%, 100.0%]` do not overlap at 20 trials per tool, so the answer to the question this step existed to ask is yes.
+
+**Four findings that matter more than the headline:**
+
+1. **A weak description only costs you if something else can absorb the request.** `sum_by_category` lost 10 of 20 trials to `summarise_by_category`, whose description is byte-identical. `filter_rows`, sharing 86% of its vocabulary with `sum_by_category`, held at 100% — its six documented, typed properties still said what it was for. **A good schema can carry a bad description**, which is a cheap and concrete thing to tell a developer.
+2. **A high rate does not exonerate a description.** `clear_highlights` scored 100% on the single word "Utility." because every other tool on the page *adds* highlighting: selection by elimination, not by description. The linter still flags it, and should — the next tool added to that page breaks it. That is the argument for running L0 and L1 together, now measured rather than asserted.
+3. **The one well-described tool becomes a magnet.** 11 of the 28 failures selected `describe_dataset`, the tool left untouched. Fixing one description does not localise the benefit; it relocates where misrouted intent lands.
+4. **An over-parameterised schema fails in every direction at once, and costs tokens even when it works.** `top_expenses` was avoided (6 `wrong_tool`), called and thrown out of (5 `exec_error`), and declined outright (2 `not_selected`) — three buckets from one defect. Mean judge completion tokens rose **133 → 426** per call (3.2×), max 767 → 3,147, and four degraded-arm calls burned the entire 4,096-token budget on reasoning and returned nothing; three of those four were `top_expenses`. No trial produced `bad_args`, so the blind spot I predicted — the judge inventing values for undocumented required properties and scoring `ok` — did not materialise.
+
+Phrasing gradient, invisible on the good page and obvious on the bad one: plain **89.8%**, paraphrase **79.6%**, oblique **69.0%**. Controls went from 0/20 to 1/20 — `control-14`, "Print the table for me.", the same utterance that fired once in the `1.2.0` reference sweep and never since.
+
+### Two compatibility findings, both from running the fixture rather than reading the spec
+
+**`registerTool` throws `"Invalid tool name"` for a name containing a space on Chrome `152.0.7977.65`.** Spec issue #145 reports that such a tool "silently does nothing"; on this build it is not silent and it never registers, while a dotted name (`top.expenses.v2`) registers and appears in `getTools()`. The consequence is structural rather than cosmetic: **a live manifest cannot show the worst names**, because they are never in it. That is why `lint --manifest` exists — it reads what the source declares — and why the live mode is not a superset of it. It also means the harness sees such a tool as `not_registered`, which is the correct classification arrived at for the wrong reason, and it makes the broken fixture the natural place to build `not_discovered` next.
+
+**`getTools()` returns `inputSchema` as a JSON string, not an object.** The page registers `{type:'object',properties:{…}}` and the browser hands back `"{\"type\":\"object\",\"properties\":{}}"`. The linter found this the hard way: its first live run reported `schema/not-object` for all nine tools, including the reference page's. Two things had been quietly broken by it since the harness was written:
+
+- The taxonomy's **unknown-argument check has never run against a live page**. `checkArguments` reads `inputSchema.properties`, which on a string is `undefined`, so `unknown_key` could not fire. Verified the cost before claiming there was none: re-scanning all 840 tool-selections in the 960-trial checkpoint found **0 selections carrying a key outside the tool's schema**, so no published number changes. The hole was real and, on that run, empty.
+- The **judge was shown an escaped blob** where a schema should be, since the manifest is serialised straight into the prompt.
+
+`browser\webmcp.mjs` now parses the string in-page, records `inputSchemaWire` per tool (`object`, `string`, `absent`, `unparseable-string`), and keeps the raw value when parsing fails. Consequence to state plainly: **the twin arms are not comparable line-for-line with the three published Airlock runs**, which were measured while the judge saw the blob. The clean arm exists so the comparison does not need them.
+
+### Bugs and behaviour the run exposed
+
+- **The exit-code contract earned its keep on day one.** The degraded sweep ended with four trials unmeasured — all `judge_truncated`, the judge spending 4,096 tokens on reasoning and returning nothing — and exited **2**, not 1: unmeasurable, not a threshold breach. `--resume` filled all four in 37 s and the re-run exited 0 at 160/160. The truncations were probabilistic rather than deterministic, so the same utterances succeeded on retry.
+- **Coverage-from-plan caught what a failure log could not.** The clean arm's first attempt was killed by an external 10-minute timeout after 63 of 160 trials. Because `harness-failures.jsonl` is only appended at *session end*, the three failures it had accumulated were lost with the process — and the run would have looked complete to anything trusting that log. The plan-versus-checkpoint diff reported 97 missing trials instead. That is exactly the argument written into `core\gate.mjs` this morning, tested against a real killed process the same evening. It also names a bug: the failure log should be appended as failures happen (item 4).
+- **`getTools()` returns tools in alphabetical order**, not registration order, on this build. Worth knowing because the manifest order is the order the judge reads them in.
+
+### Method note: what this does not establish
+
+One session and one repeat per arm, so neither arm carries a between-session σ; the 65-point gaps are far larger than the 0.012 measured on the reference page, but that is analogy, not measurement of this page. Defects are bundled per tool, so `sum_by_category`'s twin absorbed credit that its near-duplicate description should share. 20 trials per tool separates 35% from 100% and cannot separate 90% from 100%. And one judge, one browser build, one page: invocation rate remains a property of *(page, client, judge, utterances)*.
+
+### Still open
+- 🟡 **Item 4:** session-isolated repeats of both arms, a per-defect ablation, and a failure log that survives a killed session.
+- ⚠️ **`bad_args` has still never been observed in a live trial**, and now the unknown-key check works, the next sweep is the first one where it could fire. Until then that bucket is unexercised outside unit tests.
+- ⚠️ Controls remain small (1 of 20 here, 20 of 20 clean) and are still not gated by `--fail-under`.
+- ⚠️ `not_discovered` still unreachable; the fixture now registers a tool Chrome refuses, which is the material for it.
+- ⚠️ Judge truncation is classified as a harness failure, but on the degraded page it was *caused* by the page. A defect that makes the agent think itself to death is a real cost, and the current taxonomy has nowhere to put it.

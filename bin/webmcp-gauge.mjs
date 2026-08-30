@@ -3,8 +3,11 @@ import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchSession } from '../browser/launch.mjs';
+import { startFixtureServer } from '../browser/serve.mjs';
 import { openSession } from '../browser/session.mjs';
+import { captureManifest } from '../browser/webmcp.mjs';
 import { EXIT, gateRun, parseFailUnder } from '../core/gate.mjs';
+import { lintManifest, lintToText } from '../core/lint.mjs';
 import { runSessions } from '../core/orchestrate.mjs';
 import { buildPlan, readCheckpoint, runSessionSweep, trialKey } from '../core/sweep.mjs';
 import { runTrial } from '../core/trial.mjs';
@@ -23,14 +26,28 @@ Commands:
   trial          run one trial: one utterance, one expected tool, one outcome
   run            run S isolated sessions and emit a stamped report
   session        run one session (used by run; each session gets its own process)
-  lint <url>     static checks on the manifest, no model      (not implemented)
+  lint           static checks on a page's tool manifest: no judge, no API key
 
 Shared options:
   --fixture <path>     utterance set (default fixtures/airlock.utterances.json)
-  --url <url>          subject page (default the fixture's subject url)
+  --url <url>          subject page (default the fixture's subject url). With
+                       --serve, a path relative to the served directory
+  --serve <dir>        serve <dir> on 127.0.0.1 and resolve --url against it, so a
+                       measurement can run against a fixture page in this repo
   --judge <model>      judge model id (env WEBMCP_GAUGE_JUDGE_MODEL)
   --base-url <url>     judge endpoint (env WEBMCP_GAUGE_JUDGE_BASE_URL)
   --port <n>           attach to an existing Chrome instead of launching one
+
+lint options (no judge required):
+  --manifest <path>    lint a manifest JSON file instead of a live page. Reads
+                       {tools:[...]} or a bare array; the only way to lint a name a
+                       browser refuses to register
+  --variant <name>     for a multi-variant fixture file, lint variants.<name>
+  --json               emit the finding list as JSON
+  --fail-on <level>    error (default) or warning
+  --min-description <n>  description floor in characters (default 60)
+  --max-properties <n>   schema property ceiling (default 6)
+  --budget-warn <n>      tool count that warns about budget headroom (default 64)
 
 trial options:
   --tool <name>        expected tool
@@ -48,15 +65,21 @@ run / session options:
   --headful            show the browser instead of --headless=new
   --out <dir>          report directory (default artifacts/)
   --resume             reuse the JSONL checkpoint in the report directory
+  --subject <name>     name the subject in the report, when it is not the fixture's
+                       own subject — a report that mislabels what it measured is
+                       worse than one with no label
   --fail-under <rate>  exit 1 when any tool's invocation rate is below this rate,
                        e.g. 0.9. Compared against the point rate; the interval is
                        reported beside it
 
 Exit codes (a gate is only useful if 1 means one thing):
-  0  every planned trial was measured, and nothing fell below --fail-under
-  1  a tool's invocation rate is below --fail-under — the page regressed
-  2  the run cannot answer: planned trials have no measurement (re-run with
-     --resume), or the arguments were unusable. Never a threshold breach
+  0  every planned trial was measured, and nothing fell below --fail-under; for
+     lint, no finding at or above --fail-on
+  1  a tool's invocation rate is below --fail-under — the page regressed; for lint,
+     the manifest carries findings at that level
+  2  the command cannot answer: planned trials have no measurement (re-run with
+     --resume), a manifest never settled, or the arguments were unusable. Never a
+     threshold breach
 
 The judge must not be the model that authored the utterance set; the set records
 which one that was. See docs/getting-started.md and .env.example.`;
@@ -109,7 +132,7 @@ if (command === '--version' || command === '-v') {
   process.exit(EXIT.pass);
 }
 
-if (!['trial', 'run', 'session'].includes(command)) {
+if (!['trial', 'run', 'session', 'lint'].includes(command)) {
   console.error(`webmcp-gauge: no such command '${command}'\n`);
   console.error(usage);
   process.exit(EXIT.incomplete);
@@ -117,24 +140,31 @@ if (!['trial', 'run', 'session'].includes(command)) {
 
 const { flags, positional } = parseArgs(process.argv.slice(3));
 
+const needsJudge = command !== 'lint';
+const serveDir = typeof flags.serve === 'string' ? flags.serve : null;
+
 const fixturePath = new URL(
   typeof flags.fixture === 'string' ? flags.fixture : '../fixtures/airlock.utterances.json',
   import.meta.url
 );
 const fixture = JSON.parse(await readFile(fixturePath, 'utf8'));
 const url = (typeof flags.url === 'string' && flags.url) || positional[0] || fixture.subject?.url;
-if (!url) fail('no url given and the fixture names no subject url');
+if (!url && !(command === 'lint' && typeof flags.manifest === 'string')) {
+  fail('no url given and the fixture names no subject url');
+}
 
 const judgeModel =
   (typeof flags.judge === 'string' && flags.judge) || process.env.WEBMCP_GAUGE_JUDGE_MODEL;
 const judgeBaseUrl =
   (typeof flags['base-url'] === 'string' && flags['base-url']) ||
   process.env.WEBMCP_GAUGE_JUDGE_BASE_URL;
-if (!judgeModel || !judgeBaseUrl) {
+// L0 is the free on-ramp: it reads a manifest and calls no model, so demanding a
+// judge for it would put an API key in front of the cheapest useful answer.
+if (needsJudge && (!judgeModel || !judgeBaseUrl)) {
   fail('pass --judge and --base-url, or set WEBMCP_GAUGE_JUDGE_MODEL and WEBMCP_GAUGE_JUDGE_BASE_URL');
 }
 
-if (fixture.authoring?.modelId && judgeModel === fixture.authoring.modelId) {
+if (needsJudge && fixture.authoring?.modelId && judgeModel === fixture.authoring.modelId) {
   fail(
     `judge '${judgeModel}' authored this utterance set, so it cannot judge it: the metric would measure self-consistency`
   );
@@ -149,7 +179,103 @@ const includeControls = flags['no-controls'] !== true;
 const repeatsPerSession = Number(flags.repeats ?? 1);
 const concurrency = Number(flags.concurrency ?? 1);
 
-if (command === 'trial') {
+/**
+ * With --serve, --url is a path inside the served directory. The server is started
+ * per process, not per run: concurrent sessions must not share one, for the same
+ * reason each session starts its own browser.
+ */
+const openTarget = async () => {
+  const server = serveDir ? await startFixtureServer({ root: serveDir }) : null;
+  return {
+    url: server ? server.urlFor(url) : url,
+    close: () => (server ? server.close() : Promise.resolve()),
+  };
+};
+
+if (command === 'lint') {
+  const failOn = flags['fail-on'] === 'warning' ? 'warning' : 'error';
+  if (typeof flags['fail-on'] === 'string' && !['error', 'warning'].includes(flags['fail-on'])) {
+    fail(`--fail-on takes 'error' or 'warning', not '${flags['fail-on']}'`);
+  }
+
+  const numeric = (flag) => {
+    if (flags[flag] === undefined) return undefined;
+    const value = Number(flags[flag]);
+    if (!Number.isFinite(value) || value < 0) fail(`--${flag} takes a non-negative number`);
+    return value;
+  };
+  const options = {
+    minDescriptionChars: numeric('min-description'),
+    maxProperties: numeric('max-properties'),
+    budgetWarnAt: numeric('budget-warn'),
+  };
+  for (const key of Object.keys(options)) if (options[key] === undefined) delete options[key];
+
+  let manifest;
+  let subject;
+
+  if (typeof flags.manifest === 'string') {
+    // A name a browser refuses to register cannot appear in a live manifest -
+    // Chrome 152 throws "Invalid tool name" for a name with a space - so the static
+    // path is the only way to lint what the page actually declares.
+    const parsed = JSON.parse(await readFile(flags.manifest, 'utf8'));
+    const variant = typeof flags.variant === 'string' ? flags.variant : null;
+    const list = Array.isArray(parsed)
+      ? parsed
+      : variant
+        ? parsed.variants?.[variant]
+        : parsed.tools;
+    if (!Array.isArray(list)) {
+      fail(
+        variant
+          ? `${flags.manifest} has no variants.${variant} array`
+          : `${flags.manifest} has no tools array (pass --variant <name> for a multi-variant fixture)`
+      );
+    }
+    manifest = { present: true, settled: true, tools: list };
+    subject = `${flags.manifest}${variant ? ` (${variant})` : ''}`;
+  } else {
+    const target = await openTarget();
+    const browser = explicitPort
+      ? null
+      : await launchSession({ headless: flags.headful !== true, profileDir: `${outDir}/lint-profile` });
+    const tab = await openSession({ port: explicitPort ?? browser.port });
+    try {
+      await tab.navigate(target.url);
+      manifest = await captureManifest(tab);
+      subject = target.url;
+    } finally {
+      await tab.close();
+      if (browser) await browser.close();
+      await target.close();
+    }
+  }
+
+  const result = lintManifest({ manifest, options });
+  console.log(flags.json === true ? JSON.stringify({ subject, ...result }, null, 2) : lintToText(result, { subject }));
+
+  // A manifest that is absent, unsettled or empty is not a clean page: there was
+  // nothing to lint, which is exit 2 rather than a pass.
+  if (manifest.present !== true) {
+    console.error('lint: no WebMCP surface on this page, so nothing was linted');
+    process.exitCode = EXIT.incomplete;
+  } else if (manifest.settled === false) {
+    console.error('lint: the tool set never stopped changing, so this manifest is a partial read');
+    process.exitCode = EXIT.incomplete;
+  } else if (result.manifest.toolCount === 0) {
+    console.error('lint: the page registered no tools, so nothing was linted');
+    process.exitCode = EXIT.incomplete;
+  } else {
+    const blocking =
+      failOn === 'warning' ? result.counts.error + result.counts.warning : result.counts.error;
+    if (blocking > 0) {
+      console.error(
+        `lint: ${blocking} finding${blocking === 1 ? '' : 's'} at or above ${failOn}. This is what the manifest says, not a measured invocation rate.`
+      );
+    }
+    process.exitCode = blocking > 0 ? EXIT.breach : EXIT.pass;
+  }
+} else if (command === 'trial') {
   const judge = createJudge({ baseUrl: judgeBaseUrl, model: judgeModel });
   const utteranceId = typeof flags.utterance === 'string' ? flags.utterance : null;
   const toolName =
@@ -164,13 +290,14 @@ if (command === 'trial') {
     : toolBlock.utterances[0];
   if (!utterance) fail(`fixture has no utterance '${utteranceId}'`);
 
+  const target = await openTarget();
   const browser = explicitPort ? null : await launchSession({ headless: flags.headful !== true });
   const tab = await openSession({ port: explicitPort ?? browser.port });
   try {
     const record = await runTrial({
       session: tab,
       judge,
-      url,
+      url: target.url,
       toolName,
       utterance,
       expectation: utterance,
@@ -194,10 +321,12 @@ if (command === 'trial') {
   } finally {
     await tab.close();
     if (browser) await browser.close();
+    await target.close();
   }
 } else if (command === 'session') {
   const session = Number(flags.session ?? 1);
   const judge = createJudge({ baseUrl: judgeBaseUrl, model: judgeModel });
+  const target = await openTarget();
 
   // Each session owns its browser: a cold profile, its own port, its own process
   // tree. Attaching to a shared instance is still allowed with --port, and the
@@ -218,6 +347,7 @@ if (command === 'trial') {
         headless: browser.headless,
         profileDir: browser.profileDir,
         startedAt: browser.startedAt,
+        ...(serveDir ? { servedFrom: serveDir, servedUrl: target.url } : {}),
       }
     : { isolated: false, port: String(explicitPort), note: 'attached to a pre-existing Chrome' };
 
@@ -225,7 +355,7 @@ if (command === 'trial') {
     const result = await runSessionSweep({
       fixture,
       judge,
-      url,
+      url: target.url,
       session,
       sessionMeta,
       repeatsPerSession,
@@ -253,6 +383,7 @@ if (command === 'trial') {
     process.exitCode = result.failures.length > 0 ? EXIT.incomplete : EXIT.pass;
   } finally {
     if (browser) await browser.close();
+    await target.close();
   }
 } else {
   const sessions = Number(flags.sessions ?? 3);
@@ -296,6 +427,7 @@ if (command === 'trial') {
     ...(tools ? ['--tools', tools.join(',')] : []),
     ...(includeControls ? [] : ['--no-controls']),
     ...(flags.headful === true ? ['--headful'] : []),
+    ...(serveDir ? ['--serve', serveDir] : []),
     ...(explicitPort ? ['--port', String(explicitPort)] : []),
   ];
 
@@ -349,6 +481,8 @@ if (command === 'trial') {
     judge: { model: judgeModel, baseUrl: judgeBaseUrl, requested: judgeModel },
     settings: {
       url,
+      subjectName: typeof flags.subject === 'string' ? flags.subject : null,
+      servedFrom: serveDir,
       sessions,
       repeatsPerSession,
       concurrency,

@@ -57,13 +57,34 @@ const MANIFEST_EXPRESSION = `(async () => {
     settled: settledAtMs !== null,
     settledAtMs,
     tools: Array.isArray(tools)
-      ? tools.map((tool) => ({
-          name: tool?.name ?? null,
-          title: tool?.title ?? null,
-          description: tool?.description ?? null,
-          inputSchema: tool?.inputSchema ?? null,
-          annotations: tool?.annotations ?? null,
-        }))
+      ? tools.map((tool) => {
+          // Measured on Chrome 152.0.7977.65 (2026-08-30): getTools() hands
+          // inputSchema back as a JSON *string*, even for a tool registered with a
+          // real object - the #241 DOMString-to-object move has not landed in this
+          // build's read-back path. Parse it here so every consumer sees a schema,
+          // and record which wire form the build used, because that is a
+          // compatibility-matrix row rather than a detail to paper over. Leaving it
+          // unparsed silently disabled the harness's own unknown-argument check and
+          // showed the judge an escaped blob where a schema should be.
+          const raw = tool?.inputSchema ?? null;
+          let inputSchema = raw;
+          let wire = raw === null || raw === undefined ? 'absent' : typeof raw;
+          if (typeof raw === 'string') {
+            try {
+              inputSchema = JSON.parse(raw);
+            } catch {
+              wire = 'unparseable-string';
+            }
+          }
+          return {
+            name: tool?.name ?? null,
+            title: tool?.title ?? null,
+            description: tool?.description ?? null,
+            inputSchema,
+            inputSchemaWire: wire,
+            annotations: tool?.annotations ?? null,
+          };
+        })
       : null,
   };
 })()`;

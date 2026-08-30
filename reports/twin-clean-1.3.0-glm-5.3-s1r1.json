@@ -1,0 +1,340 @@
+{
+  "schema": "webmcp-gauge/report/3",
+  "generatedAt": "2026-08-30T17:48:15.438Z",
+  "subject": {
+    "url": "twin.html?variant=clean",
+    "name": "twin (clean metadata)",
+    "servedFrom": "fixtures/broken"
+  },
+  "stamps": {
+    "utteranceSet": {
+      "version": "1.3.0",
+      "frozen": true,
+      "authoringModel": "deepseek v4 by agentrouter"
+    },
+    "judge": {
+      "model": "glm-5.3",
+      "baseUrl": "https://agentrouter.org/v1",
+      "requested": "glm-5.3"
+    },
+    "harness": {
+      "sessions": 1,
+      "repeatsPerSession": 1,
+      "concurrency": 3,
+      "gapSeconds": 0,
+      "isolatedSessions": true
+    },
+    "browsers": [
+      {
+        "session": 1,
+        "isolated": true,
+        "browserPid": 20572,
+        "port": "10746",
+        "build": "Chrome/152.0.7977.65",
+        "headless": true,
+        "profileDir": "D:\\Projects\\Hackthon-projects\\webmcp-gauge\\artifacts\\twin-clean\\sessions\\session-1",
+        "startedAt": "2026-08-30T17:22:00.175Z",
+        "servedFrom": "fixtures/broken",
+        "servedUrl": "http://127.0.0.1:10745/twin.html?variant=clean"
+      }
+    ]
+  },
+  "isolationCaveats": [
+    "Sessions share the machine, the OS network stack and the route to the provider.",
+    "Provider-side state (routing, caches, rate-limit counters, model version behind a slug) is not controlled.",
+    "Sessions ran back to back, so this measures process and browser independence, not day-to-day drift.",
+    "Each session ran in its own OS process with its own browser and a cold profile, so no HTTP connection pool, renderer or page cache was shared."
+  ],
+  "invocation": {
+    "overall": {
+      "trials": 140,
+      "ok": 140
+    },
+    "perTool": [
+      {
+        "tool": "describe_dataset",
+        "trials": 20,
+        "ok": 20,
+        "invocation": {
+          "rate": 1,
+          "low": 0.8388748419471806,
+          "high": 1,
+          "n": 20,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 1,
+          "sigma": 0,
+          "min": 1,
+          "max": 1,
+          "runs": 1
+        },
+        "withinSession": {
+          "sigma": 0,
+          "sessions": 1
+        },
+        "outcomes": {
+          "ok": 20
+        }
+      },
+      {
+        "tool": "sum_by_category",
+        "trials": 20,
+        "ok": 20,
+        "invocation": {
+          "rate": 1,
+          "low": 0.8388748419471806,
+          "high": 1,
+          "n": 20,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 1,
+          "sigma": 0,
+          "min": 1,
+          "max": 1,
+          "runs": 1
+        },
+        "withinSession": {
+          "sigma": 0,
+          "sessions": 1
+        },
+        "outcomes": {
+          "ok": 20
+        }
+      },
+      {
+        "tool": "filter_rows",
+        "trials": 20,
+        "ok": 20,
+        "invocation": {
+          "rate": 1,
+          "low": 0.8388748419471806,
+          "high": 1,
+          "n": 20,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 1,
+          "sigma": 0,
+          "min": 1,
+          "max": 1,
+          "runs": 1
+        },
+        "withinSession": {
+          "sigma": 0,
+          "sessions": 1
+        },
+        "outcomes": {
+          "ok": 20
+        }
+      },
+      {
+        "tool": "monthly_trend",
+        "trials": 20,
+        "ok": 20,
+        "invocation": {
+          "rate": 1,
+          "low": 0.8388748419471806,
+          "high": 1,
+          "n": 20,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 1,
+          "sigma": 0,
+          "min": 1,
+          "max": 1,
+          "runs": 1
+        },
+        "withinSession": {
+          "sigma": 0,
+          "sessions": 1
+        },
+        "outcomes": {
+          "ok": 20
+        }
+      },
+      {
+        "tool": "find_anomalies",
+        "trials": 20,
+        "ok": 20,
+        "invocation": {
+          "rate": 1,
+          "low": 0.8388748419471806,
+          "high": 1,
+          "n": 20,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 1,
+          "sigma": 0,
+          "min": 1,
+          "max": 1,
+          "runs": 1
+        },
+        "withinSession": {
+          "sigma": 0,
+          "sessions": 1
+        },
+        "outcomes": {
+          "ok": 20
+        }
+      },
+      {
+        "tool": "top_expenses",
+        "trials": 20,
+        "ok": 20,
+        "invocation": {
+          "rate": 1,
+          "low": 0.8388748419471806,
+          "high": 1,
+          "n": 20,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 1,
+          "sigma": 0,
+          "min": 1,
+          "max": 1,
+          "runs": 1
+        },
+        "withinSession": {
+          "sigma": 0,
+          "sessions": 1
+        },
+        "outcomes": {
+          "ok": 20
+        }
+      },
+      {
+        "tool": "clear_highlights",
+        "trials": 20,
+        "ok": 20,
+        "invocation": {
+          "rate": 1,
+          "low": 0.8388748419471806,
+          "high": 1,
+          "n": 20,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 1,
+          "sigma": 0,
+          "min": 1,
+          "max": 1,
+          "runs": 1
+        },
+        "withinSession": {
+          "sigma": 0,
+          "sessions": 1
+        },
+        "outcomes": {
+          "ok": 20
+        }
+      }
+    ],
+    "perTag": {
+      "plain": {
+        "trials": 49,
+        "ok": 49,
+        "rate": 1
+      },
+      "paraphrase": {
+        "trials": 49,
+        "ok": 49,
+        "rate": 1
+      },
+      "oblique": {
+        "trials": 42,
+        "ok": 42,
+        "rate": 1
+      }
+    }
+  },
+  "controls": {
+    "trials": 20,
+    "falsePositives": 0,
+    "falsePositiveRate": {
+      "rate": 0,
+      "low": 0,
+      "high": 0.16112515805281938,
+      "n": 20,
+      "z": 1.959963984540054
+    },
+    "betweenSession": {
+      "mean": 0,
+      "sigma": 0,
+      "min": 0,
+      "max": 0,
+      "runs": 1
+    },
+    "byClass": {
+      "off_topic": {
+        "trials": 5,
+        "falsePositives": 0,
+        "rate": {
+          "rate": 0,
+          "low": 0,
+          "high": 0.43448246478317476,
+          "n": 5,
+          "z": 1.959963984540054
+        }
+      },
+      "out_of_scope": {
+        "trials": 13,
+        "falsePositives": 0,
+        "rate": {
+          "rate": 0,
+          "low": 0,
+          "high": 0.22809537235419838,
+          "n": 13,
+          "z": 1.959963984540054
+        }
+      },
+      "injection": {
+        "trials": 2,
+        "falsePositives": 0,
+        "rate": {
+          "rate": 0,
+          "low": 0,
+          "high": 0.6576197724933469,
+          "n": 2,
+          "z": 1.959963984540054
+        }
+      }
+    },
+    "injectionFailures": []
+  },
+  "coverage": {
+    "expectedTrials": 160,
+    "measuredTrials": 160,
+    "missingTrials": 0,
+    "missing": []
+  },
+  "harnessFailures": [],
+  "recoveredFailures": 0,
+  "sessionResults": [
+    {
+      "session": 1,
+      "code": 0,
+      "error": null,
+      "elapsedMs": 173401
+    }
+  ],
+  "timing": {
+    "startedAt": "2026-08-30T17:45:22.016Z",
+    "finishedAt": "2026-08-30T17:48:15.436Z",
+    "elapsedMs": 173416
+  },
+  "gate": {
+    "failUnder": null,
+    "gatedTools": 0,
+    "missingTrials": 0,
+    "outstandingFailures": 0,
+    "breaches": [],
+    "code": 0,
+    "status": "pass",
+    "summary": "COMPLETE — 160/160 planned trials measured, no --fail-under given, so nothing was gated."
+  }
+}

@@ -1,0 +1,279 @@
+{
+  "version": "1.0.0",
+  "frozen": true,
+  "frozenOn": "2026-08-30",
+  "purpose": "Tool metadata for the degraded twin of the reference page. Two variants over one identical implementation and one identical dataset, so the only difference between them is what the manifest says about the tools. That is what makes a rate difference attributable to description and schema quality rather than to the app.",
+  "authoring": {
+    "writtenBy": "Assistant draft inside a Qwen Code session, 2026-08-30.",
+    "note": "The 'clean' variant copies the reference page's descriptions and schemas verbatim from airlock/src/tools.ts (surveyed 2026-08-30). The 'degraded' variant is written to embody documented WebMCP failure modes, not to hit a target number, and every injected defect is registered below with the prediction it was written to test - recorded before the sweep ran."
+  },
+  "dataset": {
+    "file": "sample-expenses.csv",
+    "sha256": "b737acfa7f3b815ee3451d1dde1210e5053f1f0a992643c9fb2f1cba10a11c09",
+    "provenance": "Byte-identical copy of airlock/public/sample-expenses.csv, taken 2026-08-30. Same 965 rows, same 12 categories, same 2025-09-01..2026-08-31 range, so fixtures/airlock.utterances.json 1.3.0 remains answerable without a single edit."
+  },
+  "defects": [
+    {
+      "tool": "describe_dataset",
+      "injected": "none - description and schema copied verbatim from the reference page",
+      "rules": [],
+      "prediction": "Stays at the ceiling. This is the in-page control: if it drops, the twin's implementation or the serving environment is the cause, not the metadata."
+    },
+    {
+      "tool": "monthly_trend",
+      "injected": "none - description and schema copied verbatim from the reference page",
+      "rules": [],
+      "prediction": "Stays at the ceiling. Second in-page control."
+    },
+    {
+      "tool": "sum_by_category",
+      "injected": "Description degraded to a near-duplicate of filter_rows', and an extra tool (summarise_by_category) registered with a byte-identical description",
+      "rules": ["description/near-duplicate", "description/duplicate"],
+      "prediction": "Materially lower, with the loss landing in wrong_tool - split between filter_rows and summarise_by_category - rather than not_selected."
+    },
+    {
+      "tool": "filter_rows",
+      "injected": "Description degraded to a near-duplicate of sum_by_category's; schema left untouched so argument expectations stay satisfiable",
+      "rules": ["description/near-duplicate"],
+      "prediction": "Materially lower, loss in wrong_tool towards sum_by_category."
+    },
+    {
+      "tool": "find_anomalies",
+      "injected": "Description replaced with a generic one that names no operation",
+      "rules": ["description/thin"],
+      "prediction": "Lower, mostly wrong_tool; oblique phrasings should suffer most because nothing in the description reaches the intent."
+    },
+    {
+      "tool": "top_expenses",
+      "injected": "Schema over-parameterised to nine properties, three of them required and undocumented (mode, format, strategy), and the handler throws when any of the three is missing. Description kept informative so the defect isolates the schema",
+      "rules": ["schema/over-parameterised", "schema/required-without-description"],
+      "prediction": "Selected correctly but executed wrongly: exec_error where the judge passes only what the utterance justifies, or bad_args where it invents values the utterance forbids. If it instead invents the three values and scores ok, that is a blind spot in the metric and the finding is about the harness, not the page."
+    },
+    {
+      "tool": "clear_highlights",
+      "injected": "Description replaced with a single word",
+      "rules": ["description/thin"],
+      "prediction": "Lower. Its utterances are already the most oblique in the set ('clear that'), so a description carrying no information should hurt it badly."
+    },
+    {
+      "tool": "summarise_by_category",
+      "injected": "Extra tool: byte-identical description to sum_by_category, one untyped and undocumented property",
+      "rules": ["description/duplicate", "schema/missing-type", "schema/undocumented-property"],
+      "prediction": "Absorbs some sum_by_category selections. Never correct for any utterance in the set, so every selection of it is scored wrong_tool."
+    },
+    {
+      "tool": "Clear Highlights",
+      "injected": "Extra tool: a name containing spaces, and an empty description",
+      "rules": ["name/invalid-characters", "description/missing"],
+      "prediction": "Spec issue #145 reports that a tool with a space in its name silently does nothing. Whether Chrome 152 registers it at all is a compatibility measurement this fixture takes: if getTools() omits it, the linter cannot see it from a live manifest and the rule earns its keep only on static input."
+    },
+    {
+      "tool": "top.expenses.v2",
+      "injected": "Extra tool: dotted name, a deprecation notice for a description, and an inputSchema that is not an object schema",
+      "rules": ["name/invalid-characters", "schema/not-object"],
+      "prediction": "Leftover-deprecated-tool shape. Should not be selected often; any selection is scored wrong_tool."
+    },
+    {
+      "scope": "page",
+      "injected": "?flood=N registers N filler tools alongside the real ones",
+      "rules": ["budget/headroom"],
+      "prediction": "Linter-only. Never used for the measured sweep, because a tool-count effect would confound the description effect the sweep exists to isolate."
+    }
+  ],
+  "variants": {
+    "clean": [
+      {
+        "name": "describe_dataset",
+        "impl": "describe",
+        "description": "Describe the spreadsheet currently loaded in the page: row count, column names, category list, date range and total amount. Call this first to learn what data is available. Individual rows are never returned.",
+        "inputSchema": { "type": "object", "properties": {} },
+        "annotations": { "readOnlyHint": true }
+      },
+      {
+        "name": "sum_by_category",
+        "impl": "sumByCategory",
+        "description": "Total the loaded spending by category, largest first. Optionally pass a category name to visually highlight its rows in the table for the human reading the page. Returns aggregates only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "highlight": {
+              "type": "string",
+              "description": "Exact category name to highlight in the table. Must match a category returned by describe_dataset."
+            }
+          }
+        },
+        "annotations": { "readOnlyHint": true }
+      },
+      {
+        "name": "filter_rows",
+        "impl": "filterRows",
+        "description": "Find rows matching any combination of date range, category and amount bounds. Returns how many matched and their total, and highlights every match in the table.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "from": { "type": "string", "description": "Earliest date to include, as YYYY-MM-DD." },
+            "to": { "type": "string", "description": "Latest date to include, as YYYY-MM-DD." },
+            "category": { "type": "string", "description": "Restrict to one category name." },
+            "min_amount": { "type": "number", "description": "Smallest amount to include." },
+            "max_amount": { "type": "number", "description": "Largest amount to include." },
+            "limit": { "type": "number", "description": "How many matching rows to preview. Defaults to 10, capped at 25." }
+          }
+        },
+        "annotations": { "readOnlyHint": true }
+      },
+      {
+        "name": "monthly_trend",
+        "impl": "monthlyTrend",
+        "description": "Total the loaded spending per calendar month, oldest first, so month-on-month changes are visible. Answers questions a single glance at the table cannot. Returns aggregates only.",
+        "inputSchema": { "type": "object", "properties": {} },
+        "annotations": { "readOnlyHint": true }
+      },
+      {
+        "name": "find_anomalies",
+        "impl": "findAnomalies",
+        "description": "Find rows that are unusually large compared with the rest of their own category, using a z-score within each category. Categories with fewer than three rows are skipped. Highlights every outlier in the table.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "threshold": {
+              "type": "number",
+              "description": "How many standard deviations above the category mean counts as unusual. Defaults to 2.5; raise it to be stricter, or lower it to surface milder variation."
+            }
+          }
+        },
+        "annotations": { "readOnlyHint": true }
+      },
+      {
+        "name": "top_expenses",
+        "impl": "topExpenses",
+        "description": "Find the largest individual rows by amount and highlight them in the table.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": { "type": "number", "description": "How many rows to consider. Defaults to 5, capped at 25." }
+          }
+        },
+        "annotations": { "readOnlyHint": true }
+      },
+      {
+        "name": "clear_highlights",
+        "impl": "clearHighlights",
+        "description": "Remove any highlighting from the table so every row is legible again. Call this when moving on to an unrelated question.",
+        "inputSchema": { "type": "object", "properties": {} },
+        "annotations": { "readOnlyHint": false }
+      }
+    ],
+    "degraded": [
+      {
+        "name": "describe_dataset",
+        "impl": "describe",
+        "description": "Describe the spreadsheet currently loaded in the page: row count, column names, category list, date range and total amount. Call this first to learn what data is available. Individual rows are never returned.",
+        "inputSchema": { "type": "object", "properties": {} },
+        "annotations": { "readOnlyHint": true }
+      },
+      {
+        "name": "sum_by_category",
+        "impl": "sumByCategory",
+        "description": "Works with the rows in the table and returns totals for what it finds.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "highlight": { "type": "string", "description": "A category name." }
+          }
+        },
+        "annotations": { "readOnlyHint": true }
+      },
+      {
+        "name": "filter_rows",
+        "impl": "filterRows",
+        "description": "Works with the rows in the table and returns counts for what it finds.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "from": { "type": "string", "description": "Earliest date to include, as YYYY-MM-DD." },
+            "to": { "type": "string", "description": "Latest date to include, as YYYY-MM-DD." },
+            "category": { "type": "string", "description": "Restrict to one category name." },
+            "min_amount": { "type": "number", "description": "Smallest amount to include." },
+            "max_amount": { "type": "number", "description": "Largest amount to include." },
+            "limit": { "type": "number", "description": "How many matching rows to preview. Defaults to 10, capped at 25." }
+          }
+        },
+        "annotations": { "readOnlyHint": true }
+      },
+      {
+        "name": "monthly_trend",
+        "impl": "monthlyTrend",
+        "description": "Total the loaded spending per calendar month, oldest first, so month-on-month changes are visible. Answers questions a single glance at the table cannot. Returns aggregates only.",
+        "inputSchema": { "type": "object", "properties": {} },
+        "annotations": { "readOnlyHint": true }
+      },
+      {
+        "name": "find_anomalies",
+        "impl": "findAnomalies",
+        "description": "Processes the table and gives numbers back.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "threshold": { "type": "number", "description": "A number." }
+          }
+        },
+        "annotations": { "readOnlyHint": true }
+      },
+      {
+        "name": "top_expenses",
+        "impl": "topExpenses",
+        "throwWhenMissing": ["mode", "format", "strategy"],
+        "description": "Find the largest individual rows by amount and highlight them in the table.",
+        "inputSchema": {
+          "type": "object",
+          "required": ["mode", "format", "strategy"],
+          "properties": {
+            "limit": { "type": "number", "description": "How many rows to consider. Defaults to 5, capped at 25." },
+            "mode": { "type": "string" },
+            "format": { "type": "string" },
+            "strategy": { "type": "string" },
+            "locale": { "type": "string" },
+            "page": { "type": "number" },
+            "page_size": { "type": "number" },
+            "include_totals": { "type": "boolean" },
+            "verbose": { "type": "boolean" }
+          }
+        },
+        "annotations": { "readOnlyHint": true }
+      },
+      {
+        "name": "clear_highlights",
+        "impl": "clearHighlights",
+        "description": "Utility.",
+        "inputSchema": { "type": "object", "properties": {} },
+        "annotations": { "readOnlyHint": false }
+      },
+      {
+        "name": "summarise_by_category",
+        "impl": "sumByCategory",
+        "description": "Works with the rows in the table and returns totals for what it finds.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "cat": {}
+          }
+        },
+        "annotations": { "readOnlyHint": true }
+      },
+      {
+        "name": "Clear Highlights",
+        "impl": "clearHighlights",
+        "description": "",
+        "inputSchema": { "type": "object", "properties": {} },
+        "annotations": { "readOnlyHint": false }
+      },
+      {
+        "name": "top.expenses.v2",
+        "impl": "topExpenses",
+        "description": "Old version. Do not use.",
+        "inputSchema": { "type": "string" },
+        "annotations": { "readOnlyHint": true }
+      }
+    ]
+  }
+}

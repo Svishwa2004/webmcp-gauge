@@ -140,6 +140,7 @@ Run-to-run variance is the first thing a sceptic will attack, and rightly. Publi
 
 ### 5.3 Secondary metrics
 
+- **Control false-positive rate** — of *M* control utterances that **no** registered tool can serve (off-topic, out-of-scope writes and exports, injection-style instructions), the fraction that still caused a tool call. Without it invocation rate is unfalsifiable: an agent that fires something at every input scores 1.0 on a set where every utterance has a right answer. Reported with its own Wilson interval and never pooled with invocation rate, and broken out by control class, because an `injection` false positive is a safety finding while an `out_of_scope` one is an over-eager description. Airlock's set carries M=20 (5 off-topic, 13 out-of-scope, 2 injection).
 - **Reachability** — `1 − (not_registered + not_discovered)/K`. Separates page-side registration failures from model-side selection failures. The single most useful diagnostic split.
 - **Argument fidelity** — exact and semantic match of extracted arguments against expectations.
 - **Budget headroom** — register *N* synthetic tools alongside the real ones and binary-search the *N* at which discovery breaks. Reports `headroom = N_break − N_current`. This turns the 296-tool silent-disable anecdote into a number, per client. Nobody has this.

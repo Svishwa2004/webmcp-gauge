@@ -33,8 +33,47 @@ schtasks /Create /F /TN "webmcp-gauge\spaced-session-1" /SC ONCE /SD 08/31/2026 
 … -2 at 10:15, -3 at 16:15, spaced-report at 17:15
 ```
 
+### `schtasks /Create` writes a task that refuses to run on battery
+
+Only sessions 1 and 2 of that schedule ever ran. Sessions 2, 3 and the reconcile
+first came back with last result `2147946720` = `0x800710E0`, *"the operator or
+administrator has refused the request"* — the scheduler declining to start the task,
+with no `spaced-degraded-s2.log` to show for it. `schtasks /Query /V` explains it:
+Power Management reads **"Stop On Battery Mode, No Start On Batteries"**, and
+`StartWhenAvailable` is off, so a laptop on battery gets a refusal and a slot missed
+while asleep is never retried. `/Create` has no flag for any of that; PowerShell does:
+
+```
+$s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+       -StartWhenAvailable -WakeToRun -ExecutionTimeLimit (New-TimeSpan -Hours 72)
+Set-ScheduledTask -TaskPath '\webmcp-gauge\' -TaskName 'spaced-session-3' -Settings $s
+```
+
+⚠️ **`StartWhenAvailable` is retroactive.** Turning it on for a `ONCE` task whose start
+time has already passed arms it to fire within minutes — for `spaced-report` that means
+`run --resume` measuring every remaining session back-to-back and calling the result
+time-spaced. Move the trigger in the same command that changes the settings:
+
+```
+Set-ScheduledTask -TaskPath '\webmcp-gauge\' -TaskName 'spaced-session-3' `
+  -Trigger (New-ScheduledTaskTrigger -Once -At '2026-09-01T09:40:00')
+```
+
+### The schedule as it now stands
+
+| Task | Fires | State |
+|---|---|---|
+| `spaced-session-1` | 2026-08-31 04:18 | ran, 158/160 (2 `judge_truncated`) |
+| `spaced-session-2` | 2026-08-31 21:29 | ran, 143/160 (17 `judge_unavailable`) |
+| `spaced-session-3` | 2026-09-01 09:40 | armed |
+| `spaced-report` | 2026-09-01 10:20 | armed |
+
+Gaps of 17.2 h then 12.2 h, spanning a day boundary rather than the planned 6 + 6.
+
 Check on them: `schtasks /Query /FO LIST /TN "webmcp-gauge\spaced-session-2"` for the
-next run time and last result, and `artifacts\spaced-degraded-s2.log` for what it did.
+next run time and last result — but use `/V /FO CSV` when something looks wrong, because
+the LIST form omits the last result, which is where the refusal above was hiding — and
+`artifacts\spaced-degraded-s2.log` for what it did.
 
 Remove them when the run is done — `/SC ONCE` tasks stay registered after firing:
 
@@ -47,13 +86,18 @@ schtasks /Delete /TN "webmcp-gauge\spaced-report" /F
 
 ## Next steps that land here
 
-1. **Delete the four tasks** once the 17:15 reconcile has produced its report and the
-   comparison is published. A stale `ONCE` task is harmless but misleading, and this
-   folder is where someone will look for the cleanup command.
-2. **A 24-hour spacing, if six hours shows nothing.** Same script, three `/SD` dates
-   one day apart. Six hours spans provider load within a day; it does not span a
-   deployment, so a null result at six hours is not evidence of stability across days.
-3. **This is Windows-only.** If the harness is ever run on another OS, the equivalent
+1. **Delete the four tasks** once the 10:20 reconcile on 2026-09-01 has produced its
+   report and the comparison is published. A stale `ONCE` task is harmless but
+   misleading, and this folder is where someone will look for the cleanup command.
+2. **The 24-hour follow-up is already absorbed**, not pending: the refused firings
+   pushed this arm's span to 29.4 h across a day boundary, which is what a separate
+   day-apart run was going to buy. What is *not* covered is a repeat at the same
+   spacing — one arm cannot separate "spacing does nothing" from "this day was quiet".
+3. **A firing from sleep is still unproven.** `WakeToRun` is set on all four tasks and
+   has never been observed to wake anything; if the machine is shut down rather than
+   asleep, `StartWhenAvailable` runs the task late and the gap becomes whatever the
+   timestamps say it was.
+4. **This is Windows-only.** If the harness is ever run on another OS, the equivalent
    is three `at`/`cron` entries calling the same CLI — the script is a convenience, not
    a dependency, and `--gap` in `run` does the same thing inside one process (tested,
    but never used for a published run because a twelve-hour process is a single point

@@ -35,9 +35,13 @@ if "%~1"=="" (
   exit /b 2
 )
 
+rem  The subject records the spacing that actually happened, not the one that was
+rem  planned: the 10:15 and 16:15 firings were refused by the scheduler (battery
+rem  defaults, see scripts\README.md), so the sessions landed 17.2 h and 12.2 h
+rem  apart across a day boundary instead of 6 h and 6 h.
 if /i "%~1"=="report" (
   echo === reconcile + report started %DATE% %TIME% >> artifacts\spaced-degraded-report.log
-  node %NODE_ENV_FILE% bin\webmcp-gauge.mjs run --resume --serve fixtures/broken --url "%URL%" --sessions 3 --repeats 1 --concurrency 3 --out "%OUT%" --subject "twin (degraded metadata, 6h-spaced sessions)" >> artifacts\spaced-degraded-report.log 2>&1
+  node %NODE_ENV_FILE% bin\webmcp-gauge.mjs run --resume --serve fixtures/broken --url "%URL%" --sessions 3 --repeats 1 --concurrency 3 --out "%OUT%" --subject "twin (degraded metadata, sessions 17h and 12h apart)" >> artifacts\spaced-degraded-report.log 2>&1
   echo === reconcile + report finished %DATE% %TIME% exit=%ERRORLEVEL% >> artifacts\spaced-degraded-report.log
   exit /b %ERRORLEVEL%
 )

@@ -27,7 +27,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Reproducibility | ✅ **σ between sessions ≤ 0.094** across every arm of the 1,320-trial ablation run (3 processes, 3 browsers, 3 cold profiles each), against effects of 0.35 and larger. Within-session σ still reported separately and is 0.000 at one repeat by construction |
 | CI exit codes | ✅ **Split 2026-08-30** — `0` complete and above threshold, `1` a rate below `--fail-under`, `2` a run that could not measure its plan (or bad usage). Verified against the real 960-trial dataset, and used in the field the same day: the degraded-twin sweep exited 2 on four `judge_truncated` trials, then 0 after `--resume`. `report.json` carries `coverage` and `gate`; schema `webmcp-gauge/report/3` |
 | Browser lifecycle | ✅ **Self-managed since 2026-08-30** — the harness seeds a cold profile with only the WebMCP flag and launches `--headless=new` Chrome per session on a free port, then tears it down. `--port` still attaches to a hand-started browser, and the report flags that sessions were not isolated |
-| Measurements published | ✅ **11 runs, 3,560 trials, all in `reports\`** — reference page: three sweeps, best isolated **960 trials** (3 sessions × 2 repeats; five tools at 100% [96.9%, 100.0%], `filter_rows` 99.2%, `sum_by_category` 94.2%, controls 0/120). Fixture twin: two single-session arms (superseded) and six three-session arms totalling 1,320 trials, plus two write-ups. A twelve-hour time-spaced run is in flight |
+| Measurements published | ✅ **11 runs, 3,560 trials, all in `reports\`** — reference page: three sweeps, best isolated **960 trials** (3 sessions × 2 repeats; five tools at 100% [96.9%, 100.0%], `filter_rows` 99.2%, `sum_by_category` 94.2%, controls 0/120). Fixture twin: two single-session arms (superseded) and six three-session arms totalling 1,320 trials, plus two write-ups. The time-spaced run is two sessions of three in: session 1 at 04:18 (158/160), session 2 at 21:29 (143/160), both on 2026-08-31; session 3 and the reconcile armed for 09:40 and 10:20 on 2026-09-01 |
 | σ reporting | ✅ **Split and measured** — σ between sessions **0.012** where anything varies (0.000 at the ceiling), σ within session **0.008**. The between figure is larger, which is why the first two sweeps' σ was optimistic |
 | Headless | ✅ Chrome `152.0.7977.65` exposes WebMCP under `--headless=new` with the seeded flag, and the exit-code contract now makes a real CI gate possible |
 | Judge | ✅ **`glm-5.3` at `https://agentrouter.org/v1`** — verified with a real chat call, then two live trials. Distinct from the authoring model, as required |
@@ -48,7 +48,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** item 6 — a time-spaced run using `--gap`, the last unmeasured axis of variance. Then item 9 (Mode B), still the highest-priority unknown.
+**Immediate next action:** item 6 — session 3 fires 09:40 and the reconcile 10:20 on 2026-09-01; publish the σ comparison either way. Then item 9 (Mode B), still the highest-priority unknown.
 
 ## What to do next, in order
 
@@ -61,7 +61,7 @@ Ordered by what unblocks the most, with the condition that closes each one. Anyt
 | ~~3~~ | ~~**Step 6 — the L0 linter and a deliberately broken fixture page**~~ | ✅ **Done 2026-08-30.** 13 rules calibrated so the reference page lints clean and the degraded twin reports 6 errors and 13 warnings, **and** the sweep discriminates. `reports\discrimination-2026-08-30.md` |
 | ~~4~~ | ~~**Firm up the discrimination result**~~ | ✅ **Done 2026-08-31.** 1,320 trials, six arms at 3 sessions each, all measured: between-session σ ≤ 0.094 against effects of 0.35+, and four ablations showing defects compound rather than add (−5.0 and −3.3 alone, −35.0 together). The failure log now survives a killed session, and every wait in the harness is bounded. `reports\ablation-2026-08-31.md` |
 | ~~5~~ | ~~**Make `not_discovered` reachable**~~ | ✅ **Done 2026-08-31.** Every trial accumulates the browser's own tool list from `WebMCP.toolsAdded` / `toolsRemoved` — the domain has no command that lists tools — and records the page/browser difference both ways. The outcome fires the moment a client drops a tool; on Chrome 152 the views never disagreed at 7, 71, 187, 307 or 507 tools, or across an iframe. Two side findings: the 296-tool budget anecdote does not reproduce, and a subframe's tools appear in the host's manifest |
-| 6 | 🟡 **Time-spaced sessions — scheduled 2026-08-31, in flight.** Four `schtasks` entries under `\webmcp-gauge\` fire `scripts\spaced-session.cmd` at 04:15, 10:15, 16:15 and a reconcile at 17:15 local, against the degraded twin in the same shape as the published back-to-back arm. Session 1 verified through the scheduler | A run whose sessions are hours apart, with its between-session σ compared against the back-to-back run of the same shape — σ spaced against 0.041 / 0.062 |
+| 6 | 🟡 **Time-spaced sessions — half measured, re-armed 2026-08-31 after the scheduler refused two firings.** Session 1 ran at 04:18 (158/160) and session 2 at 21:29 (143/160) into `artifacts\spaced-degraded\`; sessions 2, 3 and the reconcile had been refused with `0x800710E0` because `schtasks /Create` leaves a task set to refuse on battery and never catch up. Settings fixed on all four tasks and session 2 re-fired **through the scheduler** to prove it. Session 3 is armed for 09:40 and the reconcile for 10:20 on 2026-09-01, so the gaps are 17.2 h then 12.2 h — day-spanning rather than the planned 6 + 6 | A run whose sessions are hours apart, with its between-session σ compared against the back-to-back run of the same shape — σ spaced against 0.041 / 0.062 |
 | 7 | 🟡 **Audit the utterance set's own floor — list done 2026-08-31, decision open.** `probes\utterance-floor.mjs` pools the four reference-quality manifests: **2,080 trials, 15 misses, and one utterance accounts for 12 of them.** `sum_by_category-12` misses 12 of 13 on good manifests and 11 of 11 on degraded ones, so the failure is invariant to the description. Written up in `fixtures\README.md` with the three options and their costs. 🚦 The disposition — keep, retag as multi-answer, or revise in `1.4.0` — is a maintainer decision, not a fix | The list exists. Closing it needs a recorded decision for `sum_by_category-12`, written into the fixture's `revisions` or `notes`, with the comparability cost stated if the text changes |
 | 8 | 🚦 **Decide where the raw dataset lives.** The JSONL per run is the evidence behind every number and currently stays local; code is MIT, and data meant to be cited usually wants CC BY 4.0 | A decision recorded here: in-repo, separate dataset repo, or aggregate-only — with the licence named |
 | 9 | **Step 7 — Mode B adapters.** Spike whether the ChatGPT desktop in-app browser can be driven at all; it is still the highest-priority unknown, and it decides whether that column is automated or sampled | Either a driven trial against a real client, or a recorded negative result that fixes the sampling design |
@@ -1016,3 +1016,63 @@ The general lesson is one this project keeps re-learning in new clothes: **an un
 - 🟡 Sessions 2 and 3 have not run. The comparison — between-session σ spaced against σ back-to-back, same shape, same judge — is not a result yet. **Session 1 finished at 04:37 with 158 of 160 trials measured**; the two non-measurements are the provider's, and the 17:15 reconcile retries them.
 - ⚠️ Six hours is not days. If drift is a slow function of provider deployments, a same-day spacing may still miss it; that would be an argument for a 24-hour repeat rather than evidence of stability.
 - ⚠️ The machine has to stay awake and logged on. A missed firing shows up as missing trials in the coverage diff, so it will be visible rather than silent, and `--resume` closes it.
+
+---
+
+## 2026-08-31 (night) — Item 6, second lesson: the task fired, the scheduler refused, and the spacing got wider than planned
+
+The morning entry closed with "the machine has to stay awake and logged on" as an ⚠️. That is what happened, and it did not look like a missed firing — it looked like three tasks reporting a **last result** for a run that never started.
+
+### What the scheduler actually said
+
+`schtasks /Query /V /FO CSV` on the four tasks:
+
+| Task | Scheduled | Last run | Last result |
+|---|---|---|---|
+| `spaced-session-1` | 04:15 | 04:18:20 | `2` — ran, incomplete (158/160) |
+| `spaced-session-2` | 10:15 | 10:23:23 | `2147946720` |
+| `spaced-session-3` | 16:15 | **20:28:10** | `2147946720` |
+| `spaced-report` | 17:15 | **20:28:10** | `2147946720` |
+
+`2147946720` is `0x800710E0`, "the operator or administrator has refused the request" — the scheduler's own refusal, not an exit code from anything in this repo. The corroboration is that `artifacts\spaced-degraded-s2.log` and `-s3.log` **did not exist**: `spaced-session.cmd` appends `=== session N started` before it launches Node, so a script that had run at all would have left a line. Sessions 3 and the reconcile share a last-run stamp of 20:28:10, hours after their slots, which is what an attempt-on-resume looks like.
+
+### Cause, and how far it is actually verified
+
+The four tasks were created with `schtasks /Create`, whose defaults `schtasks /Query /V` reports as Power Management "**Stop On Battery Mode, No Start On Batteries**". Read back through PowerShell: `DisallowStartIfOnBatteries=True`, `StopIfGoingOnBatteries=True`, `StartWhenAvailable=False`. A laptop on battery at 10:23 therefore gets a refusal, and a slot missed while the machine is asleep is never retried.
+
+⚠️ **Inferred, not proven.** The per-firing reason lives in the Task Scheduler operational log, and on this machine that channel is **disabled** (`Get-WinEvent -ListLog … → IsEnabled=False`); `wevtutil sl Microsoft-Windows-TaskScheduler/Operational /e:true` returns "Access is denied" without elevation, so it stays disabled and no event was recovered. What is verified: the refusal code, the missing script logs, the battery-hostile settings, and that the same task fired and ran to completion once those settings changed. The power state at 10:23 was not recorded (`Win32_Battery` now reads `BatteryStatus=2`, on AC, 79%), so "it was on battery at that moment" is the best explanation rather than a measurement.
+
+### The fix, and a trap inside the fix
+
+`New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -WakeToRun -ExecutionTimeLimit 72h`, applied to all four via `Set-ScheduledTask`. Verified by read-back: `DisallowOnBatteries=False StopIfGoingOnBatteries=False StartWhenAvailable=True WakeToRun=True` on every task.
+
+**`StartWhenAvailable` is retroactive.** Sessions 3 and the reconcile had start times already in the past, so enabling catch-up armed them to fire within minutes. That is worse than it sounds: the checkpoint held 158 of a planned 480 trials at that moment, and `spaced-session.cmd report` is `run --resume`, which fills *every* gap — it would have measured the whole of sessions 2 and 3 back-to-back, at once, and emitted a report calling the result time-spaced. Their triggers were re-pointed in the same command that changed the settings. Worth stating as a rule: **when you enable catch-up on a stale one-time task, move its trigger in the same breath, or you have just scheduled it for now.**
+
+### Proof, not assertion: session 2 re-fired through the scheduler
+
+Same pattern as the morning's `.env` fix — the thing that was broken is the thing that has to be re-run, and by the same mechanism. `spaced-session-2` re-armed for 21:29 and left alone: it fired at **21:29:37**, ran 698 s and recorded **143 of 160 trials**, exit 2. The scheduled path works on battery-or-not now.
+
+The 17 non-measurements are the provider's, not the harness's: **12 × `fetch failed`, 5 × "The operation was aborted due to timeout"**, all classified `judge_unavailable`. Session 1 at 04:18 had 2 `judge_truncated`. Checkpoint state: session 1 → 158 trials, session 2 → 143.
+
+Deliberately **not** fixed tonight: `judge_unavailable` gets no in-trial retry. Adding one mid-run would change the instrument between session 2 and session 3 of the same arm, which is worse than a coverage gap the reconcile already knows how to fill. It goes on the list instead.
+
+### The spacing is now wider, and unequal
+
+| Session | Local time | Gap to previous |
+|---|---|---|
+| 1 | 2026-08-31 04:18 | — |
+| 2 | 2026-08-31 21:29 | **17.2 h** |
+| 3 | 2026-09-01 09:40 (armed) | **12.2 h** |
+| reconcile | 2026-09-01 10:20 (armed) | — |
+
+Span 29.4 h across a day boundary, against the planned 6 + 6 within one day. This is a better manipulation than the one that was designed — it spans provider deployments and not just provider load, which is exactly the follow-up `scripts\README.md` had queued as a separate 24-hour run, so that item is absorbed rather than pending. The cost is honesty about what the arm measures: **"sessions between half a day and a day apart", not "sessions six hours apart"**, and the gaps are unequal, so a σ computed across the three sessions cannot be attributed to a single spacing.
+
+### The caveat that has to travel with the number
+
+The reconcile at 10:20 re-measures every gap, which means **19 trials will carry the reconcile's clock rather than their session's**: 2 of session 1's 160 and 17 of session 2's 160 (10.6% of that session). For an arm whose whole point is *when* each trial ran, that is a real contamination of one session, and it must appear in the write-up next to σ. If session 2's rate lands far from the other two, the refill is a live alternative explanation and the honest move is to re-run the arm rather than to argue about it.
+
+### Still open
+- 🟡 Session 3 and the reconcile have not run. There is no σ comparison yet, and until there is, item 6 stays open.
+- ⚠️ Nothing has been proven about a firing while the machine is *asleep*. `WakeToRun` is set but untested; if the laptop is shut down rather than sleeping at 09:40, `StartWhenAvailable` catches it up late and the 12.2 h gap becomes something else, which the reconcile's own timestamps will show.
+- ⚠️ The Task Scheduler operational log is still disabled, so the next refusal is diagnosable only by inference again. Enabling it needs an elevated shell — one line, but not one this session could run.
+- ⚠️ 17 non-measurements in 160 at 21:30 against 2 at 04:18 is the first hint this project has that **provider reliability itself varies by hour**. One session each is not evidence of that; it is a reason to look at `judge_unavailable` counts per session when the arm completes.

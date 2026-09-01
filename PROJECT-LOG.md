@@ -21,7 +21,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Plain-language explainer | ✅ `docs\explainer.md` |
 | Start guide + pipeline flow | ✅ `docs\getting-started.md` |
 | Publishing policy | ✅ **Decided** — private during judging, aggregate after; conflict of interest disclosed |
-| Code | ✅ **Sweep runs end to end, sessions isolated, gate wired, L0 linter built, every wait bounded** — `bin\webmcp-gauge.mjs` (`trial`, `run`, `session`, `lint`), `core\{taxonomy,trial,sweep,orchestrate,stats,gate,lint,cohort}.mjs`, `browser\{launch,session,serve,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`, `scripts\spaced-session.cmd`. **133 tests pass.** The cohort snapshot is staged and rehearsed (2026-09-01); Mode B's browser layer is driven and its protocol designed; Mode B's agent layer and the badge are not built |
+| Code | ✅ **Sweep runs end to end, sessions isolated, gate wired, L0 linter built, every wait bounded** — `bin\webmcp-gauge.mjs` (`trial`, `run`, `session`, `lint`), `core\{taxonomy,trial,sweep,orchestrate,stats,gate,lint,cohort,gallery}.mjs`, `browser\{launch,session,serve,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`, `scripts\spaced-session.cmd`. **147 tests pass.** The cohort snapshot and its gallery harvester are staged and rehearsed (2026-09-01); Mode B's browser layer is driven and its protocol designed; Mode B's agent layer and the badge are not built |
 | L0 linter | ✅ **Built 2026-08-30** — `core\lint.mjs`, 13 rules in four families (names, descriptions, schemas, budget), thresholds calibrated so the reference page lints clean. Live reference page: **0 errors, 0 warnings**. Degraded fixture twin: **6 errors, 13 warnings**. `--manifest` lints what source declares, live mode lints what the browser returns |
 | Discrimination | ✅ **Proven, and then explained** — 2026-08-30: one page, two manifests, clean **99.3%** against degraded **83.1%** overall, `sum_by_category` 95.0%→**60.0%** and `top_expenses` 100%→**26.7%**, intervals well clear of a between-session σ of ≤0.094. 2026-08-31: four ablations show **defects compound** — the two defects on `sum_by_category` cost −5.0 and −3.3 alone and **−35.0 together**. `reports\ablation-2026-08-31.md` |
 | Reproducibility | ✅ **σ between sessions ≤ 0.094** across every arm of the 1,320-trial ablation run (3 processes, 3 browsers, 3 cold profiles each), against effects of 0.35 and larger — **and ≤ 0.085 with sessions 9–17 h apart** (time-spaced arm, 2026-09-01), against 0.062 back-to-back: spacing does not degrade session-level reproducibility. Within-session σ still reported separately and is 0.000 at one repeat by construction |
@@ -68,7 +68,7 @@ Ids, not priorities — the **Immediate next action** line above says what is ac
 | 9 | 🟡 **Mode B adapters — browser layer driven, protocol designed, agent layer unrun (2026-09-01).** The ChatGPT desktop app ships as the `OpenAI.Codex` MSIX (Chromium 151 fork, `ChatGPT.exe`), honours `--remote-debugging-port`, and with **`--enable-blink-features=WebMCPTesting`** reads the reference page's 7 tools. `WebMCP.invokeTool` is now exercised on both builds — `{frameId, toolName, input:<object>}` → `{invocationId}`, result async via `toolResponded` — and `toolInvoked` carries `{toolName, input}`, which is the mechanism the **sampled design** records with: page and manifest automated, typing manual, outcome capture automated over CDP, stratified 10-pass/10-fail sample for divergence detection rather than a rate. Written up in `docs\concept.md`, "Mode B, as designed on 2026-09-01" | The design is recorded. What is left is one live sampled session, which is also the test of its own instrument: ⚠️ whether `toolInvoked` fires for *agent*-initiated invocations is unverified, and running it sends prompts from the maintainer's own ChatGPT account — 🚦 a decision, not a task |
 | 10 | **Badge and Action wrappers**, now unblocked: exit codes mean something and a threshold has been shown to discriminate | `webmcp-gauge run` emits a badge, and a GitHub Action runs it on a sample repo |
 | ~~11~~ | ~~**Stage the cohort snapshot**~~ | ✅ **Staged and dry-run 2026-09-01**, three days before it is needed. `core\cohort.mjs` (16 tests) holds the rules; `probes\cohort-snapshot.mjs` does the browser work; `fixtures\cohort\dry-run.json` is the rehearsal list. Dry run: 4 targets → 3 captures (aliases collapse), 7 tools on the reference page, 0 on a live page without WebMCP, 404 recorded dead. **Capture-versus-publish decision, enforced in code:** the local `snapshot.jsonl` keeps manifests verbatim because the text is the measured object; `publishable.json` carries tool *names*, description *lengths*, schema shape and annotation presence — never a description, never a page title, never markup. Manners are unconditional: one page at a time, a delay between projects, our UA on every request, robots.txt honoured |
-| 12 | ⏳ **DATE-LOCKED — harvest the URL list, then run the capture** (gallery-publish day, expected Sep 4). The snapshot takes a targets file and **nothing produces that file yet**: Devpost answers plain fetches with HTTP 202 and an empty body, so the list has to come out of a real browser session over the gallery's pages. This is now the only unbuilt part of milestone 4, and the part with no second chance | A targets file with one row per gallery project (URL + project name + repo where shown), then `cohort-snapshot.mjs` run against it in one tight window, with the dated artifact and its census committed and the drift caveat noted |
+| 12 | ⏳ **DATE-LOCKED — run the capture on gallery-publish day** (expected Sep 4). The harvester is **built and rehearsed** (2026-09-01): `core\gallery.mjs` (16 tests) + `probes\gallery-harvest.mjs`, verified against three published galleries and three real project pages. Devpost answers **headless** Chrome with 202 and an empty body, so this runs **headed**; robots.txt allows `/project-gallery` for a named agent while banning eleven AI crawlers by name; cards are `a.link-to-software`; the pager names the last page; submission links live in `.app-links` and only there. What remains is the run itself, which cannot happen before the gallery exists | `node probes/gallery-harvest.mjs` on publish day, then `cohort-snapshot.mjs --targets=…` in one tight window, with the dated artifact, its census and the drift caveat committed. Both steps refuse rather than guess, so a wrong dataset is not a failure mode either can reach quietly |
 
 Deliberately deferred, and recorded so they are choices rather than oversights: privacy-mode payload differences get no utterance; multi-call sequences (discover then filter) are outside the one-utterance-one-trial protocol; control classes are too small for a safety claim (injection is 0 of 12, `[0.0%, 24.2%]`); the CI gate thresholds invocation rate only, because a control false-positive ceiling is a separate flag and a separate decision and letting `--fail-under` imply safety coverage would be worse than leaving it out; and `cdp-eval.mjs` still exits `-1073740791` on Windows after printing valid JSON, which is tolerable for probing and not for a gate.
 
@@ -1386,3 +1386,59 @@ Not one of the reference page's seven tools declares a `required` array — ever
 - ⏳ **Item 12 is the whole remaining risk:** the snapshot needs a targets file, and nothing produces one. Devpost answers plain fetches with HTTP 202 and an empty body, so the list must come out of a real browser session on gallery-publish day. Everything downstream of that file is now tested and rehearsed.
 - ⚠️ The dry run visited three origins. Behaviour against a page that hangs, or an origin whose robots.txt forbids us, is covered by unit tests but not yet by a live capture.
 - 🚦 Item 9's final step still needs a decision about the maintainer's own ChatGPT account.
+
+---
+
+## 2026-09-01 (evening) — The harvester, and five things about Devpost that had to be measured rather than assumed
+
+Item 12's first half is built and rehearsed: `core\gallery.mjs` (16 tests) plus `probes\gallery-harvest.mjs`. Nothing here was designed from documentation, because there is none — each of the five facts below changed the design, and four of them were only visible by running it.
+
+### 1. Headless Chrome is refused; headed Chrome is not
+
+`getting-started.md` already said Devpost answers plain fetches with HTTP 202 and an empty body, and the advice was "use a real browser". A real *headless* browser is also refused — 202, zero bytes, on every URL including `/robots.txt`. The same request from a **headed** Chrome returns 200 and the real page. So the harvester runs headed by default and warns when `--headless` is passed.
+
+Worth being precise about what this is and is not: nothing was spoofed to get in. The 200 was obtained with our identifying UA suffix attached, which is the same string the cohort snapshot uses. The only difference was a visible window.
+
+### 2. robots.txt allows us, and bans eleven crawlers by name
+
+Read through the browser, because it cannot be fetched any other way:
+
+```
+User-agent: *
+Disallow:
+
+User-agent: BLEXBot   … CCBot … ChatGPT-User … GPTBot … Google-Extended
+User-agent: anthropic-ai … Omgilibot … Omgili … FacebookBot … Bytespider … ImagesiftBot
+Disallow: /
+```
+
+An empty `Disallow:` under `*` permits everything, so a named measurement client is allowed. The named bans are worth reading as intent rather than as a loophole: Devpost objects to AI training corpora. That is a reason to keep the rate low and the identity honest, and the harvester refuses to proceed at all if robots cannot be read.
+
+### 3. The pager names the last page — so "nothing new" is the wrong stopping rule
+
+The first version stopped when a page added no new links. Then a published gallery showed a pager linking `?page=1…5` and `?page=26`, at 24 cards per page. Two consequences: `?page=N` genuinely paginates (page 1 and page 2 returned different cards — verified), and **the last page number is readable from page 1**. The walk now stops on the pager's count, warns rather than stops if a middle page adds nothing, and **refuses outright** if the gallery has more pages than `--max-pages`. A truncated harvest that looked complete was the failure mode with no symptom.
+
+Also measured: `devpost.com/software`, the global browse, **ignores** `?page=` and re-serves page 1. Only hackathon galleries paginate this way, so the harvester must be pointed at `/project-gallery`.
+
+### 4. Submission links live in `.app-links`, and nowhere else is safe
+
+The first version fell back through `#software-content`, `main`, `body` if the specific selectors missed. Rehearsing against a real hackathon produced `usable: 2, ambiguous: 2` — every usable row ambiguous, which is the signal that the fallback was sweeping in page furniture. Inspecting one project page showed exactly what: alongside the entrant's GitHub link sat `devpost.team`, a cloudfront asset URL, a sponsor's site (`worldmacpc.com`), and Devpost's own socials. Under "first demo-class link wins", **a sponsor's marketing site would have been captured as somebody's submission**.
+
+So the scope is now `.app-links` (or `#app-details-link`) and nothing wider; a project with no such section is skipped with that reason recorded. Devpost's chrome and asset hosts are named in the artefact list with a test. Verified against three real project pages: a GitHub-only submission (repo captured, skipped as no demo), a YouTube-only submission (skipped), and one with a live `bolt.host` demo (captured). All three correct.
+
+### 5. The bot challenge is a 202 *followed by* the real status, and iframes lie
+
+`visit()` originally kept "the last Document status", which is wrong twice over. The challenge answers 202 first and the real response second, so the *first* status is never the answer. And a project page with a YouTube embed emits further Document responses **from the iframe**, so the *last* status is not the answer either — three 200s from `youtube.com/embed/…` arrived after the page's own. Now: main-frame-only, sequence kept, 202s filtered, and `[202, 200] → 200` confirmed on a live page.
+
+### The shape of the thing
+
+Refusals, not guesses, at every point where being wrong would be invisible: an unpublished gallery (verified — the WebMCP gallery still says "The hackathon managers haven't published this gallery yet", with the deadline reading Sep 4 2026 01:30 IST and 5,311 participants), no selector match (dumps the page's most common elements and exits 2), a pager longer than `--max-pages`, and a harvest of zero usable targets. `--probe` lists what it found without harvesting; `--serve` rehearses the page walk against `fixtures\gallery\gallery.html`, a two-page local stand-in that also repeats one project so dedupe is exercised — page 1 → 3 new, page 2 → 3 links and 2 new, total 5.
+
+Three throwaway recon scripts were written into `artifacts\` and deleted after their answers were recorded here.
+
+**147 tests pass.**
+
+### Still open
+- ⏳ The capture itself, on publish day. Both halves refuse rather than guess, so the remaining risk is timing, not correctness.
+- ⚠️ The per-project visit costs one page load each; a 165-project gallery at the default 2.5 s delay is roughly 12 minutes of walking, plus the snapshot. Worth starting early in the day rather than late.
+- ⚠️ Unrehearsed: a gallery whose pager is absent entirely, and a project page that hangs rather than answering. Both have code paths; neither has been seen.

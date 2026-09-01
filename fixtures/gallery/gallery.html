@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Rehearsal gallery — webmcp-gauge</title>
+  </head>
+  <body>
+    <!--
+      A two-page stand-in for a Devpost project gallery, used to rehearse the page
+      walk in probes/gallery-harvest.mjs without paging through a stranger's real
+      gallery to prove our own loop.
+
+      It imitates only what the harvester depends on, and those dependencies were
+      measured against a published gallery on 2026-09-01 rather than guessed:
+        - project cards are `a.link-to-software` with the title in an `h5`
+        - pagination is `?page=N`, 1-indexed, with the pager linking every page
+          (so the last page number is readable from page 1)
+        - 24 cards per page on the real thing; 3 here, because the loop does not
+          care how many
+    -->
+    <h1>Rehearsal gallery</h1>
+    <div id="gallery"></div>
+    <nav id="pager"></nav>
+
+    <script>
+      const PAGES = {
+        1: [
+          { slug: 'rehearsal-one', title: 'Rehearsal One' },
+          { slug: 'rehearsal-two', title: 'Rehearsal Two' },
+          { slug: 'rehearsal-three', title: 'Rehearsal Three' },
+        ],
+        2: [
+          { slug: 'rehearsal-four', title: 'Rehearsal Four' },
+          // Repeated on purpose: the harvester must dedupe by project path, and a
+          // real gallery re-renders the same project when sorting shifts mid-walk.
+          { slug: 'rehearsal-one', title: 'Rehearsal One' },
+          { slug: 'rehearsal-five', title: 'Rehearsal Five' },
+        ],
+      };
+      const lastPage = Object.keys(PAGES).length;
+      const page = Number(new URLSearchParams(location.search).get('page') ?? '1');
+      const cards = PAGES[page] ?? [];
+
+      document.getElementById('gallery').innerHTML = cards
+        .map(
+          (card) =>
+            `<div class="gallery-item"><a class="link-to-software" href="https://devpost.com/software/${card.slug}"><h5 class="software-entry-name">${card.title}</h5></a></div>`
+        )
+        .join('');
+
+      document.getElementById('pager').innerHTML = Array.from({ length: lastPage }, (_, index) => index + 1)
+        .map((n) => `<a href="?page=${n}">${n}</a>`)
+        .join(' ');
+    </script>
+  </body>
+</html>

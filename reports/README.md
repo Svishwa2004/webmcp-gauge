@@ -10,6 +10,7 @@ Each run is `<subject>-<utterance set>-<judge>-<shape>`, where shape is `sNrM` f
 |---|---|
 | [`discrimination-2026-08-30.md`](discrimination-2026-08-30.md) | Does invocation rate tell a well-described page from a badly described one? Yes. |
 | [`ablation-2026-08-31.md`](ablation-2026-08-31.md) | *Which* defect did it? None alone — they compound. Also scores the predictions that were wrong. |
+| [`spacing-2026-09-01.md`](spacing-2026-09-01.md) | Do hours-between-sessions change the answer? σ doesn't care (0.085 vs 0.062 worst-case) — but both mid-range tools declined monotonically across 26 h, the shape drift looks like. |
 
 ## The reference page (Airlock, live)
 
@@ -31,12 +32,13 @@ Each run is `<subject>-<utterance set>-<judge>-<shape>`, where shape is `sNrM` f
 | `twin-ablate-duplicate-tool-…-s3r1` | 60 | One defect: a byte-identical competitor tool |
 | `twin-ablate-thin-…-s3r1` | 120 | One defect: descriptions carrying no information |
 | `twin-ablate-schema-…-s3r1` | 60 | One defect: an over-parameterised schema |
+| `twin-degraded-1.3.0-glm-5.3-s3r1-spaced` | 480 | Same arm as `twin-degraded-…-s3r1` with sessions 17.2 h and 9.2 h apart across a day boundary |
 
-3,560 trials across 11 runs. The raw per-trial JSONL stays local in `artifacts/` — see next step 2.
+4,040 trials across 12 runs. The raw per-trial JSONL stays local in `artifacts/` — see next step 2.
 
 ## Next steps that land here
 
-1. **The time-spaced run** (PROJECT-LOG item 6, two sessions of three measured). Sessions at 04:18 and 21:29 on 2026-08-31 — 158/160 and 143/160 — with session 3 at 09:40 and the reconcile at 10:20 on 2026-09-01, into `artifacts/spaced-degraded/`. Gaps of 17.2 h then 12.2 h, not the planned 6 + 6: the 10:15 and 16:15 firings were refused by the Task Scheduler on battery defaults. When it lands: compare its between-session σ against `twin-degraded-…-s3r1` (0.041 on `sum_by_category`, 0.062 on `top_expenses`) — same shape, same judge, so the only difference is the hours between sessions. Publish as `twin-degraded-1.3.0-glm-5.3-s3r1-spaced.*` with a short write-up either way; a null result here is worth as much as a positive one. Two things must travel with the σ: the gaps are **unequal**, so no single spacing owns the number, and the reconcile re-measures 19 trials (2 in session 1, 17 in session 2) at its own hour rather than at their session's.
+1. ~~**The time-spaced run**~~ ✅ **Done 2026-09-01** — `twin-degraded-1.3.0-glm-5.3-s3r1-spaced.*` plus [`spacing-2026-09-01.md`](spacing-2026-09-01.md). σ between sessions 0.085 worst-case against 0.062 back-to-back (the two load-bearing tools swap places), so the back-to-back reproducibility figures stand; both mid-range tools declined monotonically across the 26 h span from a starting point that matched the back-to-back arm measured 48 min earlier — suggestive of drift, not established at n=20/session. One trial needed five attempts (judge near its 60 s ceiling on that prompt), so the resume loop is load-bearing for CI use.
 2. 🚦 **Where the raw dataset lives** (item 8). Every number here is backed by per-trial JSONL that is currently local only. Decide: in-repo, separate dataset repo, or aggregate-only — and name the licence. Code is MIT; data meant to be cited usually wants CC BY 4.0.
 3. **Mode B** (item 9). Every run here used a judge model as a stand-in for a real assistant. Whether the stand-in predicts a shipping client is the assumption the whole project rests on, and no file in this folder tests it yet.
 

@@ -43,8 +43,9 @@ if /i not "%~1"=="report" goto :session
 
 rem  The subject records the spacing that actually happened, not the one that was
 rem  planned: the 10:15 and 16:15 firings were refused by the scheduler (battery
-rem  defaults, see scripts\README.md), so the sessions landed 17.2 h and 12.2 h
-rem  apart across a day boundary instead of 6 h and 6 h.
+rem  defaults, see scripts\README.md), and session 3 was then run by hand at
+rem  06:41 on 2026-09-01, so the sessions landed 17.2 h and 9.2 h apart across
+rem  a day boundary instead of 6 h and 6 h.
 rem
 rem  A machine that sleeps through both trigger times gets session 3 and this
 rem  reconcile started at the same moment when it wakes, because
@@ -60,7 +61,7 @@ echo === reconcile + report started %DATE% %TIME% >> artifacts\spaced-degraded-r
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\wait-for-session.ps1 -Minutes %WAIT_MINUTES% >> artifacts\spaced-degraded-report.log 2>&1
 if errorlevel 1 goto :abort
 
-node %NODE_ENV_FILE% bin\webmcp-gauge.mjs run --resume --serve fixtures/broken --url "%URL%" --sessions 3 --repeats 1 --concurrency 3 --out "%OUT%" --subject "twin (degraded metadata, sessions 17h and 12h apart)" >> artifacts\spaced-degraded-report.log 2>&1
+node %NODE_ENV_FILE% bin\webmcp-gauge.mjs run --resume --serve fixtures/broken --url "%URL%" --sessions 3 --repeats 1 --concurrency 3 --out "%OUT%" --subject "twin (degraded metadata, sessions 17h and 9h apart)" >> artifacts\spaced-degraded-report.log 2>&1
 echo === reconcile + report finished %DATE% %TIME% exit=%ERRORLEVEL% >> artifacts\spaced-degraded-report.log
 exit /b %ERRORLEVEL%
 

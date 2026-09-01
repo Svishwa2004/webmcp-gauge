@@ -24,10 +24,10 @@ Append-only record of every change, decision, and verification in this project. 
 | Code | ✅ **Sweep runs end to end, sessions isolated, gate wired, L0 linter built, every wait bounded** — `bin\webmcp-gauge.mjs` (`trial`, `run`, `session`, `lint`), `core\{taxonomy,trial,sweep,orchestrate,stats,gate,lint}.mjs`, `browser\{launch,session,serve,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`, `scripts\spaced-session.cmd`. **115 tests pass.** Badge and Mode B adapters not built |
 | L0 linter | ✅ **Built 2026-08-30** — `core\lint.mjs`, 13 rules in four families (names, descriptions, schemas, budget), thresholds calibrated so the reference page lints clean. Live reference page: **0 errors, 0 warnings**. Degraded fixture twin: **6 errors, 13 warnings**. `--manifest` lints what source declares, live mode lints what the browser returns |
 | Discrimination | ✅ **Proven, and then explained** — 2026-08-30: one page, two manifests, clean **99.3%** against degraded **83.1%** overall, `sum_by_category` 95.0%→**60.0%** and `top_expenses` 100%→**26.7%**, intervals well clear of a between-session σ of ≤0.094. 2026-08-31: four ablations show **defects compound** — the two defects on `sum_by_category` cost −5.0 and −3.3 alone and **−35.0 together**. `reports\ablation-2026-08-31.md` |
-| Reproducibility | ✅ **σ between sessions ≤ 0.094** across every arm of the 1,320-trial ablation run (3 processes, 3 browsers, 3 cold profiles each), against effects of 0.35 and larger. Within-session σ still reported separately and is 0.000 at one repeat by construction |
+| Reproducibility | ✅ **σ between sessions ≤ 0.094** across every arm of the 1,320-trial ablation run (3 processes, 3 browsers, 3 cold profiles each), against effects of 0.35 and larger — **and ≤ 0.085 with sessions 9–17 h apart** (time-spaced arm, 2026-09-01), against 0.062 back-to-back: spacing does not degrade session-level reproducibility. Within-session σ still reported separately and is 0.000 at one repeat by construction |
 | CI exit codes | ✅ **Split 2026-08-30** — `0` complete and above threshold, `1` a rate below `--fail-under`, `2` a run that could not measure its plan (or bad usage). Verified against the real 960-trial dataset, and used in the field the same day: the degraded-twin sweep exited 2 on four `judge_truncated` trials, then 0 after `--resume`. `report.json` carries `coverage` and `gate`; schema `webmcp-gauge/report/3` |
 | Browser lifecycle | ✅ **Self-managed since 2026-08-30** — the harness seeds a cold profile with only the WebMCP flag and launches `--headless=new` Chrome per session on a free port, then tears it down. `--port` still attaches to a hand-started browser, and the report flags that sessions were not isolated |
-| Measurements published | ✅ **11 runs, 3,560 trials, all in `reports\`** — reference page: three sweeps, best isolated **960 trials** (3 sessions × 2 repeats; five tools at 100% [96.9%, 100.0%], `filter_rows` 99.2%, `sum_by_category` 94.2%, controls 0/120). Fixture twin: two single-session arms (superseded) and six three-session arms totalling 1,320 trials, plus two write-ups. The time-spaced run is two sessions of three in: session 1 at 04:18 (158/160), session 2 at 21:29 (143/160), both on 2026-08-31; session 3 and the reconcile armed for 09:40 and 10:20 on 2026-09-01 |
+| Measurements published | ✅ **12 runs, 4,040 trials, all in `reports\`** — reference page: three sweeps, best isolated **960 trials** (3 sessions × 2 repeats; five tools at 100% [96.9%, 100.0%], `filter_rows` 99.2%, `sum_by_category` 94.2%, controls 0/120). Fixture twin: two single-session arms (superseded), six three-session ablation arms (1,320 trials), and the time-spaced arm (480 trials, sessions 17.2 h and 9.2 h apart, 2026-08-31 → 09-01) — plus three write-ups |
 | σ reporting | ✅ **Split and measured** — σ between sessions **0.012** where anything varies (0.000 at the ceiling), σ within session **0.008**. The between figure is larger, which is why the first two sweeps' σ was optimistic |
 | Headless | ✅ Chrome `152.0.7977.65` exposes WebMCP under `--headless=new` with the seeded flag, and the exit-code contract now makes a real CI gate possible |
 | Judge | ✅ **`glm-5.3` at `https://agentrouter.org/v1`** — verified with a real chat call, then two live trials. Distinct from the authoring model, as required |
@@ -48,7 +48,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** item 6 — session 3 fires 09:40 and the reconcile 10:20 on 2026-09-01; publish the σ comparison either way. Then item 9 (Mode B), still the highest-priority unknown.
+**Immediate next action:** item 9 (Mode B adapters) — spike whether the ChatGPT desktop in-app browser can be driven at all; with item 6 closed it is the highest-priority unknown left. Item 7's 🚦 utterance-set decision still awaits the maintainer.
 
 ## What to do next, in order
 
@@ -61,7 +61,7 @@ Ordered by what unblocks the most, with the condition that closes each one. Anyt
 | ~~3~~ | ~~**Step 6 — the L0 linter and a deliberately broken fixture page**~~ | ✅ **Done 2026-08-30.** 13 rules calibrated so the reference page lints clean and the degraded twin reports 6 errors and 13 warnings, **and** the sweep discriminates. `reports\discrimination-2026-08-30.md` |
 | ~~4~~ | ~~**Firm up the discrimination result**~~ | ✅ **Done 2026-08-31.** 1,320 trials, six arms at 3 sessions each, all measured: between-session σ ≤ 0.094 against effects of 0.35+, and four ablations showing defects compound rather than add (−5.0 and −3.3 alone, −35.0 together). The failure log now survives a killed session, and every wait in the harness is bounded. `reports\ablation-2026-08-31.md` |
 | ~~5~~ | ~~**Make `not_discovered` reachable**~~ | ✅ **Done 2026-08-31.** Every trial accumulates the browser's own tool list from `WebMCP.toolsAdded` / `toolsRemoved` — the domain has no command that lists tools — and records the page/browser difference both ways. The outcome fires the moment a client drops a tool; on Chrome 152 the views never disagreed at 7, 71, 187, 307 or 507 tools, or across an iframe. Two side findings: the 296-tool budget anecdote does not reproduce, and a subframe's tools appear in the host's manifest |
-| 6 | 🟡 **Time-spaced sessions — half measured, re-armed 2026-08-31 after the scheduler refused two firings.** Session 1 ran at 04:18 (158/160) and session 2 at 21:29 (143/160) into `artifacts\spaced-degraded\`; sessions 2, 3 and the reconcile had been refused with `0x800710E0` because `schtasks /Create` leaves a task set to refuse on battery and never catch up. Settings fixed on all four tasks and session 2 re-fired **through the scheduler** to prove it. Session 3 is armed for 09:40 and the reconcile for 10:20 on 2026-09-01, so the gaps are 17.2 h then 12.2 h — day-spanning rather than the planned 6 + 6. The two-session checkpoint audited clean before the third fires (301 records, 0 duplicates, full 160-utterance coverage in both sessions), and the reconcile now waits out a late session 3 rather than resuming over it (`scripts\wait-for-session.ps1`) | A run whose sessions are hours apart, with its between-session σ compared against the back-to-back run of the same shape — σ spaced against 0.041 / 0.062 |
+| ~~6~~ | ~~**Time-spaced sessions**~~ | ✅ **Done 2026-09-01.** 480/480 with sessions 17.2 h and 9.2 h apart across a day boundary. σ between sessions **0.085** worst-case (`sum_by_category`) against **0.062** back-to-back — the two load-bearing tools swap places — so the back-to-back reproducibility figures stand. Both mid-range tools declined **monotonically** across the 26 h span, from a starting point that matched the back-to-back arm measured 48 min earlier: the shape drift looks like, not established at n=20/session. One trial needed five attempts (judge near its 60 s ceiling on that prompt). `reports\spacing-2026-09-01.md` + `reports\twin-degraded-1.3.0-glm-5.3-s3r1-spaced.*` |
 | 7 | 🟡 **Audit the utterance set's own floor — list done 2026-08-31, decision open.** `probes\utterance-floor.mjs` pools the four reference-quality manifests: **2,080 trials, 15 misses, and one utterance accounts for 12 of them.** `sum_by_category-12` misses 12 of 13 on good manifests and 11 of 11 on degraded ones, so the failure is invariant to the description. Written up in `fixtures\README.md` with the three options and their costs. 🚦 The disposition — keep, retag as multi-answer, or revise in `1.4.0` — is a maintainer decision, not a fix | The list exists. Closing it needs a recorded decision for `sum_by_category-12`, written into the fixture's `revisions` or `notes`, with the comparability cost stated if the text changes |
 | 8 | 🚦 **Decide where the raw dataset lives.** The JSONL per run is the evidence behind every number and currently stays local; code is MIT, and data meant to be cited usually wants CC BY 4.0 | A decision recorded here: in-repo, separate dataset repo, or aggregate-only — with the licence named |
 | 9 | **Step 7 — Mode B adapters.** Spike whether the ChatGPT desktop in-app browser can be driven at all; it is still the highest-priority unknown, and it decides whether that column is automated or sampled | Either a driven trial against a real client, or a recorded negative result that fixes the sampling design |
@@ -1157,3 +1157,46 @@ The `report 0` entries stay in `artifacts\spaced-degraded-report.log` as provena
 ### And the question that surfaced it
 
 Session 3 *can* run early — the arm's done-condition is "sessions hours apart", not "12.2 h apart", and a manual run at ~06:30 would make the gaps 17.2 h then ~9 h, still day-spanning. The costs are bookkeeping, not validity: the 09:40 task must be disabled first (a second firing would re-measure session 3's failed trials at 09:40, mixing two clocks inside one session), and the recorded spacing would change in three documents plus the report's subject string. The 09:40 scheduled firing is armed, the machine is on AC, and the scheduled path was re-proven by session 2's 21:29 firing — so waiting costs three hours and keeps every documented number true. The choice sits with the operator; whichever way it goes, the guard fix above was needed first.
+
+---
+
+## 2026-09-01 (morning) — Item 6 closed: session 3 run by hand, 480/480, and the spacing answer is two-headed
+
+### The operator's call, executed
+
+The question "can we run session 3 now" was answered *yes* and the operator took it. Both remaining tasks (`spaced-session-3`, `spaced-report`) were disabled first, the pending watch-loop was cancelled, and session 3 ran by hand at **06:41** — the gap from session 2 (21:29:37) is **9.2 h**. It finished at 06:52:31: **148 recorded + 12 `judge_unavailable` = 160 accounted**, exit 2 per the contract. The 60 s judge timeout was **not** raised to fetch anything; that boundary is part of the instrument.
+
+### The reconcile, and one trial that refused to be measured
+
+The corrected guard passed instantly (160 accounted, 148 ≥ the 140 floor) and the first resume pass refilled 30 of 31 gaps. The 31st — `find_anomalies-10`, session 3 — timed out four consecutive times across 20 minutes while the 30 trials around it succeeded. The cause is measured, not guessed: the same prompt took 15.9 s in session 1 and **48.8 s / 2,755 completion tokens** in session 2, against the judge's 60 s timeout — reasoning on this prompt rides near the ceiling, and the provider's conditions decide which side lands. The fifth attempt, at 07:09, succeeded with the instrument unchanged. **480/480, gate COMPLETE, exit 0.** For CI use this is the load-bearing operational finding: one sticky trial held a full arm at exit 2 for four passes; the resume loop is not optional.
+
+### Final audit
+
+`artifacts\spaced-degraded`: 480 records, exactly 160 per session, **0 duplicate `(session, utterance)` pairs**, recorded ∪ failed = exactly the 160-utterance plan in every session. The 34 failure lines map to 31 distinct trials, all recovered.
+
+### The answer, and its second head
+
+Against the back-to-back arm of the same shape (`reports\twin-degraded-1.3.0-glm-5.3-s3r1.*`):
+
+| Tool | rate b2b → spaced | σ b2b → spaced |
+|---|---|---|
+| `sum_by_category` | 60.0% → 48.3% | 0.041 → **0.085** |
+| `top_expenses` | 26.7% → 35.0% | 0.062 → **0.041** |
+| `find_anomalies` | 96.7% → 91.7% | 0.024 → 0.024 |
+| four ceiling tools | 98.3–100% → 100% | ≤0.024 → 0.000 |
+| controls | 3.3% → 5.0% FP | 0.024 → 0.000 |
+
+**First head: σ did not grow with spacing.** Worst case 0.085 against 0.062, the two load-bearing tools swapping places — both an order of magnitude below the 0.35 effects. The back-to-back reproducibility figures stand; a σ measured on minutes-apart sessions does not mislead at 9–17 h.
+
+**Second head: the per-session shape is what drift looks like.** `sum_by_category` went 60 → 45 → 40 across the three sessions and `top_expenses` 40 → 35 → 30 — both **monotone** across 26 hours, where the back-to-back arm's sessions wander non-monotonically (60/55/65 and 35/20/25). The starting point agrees: the back-to-back arm finished 03:30 local and the spaced arm's session 1 began 48 minutes later, matching it at 60. The refills do not explain the decline — session 2 at-21:29-only is 44.4% (8/18) and 37.5% (6/16) against 45% and 35% with refills included. Three honest limits travel with it: n=20 per session per tool; a monotone 3-ordering is 1-in-6 under a stable mean and the two tools share a clock, so 1-in-36 is a description, not a p-value; and the definitive control — one arm back-to-back, one arm spread over the *same* window, interleaved — was not run. Recorded as the follow-up in `scripts\README.md` if the drift reading ever matters.
+
+Point estimates of mid-range rates moved 8–12 points between 2026-08-30 and 09-01 with overlapping intervals — **cross-day comparisons now carry a caveat that back-to-back runs could not see.**
+
+### Published
+
+`reports\twin-degraded-1.3.0-glm-5.3-s3r1-spaced.{md,json}` (subject string reads "sessions 17h and 9h apart"), the comparison write-up `reports\spacing-2026-09-01.md`, `reports\README.md` (12 runs, 4,040 trials, three write-ups), `scripts\README.md` (final schedule table; all four scheduled tasks deleted — session 3 and the report were disabled before the hand run, all four removed after). 115 tests pass.
+
+### Still open
+- 🟢 The spacing axis is measured. The 6 h design never ran and is not being re-run — the refused firings bought a wider, day-spanning manipulation than the one designed.
+- ⚠️ The drift control (interleaved same-window arms) is the only follow-up this arm begets, and only if someone needs the drift question answered rather than caveated.
+- 🟡 Next: item 9 (Mode B), now the highest-priority unknown.

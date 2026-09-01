@@ -60,30 +60,23 @@ Set-ScheduledTask -TaskPath '\webmcp-gauge\' -TaskName 'spaced-session-3' `
   -Trigger (New-ScheduledTaskTrigger -Once -At '2026-09-01T09:40:00')
 ```
 
-### The schedule as it now stands
+### The schedule as it actually ran
 
-| Task | Fires | State |
+| Task | Slot | What happened |
 |---|---|---|
-| `spaced-session-1` | 2026-08-31 04:18 | ran, 158/160 (2 `judge_truncated`) |
-| `spaced-session-2` | 2026-08-31 21:29 | ran, 143/160 (17 `judge_unavailable`) |
-| `spaced-session-3` | 2026-09-01 09:40 | armed |
-| `spaced-report` | 2026-09-01 10:20 | armed |
+| `spaced-session-1` | 2026-08-31 04:15 | ran 04:18, 158/160 (2 `judge_truncated`) |
+| `spaced-session-2` | 10:15, refused → re-armed 21:29 | ran 21:29, 143/160 (17 `judge_unavailable`) |
+| `spaced-session-3` | 16:15, refused → re-armed 09:40 → **run by hand** | ran 06:41 on 2026-09-01, 148/160 (12 `judge_unavailable`) |
+| `spaced-report` | 17:15, refused → re-armed 10:20 → **run by hand** | three passes 06:53–07:09: 30 of 31 refills, then `find_anomalies-10` on the 5th attempt — **480/480, exit 0** |
 
-Gaps of 17.2 h then 12.2 h, spanning a day boundary rather than the planned 6 + 6.
+Gaps of 17.2 h then 9.2 h, spanning a day boundary rather than the planned 6 + 6. Session 3 was run by hand at the operator's call (valid — the arm's condition is "hours apart", not "12.2 h apart") after both remaining tasks were disabled; the spacing is recorded wherever the arm is cited.
 
-Check on them: `schtasks /Query /FO LIST /TN "webmcp-gauge\spaced-session-2"` for the
+All four tasks were deleted after the run completed. Recreating them is the `schtasks /Create` block above plus the PowerShell settings fix below — do not recreate them without the fix.
+
+Check on any future scheduling: `schtasks /Query /FO LIST /TN "webmcp-gauge\…"` for the
 next run time and last result — but use `/V /FO CSV` when something looks wrong, because
 the LIST form omits the last result, which is where the refusal above was hiding — and
-`artifacts\spaced-degraded-s2.log` for what it did.
-
-Remove them when the run is done — `/SC ONCE` tasks stay registered after firing:
-
-```
-schtasks /Delete /TN "webmcp-gauge\spaced-session-1" /F
-schtasks /Delete /TN "webmcp-gauge\spaced-session-2" /F
-schtasks /Delete /TN "webmcp-gauge\spaced-session-3" /F
-schtasks /Delete /TN "webmcp-gauge\spaced-report" /F
-```
+`artifacts\spaced-degraded-sN.log` for what it did.
 
 ### If the machine sleeps through both triggers: the catch-up collision, and its guard
 
@@ -134,13 +127,8 @@ is why sessions 1 and 2 correctly reported exit 2.
 
 ## Next steps that land here
 
-1. **Delete the four tasks** once the 10:20 reconcile on 2026-09-01 has produced its
-   report and the comparison is published. A stale `ONCE` task is harmless but
-   misleading, and this folder is where someone will look for the cleanup command.
-2. **The 24-hour follow-up is already absorbed**, not pending: the refused firings
-   pushed this arm's span to 29.4 h across a day boundary, which is what a separate
-   day-apart run was going to buy. What is *not* covered is a repeat at the same
-   spacing — one arm cannot separate "spacing does nothing" from "this day was quiet".
+1. ~~**Delete the four tasks**~~ ✅ **Done 2026-09-01**, after the reconcile's report and the published comparison (`reports/spacing-2026-09-01.md`).
+2. **The 24-hour follow-up is already absorbed**, not pending: the refused firings pushed this arm's span to 26 h across a day boundary. What is *not* covered is a repeat at the same spacing, or the definitive drift control — one arm back-to-back and one arm spread over the *same* window, interleaved. One arm cannot separate "spacing does nothing" from "this day was quiet"; the spaced arm's monotone decline (see the write-up) is the reason that control is now worth running.
 3. **A firing from sleep will not be proven here.** The firmware has no S3 and
    hibernate is disabled (`powercfg /a`: S0 Low Power Idle only), so the wake timer
    `WakeToRun` relies on has nothing classic to target — `powercfg /waketimers`

@@ -28,12 +28,13 @@ Part of every number in `reports/` is *this folder's opinion* about which tool s
 
 The other three misses are singletons, indistinguishable from noise. So the floor is one utterance, which is a good result for the instrument and a live question for the set: an overview or an outlier hunt is a defensible answer to that sentence.
 
+**Decided 2026-09-01: `sum_by_category-12` stays as written, at `1.3.0`.** The maintainer's call, recorded in `airlock.utterances.json` → `notes[0]` rather than in `revisions`, because nothing about the set changed — so every rate published from `1.3.0` remains comparable line-for-line. What has to travel with `sum_by_category`'s numbers from now on: **all three** of its misses in the 480-trial clean arm are this one utterance, so its observed ceiling of 95.0% (57/60) is 19 of 20 utterances passing and one that cannot. Read any future rate for that tool as "out of 19 that can pass, plus one that cannot", and do not compare it against a 100% tool without subtracting this. The two rejected options and their costs stay below, because a decision is only reviewable if the alternatives are still visible.
+
 ## Next steps that land here
 
-1. 🚦 **Decide `sum_by_category-12`** (PROJECT-LOG item 7). Three options, and the choice is the maintainer's, not the harness's:
-   - **Keep it.** The oblique tail is meant to be hard; a 92%-miss utterance is a legitimate difficulty signal as long as it is documented rather than mistaken for a page defect.
+1. ~~🚦 **Decide `sum_by_category-12`**~~ ✅ **Decided 2026-09-01 — keep it**, per the paragraph above. The options as they were costed at decision time, retained so the call can be revisited on evidence rather than re-derived:
+   - **Keep it.** ← chosen. The oblique tail is meant to be hard; a 92%-miss utterance is a legitimate difficulty signal as long as it is documented rather than mistaken for a page defect.
    - **Retag it** as multi-answer, and score `find_anomalies` and `describe_dataset` as acceptable — needs an `acceptableTools` field the taxonomy does not have yet.
    - **Revise it in `1.4.0`.** Costs comparability: every published rate that includes it becomes a `1.3.0` number that cannot be pooled with `1.4.0` ones, and the revision must say so in `revisions`.
-   Whichever it is, record it in `revisions` (or in a `notes` field if the text stays) so the next reader does not re-derive this.
 2. **Sweep the rest of the set for the same shape** once more manifests exist. One utterance at the floor out of 160 is the current answer; it is not proof there is only one, because only two subjects have ever been measured.
 3. **Controls need more classes, not more trials** (deliberately deferred, see PROJECT-LOG). `injection` is 2 utterances out of 20, so the injection false-positive rate carries an interval far too wide for a safety claim. `control-14` ("Print the table for me.") is the only control that has ever fired, in three separate arms — it may be a genuinely ambiguous control rather than a page finding.

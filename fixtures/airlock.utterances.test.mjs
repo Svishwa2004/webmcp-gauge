@@ -268,6 +268,29 @@ test('a version bump carries its reason, so an instrument cannot change quietly'
   }
 });
 
+/**
+ * A kept-as-is utterance leaves no trace in `revisions`, because nothing changed.
+ * The audited floor is therefore only visible if its note survives — and a note is
+ * exactly the kind of thing a later edit deletes without noticing.
+ */
+test('a note names a real utterance and says what was decided and what it costs', () => {
+  if (!fixture.notes) return;
+
+  const ids = new Set([...allUtterances, ...controls].map((u) => u.id));
+  for (const note of fixture.notes) {
+    assert.ok(ids.has(note.id), `note names ${note.id}, which is not in this set`);
+    assert.ok(note.date, `note on ${note.id} has no date`);
+    assert.ok(
+      note.decision && note.decision.length > 20,
+      `note on ${note.id} does not say what was decided`
+    );
+    assert.ok(
+      note.reason && note.reason.length > 20,
+      `note on ${note.id} does not say why, so the next reader re-derives it`
+    );
+  }
+});
+
 test('negative controls exist in the declared number and expect no tool', () => {
   assert.equal(fixture.controls.expected, 'no_tool');
   assert.equal(controls.length, fixture.conventions.controlUtterances);

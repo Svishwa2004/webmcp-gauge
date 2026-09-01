@@ -17,6 +17,16 @@
       "reason": "Editing an instrument after seeing its output is how a metric gets massaged, so this change was made only on an explicit maintainer decision, with the superseded wording and the number it produced recorded here. Results from 1.2.0 stay published at reports/airlock-1.2.0-glm-5.3-r3.md and are not comparable line-for-line with 1.3.0."
     }
   ],
+  "notes": [
+    {
+      "id": "sum_by_category-12",
+      "date": "2026-09-01",
+      "decision": "KEEP as written. No version bump: the text, tag and argument expectations are unchanged, so every rate published from 1.3.0 stays comparable line-for-line.",
+      "evidence": "Audited by probes/utterance-floor.mjs over the four reference-quality manifests: 2,080 trials, 15 misses, and this one utterance accounts for 12 of them — 12 of 13 on reference-quality manifests (find_anomalies x7, describe_dataset x5) and 14 of 14 on degraded ones (describe_dataset x14, the last three from the time-spaced arm across a day boundary). A failure invariant to the description and to the clock is not caused by the description.",
+      "reason": "The oblique tail is meant to be hard, and an utterance that misses on every manifest is a documented property of this instrument rather than a page defect. 'I feel like I'm bleeding money somewhere and I can't see where' is a defensible request for an overview or an outlier hunt, which is exactly what the judge answers with. The two alternatives cost more: retagging as multi-answer needs an acceptableTools field the taxonomy does not have, and rewording splits 1.3.0 from 1.4.0 and forfeits comparability across every published rate for the sake of one line.",
+      "cost": "One known point of floor, now measured rather than assumed. On a reference-quality manifest all three of sum_by_category's misses in the 480-trial clean arm are this utterance, so the tool's observed ceiling of 95.0% (57/60) is 19 of 20 utterances passing with this one always failing. Any reader comparing sum_by_category against another tool at 100% should subtract this, and any future rate for it should be read as 'out of 19 that can pass, plus one that cannot'."
+    }
+  ],
   "authoring": {
     "writtenBy": "Assistant draft inside a Qwen Code session, 2026-08-30, revised twice the same day against maintainer-approved review findings.",
     "modelId": "deepseek v4 by agentrouter",

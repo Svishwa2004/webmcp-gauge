@@ -16,6 +16,19 @@
 export const HARNESS_UA_SUFFIX = 'webmcp-gauge/0.1 (+https://github.com/Svishwa2004/webmcp-gauge; measurement, contact via repo issues)';
 
 /**
+ * The date a capture is filed under, in the operator's own timezone.
+ *
+ * `toISOString().slice(0, 10)` is UTC, and this machine runs at UTC+5:30: a
+ * capture started at 00:30 local on gallery-publish day would be filed under the
+ * *previous* date. For the one artifact whose entire claim is "taken on the day
+ * those URLs were simultaneously live", a date off by one is not cosmetic.
+ */
+export const localDateStamp = (date = new Date()) => {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+/**
  * Accepts the messy shapes a URL list arrives in and returns one canonical row
  * per project, or throws with the offending entry. A list assembled by hand on
  * the day will contain duplicates and bare hostnames; both are cheaper to handle

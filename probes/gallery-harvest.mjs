@@ -36,7 +36,7 @@ import { resolve } from 'node:path';
 import { launchSession } from '../browser/launch.mjs';
 import { openSession } from '../browser/session.mjs';
 import { startFixtureServer } from '../browser/serve.mjs';
-import { HARNESS_UA_SUFFIX, robotsAllows } from '../core/cohort.mjs';
+import { HARNESS_UA_SUFFIX, robotsAllows, localDateStamp } from '../core/cohort.mjs';
 import { pickTarget, galleryPageUrl, toHarvest } from '../core/gallery.mjs';
 
 const argv = process.argv.slice(2);
@@ -51,7 +51,7 @@ const maxPages = Number(flag('max-pages', '40'));
 const visitProjects = !argv.includes('--no-projects');
 const probeOnly = argv.includes('--probe');
 const headless = argv.includes('--headless');
-const today = new Date().toISOString().slice(0, 10);
+const today = localDateStamp();
 const outDir = resolve(flag('out', `artifacts/gallery-${today}`));
 
 // --serve exists so the page walk can be rehearsed against a local two-page
@@ -68,7 +68,14 @@ const fail = (message) => {
 };
 
 const browser = await launchSession({
-  profileDir: `${outDir}/profile`,
+  // A fresh profile per invocation, not a shared one under outDir. A previous
+  // run's Chrome that was killed rather than closed leaves a SingletonLock
+  // behind, and the next launch then times out after 30 s with "did not expose
+  // DevTools" — a message that names the symptom and not the cause. Measured on
+  // 2026-09-02: the first gallery check of the day failed exactly that way, and
+  // a fresh profile fixed it instantly. On capture day that is not a confusion
+  // anyone should have to debug.
+  profileDir: `${outDir}/profile-${Date.now()}`,
   headless,
   extraArgs: [
     `--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 ${HARNESS_UA_SUFFIX}`,

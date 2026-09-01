@@ -35,6 +35,7 @@ import {
   toPublishable,
   summarize,
   HARNESS_UA_SUFFIX,
+  localDateStamp,
 } from '../core/cohort.mjs';
 
 const argv = process.argv.slice(2);
@@ -47,7 +48,7 @@ const targetsPath = flag('targets', null);
 const singleUrl = flag('url', null);
 const delayMs = Number(flag('delay', '2000'));
 const settleMs = Number(flag('settle', '10000'));
-const today = new Date().toISOString().slice(0, 10);
+const today = localDateStamp();
 const outDir = resolve(flag('out', `artifacts/cohort-${today}`));
 const headless = !argv.includes('--headed');
 
@@ -66,7 +67,10 @@ const recordsPath = `${outDir}/snapshot.jsonl`;
 const startedAt = new Date().toISOString();
 
 const browser = await launchSession({
-  profileDir: `${outDir}/profile`,
+  // Fresh profile per invocation: a killed Chrome leaves a SingletonLock that
+  // makes the next launch time out with a message naming the symptom rather than
+  // the cause. Not a confusion worth having on a capture that cannot be repeated.
+  profileDir: `${outDir}/profile-${Date.now()}`,
   headless,
   // Identifying the harness is a §12 commitment. Doing it at launch covers every
   // request the browser makes, including the ones a page issues itself.

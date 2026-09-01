@@ -7,8 +7,22 @@ import {
   toRecord,
   toPublishable,
   summarize,
+  localDateStamp,
   HARNESS_UA_SUFFIX,
 } from './cohort.mjs';
+
+/**
+ * The capture's whole claim is the date it was taken on, and this machine runs at
+ * UTC+5:30 — a run started at 00:30 local would be filed under yesterday if the
+ * stamp came from toISOString().
+ */
+test('the date stamp is local, not UTC', () => {
+  // 2026-09-02T00:30 in a +05:30 zone is 2026-09-01T19:00Z. The stamp must follow
+  // the operator's calendar, whatever the machine's offset happens to be.
+  const local = new Date(2026, 8, 2, 0, 30, 0);
+  assert.equal(localDateStamp(local), '2026-09-02');
+  assert.equal(localDateStamp(new Date(2026, 0, 5, 23, 59)), '2026-01-05', 'months and days are zero-padded');
+});
 
 test('a bare hostname becomes an https URL, and the project name defaults to the host', () => {
   const [row] = normalizeTargets(['example.netlify.app']);

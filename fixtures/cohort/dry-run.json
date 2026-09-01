@@ -1,0 +1,19 @@
+[
+  {
+    "project": "airlock (this project's reference subject)",
+    "url": "https://airlock-app.netlify.app",
+    "repo": "https://github.com/Svishwa2004/airlock"
+  },
+  {
+    "project": "example.com (live, no WebMCP — the majority case in any cohort)",
+    "url": "https://example.com"
+  },
+  {
+    "project": "a netlify subdomain that does not exist (the 404 path this snapshot exists to record)",
+    "url": "https://webmcp-gauge-dry-run-does-not-exist.netlify.app"
+  },
+  {
+    "project": "airlock again, spelled differently (must collapse to one capture)",
+    "url": "airlock-app.netlify.app/#tools"
+  }
+]

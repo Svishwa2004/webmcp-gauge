@@ -1,7 +1,7 @@
 # webmcp-gauge — The Idea in Plain Language
 
 **For:** a reader with no technical background
-**Written:** 2026-08-29 · **Updated:** 2026-08-31 (the "Where things stand" section, and three pieces of folklore that turned out to be untrue)
+**Written:** 2026-08-29 · **Updated:** 2026-09-01 (a day-apart re-test, and the first look inside a real assistant's browser)
 **Companion document:** `concept.md` (the technical version)
 
 ---
@@ -59,8 +59,8 @@ The rest of the scorecard matters just as much, because it tells you *which* thi
 Three practical pieces, built in this order:
 
 1. **A free checker** that reads your menu and flags obvious mistakes — labels that break the rules, two labels that mean the same thing, forms that ask for too much. No AI needed, runs in seconds. *Built.*
-2. **The rehearsal itself** — the mystery shoppers, producing the scorecard. *Built. It has now been run 3,560 times against real pages in a real browser.*
-3. **A public record** of which assistants and browsers actually behave which way, kept up to date as they change. This is the part that outlives everything else. *Eleven runs published so far, each with the code that produced it.*
+2. **The rehearsal itself** — the mystery shoppers, producing the scorecard. *Built. It has now been run 4,040 times against real pages in a real browser.*
+3. **A public record** of which assistants and browsers actually behave which way, kept up to date as they change. This is the part that outlives everything else. *Twelve runs published so far, each with the code that produced it.*
 
 ---
 
@@ -143,6 +143,8 @@ Three smaller findings, all of the same shape — folklore that turned out to be
 - 296 menu items was said to switch the feature off. 507 items did not.
 - A menu item added by an embedded widget — an advert, a chat box, anything in a frame — turns out to appear on *the host shop's* menu. Worth knowing if you embed other people's widgets.
 
-**What is still missing** is the part that matters most commercially and is hardest to get: none of this has been measured inside a real AI assistant yet. Everything so far uses a stand-in — a language model asked the same question a real assistant would be asked. Whether the stand-in predicts the real thing is the one assumption the whole product rests on, and it is next.
+**What is still missing** is the part that matters most commercially and is hardest to get: none of this has been measured inside a real AI assistant *making the choice* yet. Everything so far uses a stand-in — a language model asked the same question a real assistant would be asked. Whether the stand-in predicts the real thing is the one assumption the whole product rests on.
+
+The first half of that has now been done, and it is worth stating precisely because it is easy to overclaim. The ChatGPT desktop app has its own browser built into it. We can now open our own shop *inside that browser*, under our own control, and confirm that the seven counters are visible to it exactly as they are in ordinary Chrome — so the real product can see what we thought it could see. What we still cannot do is make the assistant itself walk up to a counter on command; that part offers no automation, so it will either be driven through the app's own screen or sampled by hand, and the choice will be written down rather than glossed over.
 
 **What success looks like, in one sentence:** when a developer somewhere hits this problem and searches for whether these things actually get used, the number they find and quote is ours.

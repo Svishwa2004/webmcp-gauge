@@ -20,11 +20,11 @@ The set records its **authoring model** (`deepseek v4 by agentrouter`), and the 
 
 `broken/compose.test.mjs` asserts each ablation changes exactly the tools it declares and trips its own linter family and no other — the isolation claim is checked before any trial is spent on it.
 
-## The floor this set imposes on every rate — audited 2026-08-31
+## The floor this set imposes on every rate — audited 2026-08-31, degraded tally extended 2026-09-01
 
 Part of every number in `reports/` is *this folder's opinion* about which tool should have been chosen. `node probes/utterance-floor.mjs --min=2` measures how much: pooled over the four reference-quality manifests, **2,080 trials produced 15 misses, and exactly one utterance accounts for 12 of them**:
 
-- **`sum_by_category-12`** (oblique): *"I feel like I'm bleeding money somewhere and I can't see where."* — expects `sum_by_category`, misses **12 of 13** on good manifests (→ `find_anomalies` ×7, `describe_dataset` ×5) and **11 of 11** on degraded ones (→ `describe_dataset` ×11). A failure invariant to the description is not caused by the description.
+- **`sum_by_category-12`** (oblique): *"I feel like I'm bleeding money somewhere and I can't see where."* — expects `sum_by_category`, misses **12 of 13** on good manifests (→ `find_anomalies` ×7, `describe_dataset` ×5) and **14 of 14** on degraded ones (→ `describe_dataset` ×14, the last three from the time-spaced arm on 2026-09-01, one per session across a day boundary). A failure invariant to the description — and now to the clock — is not caused by the description.
 
 The other three misses are singletons, indistinguishable from noise. So the floor is one utterance, which is a good result for the instrument and a live question for the set: an overview or an outlier hunt is a defensible answer to that sentence.
 

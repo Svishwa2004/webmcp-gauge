@@ -21,7 +21,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Plain-language explainer | ✅ `docs\explainer.md` |
 | Start guide + pipeline flow | ✅ `docs\getting-started.md` |
 | Publishing policy | ✅ **Decided** — private during judging, aggregate after; conflict of interest disclosed |
-| Code | ✅ **Sweep runs end to end, sessions isolated, gate wired, L0 linter built, every wait bounded** — `bin\webmcp-gauge.mjs` (`trial`, `run`, `session`, `lint`), `core\{taxonomy,trial,sweep,orchestrate,stats,gate,lint}.mjs`, `browser\{launch,session,serve,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`, `scripts\spaced-session.cmd`. **115 tests pass.** Badge and Mode B adapters not built |
+| Code | ✅ **Sweep runs end to end, sessions isolated, gate wired, L0 linter built, every wait bounded** — `bin\webmcp-gauge.mjs` (`trial`, `run`, `session`, `lint`), `core\{taxonomy,trial,sweep,orchestrate,stats,gate,lint}.mjs`, `browser\{launch,session,serve,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`, `scripts\spaced-session.cmd`. **115 tests pass.** Mode B's browser layer is driven (2026-09-01: the ChatGPT desktop browser is CDP-drivable with one launch switch); its agent layer and the badge are not built |
 | L0 linter | ✅ **Built 2026-08-30** — `core\lint.mjs`, 13 rules in four families (names, descriptions, schemas, budget), thresholds calibrated so the reference page lints clean. Live reference page: **0 errors, 0 warnings**. Degraded fixture twin: **6 errors, 13 warnings**. `--manifest` lints what source declares, live mode lints what the browser returns |
 | Discrimination | ✅ **Proven, and then explained** — 2026-08-30: one page, two manifests, clean **99.3%** against degraded **83.1%** overall, `sum_by_category` 95.0%→**60.0%** and `top_expenses` 100%→**26.7%**, intervals well clear of a between-session σ of ≤0.094. 2026-08-31: four ablations show **defects compound** — the two defects on `sum_by_category` cost −5.0 and −3.3 alone and **−35.0 together**. `reports\ablation-2026-08-31.md` |
 | Reproducibility | ✅ **σ between sessions ≤ 0.094** across every arm of the 1,320-trial ablation run (3 processes, 3 browsers, 3 cold profiles each), against effects of 0.35 and larger — **and ≤ 0.085 with sessions 9–17 h apart** (time-spaced arm, 2026-09-01), against 0.062 back-to-back: spacing does not degrade session-level reproducibility. Within-session σ still reported separately and is 0.000 at one repeat by construction |
@@ -48,7 +48,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** item 9 (Mode B adapters) — spike whether the ChatGPT desktop in-app browser can be driven at all; with item 6 closed it is the highest-priority unknown left. Item 7's 🚦 utterance-set decision still awaits the maintainer.
+**Immediate next action:** item 9's second half — drive the agent layer (ChatGPT Work / Codex consuming site tools) or record the sampling design that the browser-automated column pairs with. Item 7's 🚦 utterance-set decision still awaits the maintainer.
 
 ## What to do next, in order
 
@@ -64,7 +64,7 @@ Ordered by what unblocks the most, with the condition that closes each one. Anyt
 | ~~6~~ | ~~**Time-spaced sessions**~~ | ✅ **Done 2026-09-01.** 480/480 with sessions 17.2 h and 9.2 h apart across a day boundary. σ between sessions **0.085** worst-case (`sum_by_category`) against **0.062** back-to-back — the two load-bearing tools swap places — so the back-to-back reproducibility figures stand. Both mid-range tools declined **monotonically** across the 26 h span, from a starting point that matched the back-to-back arm measured 48 min earlier: the shape drift looks like, not established at n=20/session. One trial needed five attempts (judge near its 60 s ceiling on that prompt). `reports\spacing-2026-09-01.md` + `reports\twin-degraded-1.3.0-glm-5.3-s3r1-spaced.*` |
 | 7 | 🟡 **Audit the utterance set's own floor — list done 2026-08-31, decision open.** `probes\utterance-floor.mjs` pools the four reference-quality manifests: **2,080 trials, 15 misses, and one utterance accounts for 12 of them.** `sum_by_category-12` misses 12 of 13 on good manifests and 11 of 11 on degraded ones, so the failure is invariant to the description. Written up in `fixtures\README.md` with the three options and their costs. 🚦 The disposition — keep, retag as multi-answer, or revise in `1.4.0` — is a maintainer decision, not a fix | The list exists. Closing it needs a recorded decision for `sum_by_category-12`, written into the fixture's `revisions` or `notes`, with the comparability cost stated if the text changes |
 | 8 | 🚦 **Decide where the raw dataset lives.** The JSONL per run is the evidence behind every number and currently stays local; code is MIT, and data meant to be cited usually wants CC BY 4.0 | A decision recorded here: in-repo, separate dataset repo, or aggregate-only — with the licence named |
-| 9 | **Step 7 — Mode B adapters.** Spike whether the ChatGPT desktop in-app browser can be driven at all; it is still the highest-priority unknown, and it decides whether that column is automated or sampled | Either a driven trial against a real client, or a recorded negative result that fixes the sampling design |
+| 9 | 🟡 **Mode B adapters — browser layer driven 2026-09-01.** The ChatGPT desktop app ships as the `OpenAI.Codex` MSIX (Chromium 151 fork, `ChatGPT.exe`), honours `--remote-debugging-port`, and with **`--enable-blink-features=WebMCPTesting`** at launch reads the reference page's 7 tools through the page's own modelContext (present on both `document` and `navigator`, unlike Chrome 152) — the WebMCP CDP domain works but is not advertised in `/json/protocol` (falsified against a bogus domain). Local State labs entries are inert on this fork. **The agent layer is the remaining half:** per `learn.chatgpt.com/docs/webmcp` the consumers are ChatGPT Work and Codex (model-gated), with human inspection UI only, so driving the shell's tabs is not driving the user's agent session | The adapter's browser layer exists as a pinned launch recipe + probe. Closing needs either an agent-layer driven trial, or a recorded decision that the ChatGPT column is browser-automated + agent-sampled, with the sampling design written down |
 | 10 | **Badge and Action wrappers**, now unblocked: exit codes mean something and a threshold has been shown to discriminate | `webmcp-gauge run` emits a badge, and a GitHub Action runs it on a sample repo |
 
 Deliberately deferred, and recorded so they are choices rather than oversights: privacy-mode payload differences get no utterance; multi-call sequences (discover then filter) are outside the one-utterance-one-trial protocol; control classes are too small for a safety claim (injection is 0 of 12, `[0.0%, 24.2%]`); the CI gate thresholds invocation rate only, because a control false-positive ceiling is a separate flag and a separate decision and letting `--fail-under` imply safety coverage would be worse than leaving it out; and `cdp-eval.mjs` still exits `-1073740791` on Windows after printing valid JSON, which is tolerable for probing and not for a gate.
@@ -1200,3 +1200,46 @@ Point estimates of mid-range rates moved 8–12 points between 2026-08-30 and 09
 - 🟢 The spacing axis is measured. The 6 h design never ran and is not being re-run — the refused firings bought a wider, day-spanning manipulation than the one designed.
 - ⚠️ The drift control (interleaved same-window arms) is the only follow-up this arm begets, and only if someone needs the drift question answered rather than caveated.
 - 🟡 Next: item 9 (Mode B), now the highest-priority unknown.
+
+---
+
+## 2026-09-01 (morning, later) — Item 9, first half: the ChatGPT desktop browser IS drivable, and the recipe is one switch
+
+The concept doc's open question 1 — "Can the ChatGPT desktop in-app browser be driven programmatically at all? Determines whether Mode B is automated or sampled. Highest-priority unknown." — is answered by measurement. **Yes, with one launch switch.** This entry records how the answer was found, because the finding that matters most is not the switch itself but that three plausible cheaper paths to it were dead ends, and the discovery method (dump the binary's own flag strings) is reusable on every future client.
+
+### The app was hiding in a mislabelled package
+
+"Is ChatGPT desktop installed?" had three wrong answers before the right one: no uninstall-registry entry in HKCU/HKLM/WOW6432Node, no process, no install folder — but `Get-AppxPackage` returned **`OpenAI.Codex 26.825.6671.0`**, whose MSIX manifest's display name is **ChatGPT** with entry point `app/ChatGPT.exe`. The install directory tells the real story: `chrome.dll`, `151.0.7922.174.manifest`, renderers carrying `--owl-scoped-user-agent-prefix=CodexBrowser` — OpenAI's own Chromium 151 fork, with `ChatGPT.exe` and `Codex.exe` both present. **winget's `j178.ChatGPT`/`lencx.ChatGPT` hits are third-party wrappers; the official app is this MSIX** (msstore search timed out, and turned out to be unnecessary).
+
+### The attach, and two traps inside it
+
+`ChatGPT.exe --remote-debugging-port=9333` is honoured: six processes came up and the browser process listens on `127.0.0.1:9333`, full CDP protocol 1.3, targets listable. First trap: a probe raced the ~10 s startup and reported the port dead — a startup delay, not a refusal; the second probe against the settled tree answered. Second trap, the interesting one: **`/json/protocol` lists 57 domains and `WebMCP` is not among them, yet `WebMCP.enable` is accepted** while `BogusProbe.enable` is rejected with `-32601`. A fork can implement a domain without advertising it, so protocol-file absence is not evidence of absence — a compatibility-matrix row, and a lesson for every future client check: falsify against a bogus domain before believing either answer.
+
+### Three inert flags, then the binary told the truth
+
+With the domain present but `document.modelContext` absent on the reference page, the obvious lever was the flag the harness already uses. `enable-webmcp-testing@1` seeded into Local State `enabled_labs_experiments` (found at `…\Packages\OpenAI.Codex_…\LocalCache\Roaming\Codex\web\Codex\Local State` — MSIX virtualization redirects `%APPDATA%\Codex`, which does not exist on disk) survived relaunch and did nothing. Feature-name forms `WebMCPTesting@1` and `WebMCP@1` as labs: inert. At that point guessing stopped and `probes/binary-webmcp-strings.mjs` (new) scanned `chrome.dll` for every `webmcp` string: the fork compiles in `enable-webmcp-testing`, **`WebMCPTesting`**, `WebMCP`, `devtools-webmcp-support`, the full CDP domain method list, and blink's `ModelContext` class. The runtime-feature name suggested the launch switch, and the launch switch is the mechanism that works:
+
+```
+ChatGPT.exe --remote-debugging-port=9333 --enable-blink-features=WebMCPTesting
+```
+
+**Result, measured:** `document.modelContext` present and settled, **all 7 Airlock tools read back** (`clear_highlights … top_expenses`), `inputSchema` on the wire as a JSON string exactly like Chrome 152. And a divergence worth a row: this build exposes modelContext on **both** `document` and `navigator` (`'modelContext' in navigator` → `true`), where Chrome 152 has only `document`. The blink-only switch suffices — `--enable-features` was never needed.
+
+### What this does and does not establish
+
+**Established:** the ChatGPT desktop browser's WebMCP surface is automatable from this machine — attach, navigate, manifest read, and (next step) `WebMCP.invokeTool` through the domain. Mode B's ChatGPT column can be automated at the browser layer, with a pinned launch recipe.
+
+**Not established, stated plainly:** driving the shell's tabs over CDP is not driving the *in-app agent's* own browsing session. Per `learn.chatgpt.com/docs/webmcp` (fetched today), the agents that consume site tools are **ChatGPT Work and Codex** with model gating (GPT-5.6 Sol/Terra; Luna has WebMCP disabled), and the doc offers only human inspection UI — no automation surface. So the Mode B column that measures *what actually happens to users* still needs the agent layer: either the app's own UI driven end-to-end, or sampled manual runs. The spike's done-condition ("a driven trial against a real client, or a recorded negative result that fixes the sampling design") is half-met — the browser layer is a driven trial; the agent layer's sampling design is now the precise open question.
+
+Two secondary findings from the doc fetch: the surface is named "site tools" / "built-in browser" (not Atlas), and **the subset is unchanged from what the 2026-08-29 research recorded** — no declarative API, no iframe discovery.
+
+### Housekeeping and hygiene
+
+- Probes added: `probes/chatgpt-browser-probe.mjs` (attach + manifest read against a running instance, never launches the app) and `probes/binary-webmcp-strings.mjs` (flag-string dump for any Chromium binary). Both follow the probes-folder contract: evidence for log claims, re-runnable, not imported by `core/`.
+- The spike touched the app's `Local State`: a backup sits beside it (`Local State.webmcp-spike-backup`), the inert labs entries were removed after the finding, the app was stopped, and the machine is as found — the app had never been run before this spike (profile created by its first launch here), so no user state existed to lose. One process error is recorded rather than rounded off: the first backup attempt failed on a PowerShell quoting bug (`$p.webmcp-spike-backup` parsed as parameter + argument) *before* the kill+write, inverting the stated safe order; the flag write itself was correct and the corrected backup was taken immediately.
+- `docs/concept.md` open question 1 resolved with the full recipe; `probes/README.md` carries both new probes.
+
+### Still open
+- 🟡 Item 9's second half: drive the agent layer or fix the sampling design. The browser layer is done — `openSession({port})` plus the launch recipe is all a Mode B adapter needs.
+- ⚠️ The tool budget on this client is unmeasured; `probes/README.md` next-steps now points at the reachable recipe.
+- ⚠️ `WebMCP.invokeTool` remains unexercised on every client, and this build is the natural place to try it — the domain is present, and driving it would turn probes/README item 3 into a compatibility row.

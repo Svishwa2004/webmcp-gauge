@@ -1,7 +1,7 @@
 # webmcp-gauge — The Idea in Plain Language
 
 **For:** a reader with no technical background
-**Written:** 2026-08-29 · **Updated:** 2026-09-01 (a day-apart re-test, and the first look inside a real assistant's browser)
+**Written:** 2026-08-29 · **Updated:** 2026-09-02 (what the assistant actually looks at, and the first thing we gave back)
 **Companion document:** `concept.md` (the technical version)
 
 ---
@@ -150,5 +150,12 @@ The first half of that has now been done, and it is worth stating precisely beca
 The second half was attempted on 2026-09-02, and it failed in an instructive way. We asked the real assistant a real question with our shop open in its own browser, and nothing happened — because **that is not the window the assistant looks through.** It reads pages through an extension attached to the user's *everyday* Chrome, not through the browser inside its own app. Reaching it properly would mean opening a personal browser up to remote control, and that price was judged too high for the answer.
 
 So the honest position, which every number here carries: nobody has yet watched a real assistant walk up to one of these counters. The stand-in is a good one, and whether it predicts the real thing remains an open question rather than a settled one.
+
+**One thing has already gone the other way, though.** On 2026-09-02 this project sent its first findings *back* to the people writing the WebMCP standard — a public technical discussion where they were arguing about whether a shop's menu should include counters belonging to embedded third parties. Nobody in that discussion had actually measured what today's browser does. We had, so we said so, with the exact browser version and instructions anyone could follow. Two useful things came out of it:
+
+- an embedded widget from **the same owner** does add its counter to the host shop's menu, but one from **a different owner** is blocked unless the host explicitly permits it;
+- and when the host does permit it, the browser offers that counter to the assistant while **no part of the page can list it** — so a shopkeeper cannot see everything their own shop is offering.
+
+That second point is the kind of thing a standards group wants to know before finishing the design, and finding it cost one afternoon. Being the person who measures what everyone else is assuming turns out to be the cheapest way into a small field.
 
 **What success looks like, in one sentence:** when a developer somewhere hits this problem and searches for whether these things actually get used, the number they find and quote is ours.

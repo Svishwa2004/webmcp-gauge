@@ -1,7 +1,7 @@
 # webmcp-gauge — Concept Document
 
 **Name:** `webmcp-gauge` — settled 2026-08-29. Repo: https://github.com/Svishwa2004/webmcp-gauge
-**Status:** Concept, pre-implementation
+**Status:** Measuring. Harness, linter, CI gate, badge, GitHub Action and cohort tooling all built; 12 runs and 4,040 trials published in `../reports/`; 175 tests pass. Mode B ships browser-automated and agent-unreached (see [Open question 1](#14-open-questions)).
 **Written:** 2026-08-29
 **Scope:** A measurement layer for WebMCP page tools — the answer to "does an agent actually call my tool?"
 
@@ -206,17 +206,21 @@ npx webmcp-gauge compare base.json head.json         # regression diff — not b
 webmcp-gauge/
   bin/            CLI entry — trial | run | session | lint          [built]
   core/           taxonomy, Wilson intervals, sweep, orchestrator,
-                  CI gate, L0 linter                                [built]
+                  CI gate, L0 linter, cohort + gallery rules        [built]
   browser/        Chrome launch, CDP session, WebMCP page + browser
                   views, fixture file server                        [built]
-  fixtures/       frozen utterance sets + the degraded twin page    [built]
+  fixtures/       frozen utterance sets, the degraded twin page,
+                  the frame-scope repro, cohort target lists        [built]
   probes/         one-off measurements: launch, manifest, WebMCP
-                  domain, arm comparison                            [built]
+                  domain, arm comparison, invoke paths, frame scope,
+                  cohort snapshot, gallery harvest, scorecards      [built]
   scripts/        scheduled-run glue for time-spaced sessions       [built]
-  report/         JSON + Markdown emitters                          [built]
+  report/         JSON + Markdown emitters, badge, private
+                  per-project scorecards                           [built]
   clients/        chrome-ot | chatgpt | edge | brave adapters       [not built — chatgpt browser layer proven 2026-09-01, see probes/]
   judges/         model adapters behind one interface               [one: OpenAI-compatible]
-  action/         GitHub Action wrapper + badge SVG                 [not built]
+  action.yml      GitHub Action wrapping lint + run, and
+  .github/        the workflow that self-tests the linter           [built 2026-09-01]
 ```
 
 **Mechanics, grounded in what already works locally** (see [Appendix B](#appendix-b-local-assets-already-in-hand)):
@@ -338,8 +342,8 @@ Verified 2026-08-29. Building any of the left column again would be waste.
 | ~~2~~ | Sep 1 | ✅ **Done 2026-08-30, early** — L0 linter, standalone | Flags all documented silent-failure modes on a deliberately broken fixture page |
 | 3 | Sep 1–3 | 🟡 **Part done, and one part closed unanswered** — Mode B adapters + Mode A↔B correlation study + GitHub Action | **#268 refuted** and the GitHub Action shipped (2026-09-01). Mode B's browser layer is driven; its **agent layer is closed on a recorded negative** (2026-09-02) — the agent reads pages through a Chrome extension bridge into the user's own Chrome, and instrumenting that was declined — so the **correlation study has no result and Gate 3 is unanswered rather than passed** |
 | 4 | by Sep 3, runs Sep 4 | ✅ **Staged 2026-09-01, three days early** — Cohort snapshot script, staged and ready | `core\cohort.mjs` + `core\gallery.mjs` (32 tests), `probes\cohort-snapshot.mjs` + `probes\gallery-harvest.mjs`, rehearsed against three published galleries, three real project pages and a local two-page fixture. ⏳ The **run** waits on the gallery existing |
-| 5 | Sep 4–21 | Private per-builder scorecards; aggregate-only public stats; spec-issue data contributions | At least one reproducible data contribution filed on a live spec issue |
-| 6 | Sep 23+ | Public report + open dataset + harness release | Published with the code that produced every number |
+| 5 | Sep 4–21 | 🟡 **Part done before the cohort exists** — Private per-builder scorecards; aggregate-only public stats; spec-issue data contributions | **The spec contribution is filed** (2026-09-02, `webmcp#227`, twice — the frame-scope baseline and the cross-origin follow-up), so the "at least one reproducible data contribution" condition is met. The scorecard **renderer** is built and tested against real captures; 🚦 delivery is still a gated decision. The aggregate stats wait on the capture |
+| 6 | Sep 23+ | Public report + open dataset + harness release | Published with the code that produced every number. Note item 8's decision: the dataset is **aggregate-only for now**, so "open dataset" means the derived tables, and the raw JSONL stays local unless that is revisited |
 
 **Milestone 4 is time-critical and cannot be recovered later.** The Devpost gallery was still unpublished as of 2026-08-29 and opens with judging. Those ~165 live demo URLs sit on free hosting tiers; within a few months a large share will 404. A snapshot of that many real `registerTool` implementations, taken on the one day they are all simultaneously live, is not reconstructible after the fact. It is the largest corpus of real-world WebMCP code that will ever exist for this period, and capturing it costs one day of scripting.
 
@@ -393,14 +397,14 @@ Unresolved, and each is answerable with a small spike:
 
 Ordered, and each independently checkable:
 
-1. A stable, variance-quantified invocation rate for any WebMCP page, in at least three clients.
-2. A published compatibility matrix that a developer would actually link to when explaining "why does my tool work in Brave but not Chrome?"
-3. At least one reproducible data contribution accepted into a live spec issue.
-4. A cohort dataset captured on gallery-publish day and preserved.
-5. The linter installed by developers who have never heard of the author.
-6. A report that becomes the default citation for "do WebMCP tools actually get called?"
+1. A stable, variance-quantified invocation rate for any WebMCP page, in at least three clients. ⚠️ **Variance quantified, clients not.** The rate is stable (σ ≤ 0.094 between sessions, ≤ 0.085 at 9–17 h spacing) but every trial to date runs through one judge model in one browser; the ChatGPT column reached the browser and not the agent (Open question 1), so this stands at **one measured client**, not three.
+2. A published compatibility matrix that a developer would actually link to when explaining "why does my tool work in Brave but not Chrome?" 🟡 **Five Chrome-152 findings, two ChatGPT-fork findings and the `tools` Permissions Policy gate are measured and written up in `PROJECT-LOG.md`; they are not yet assembled into a linkable matrix.**
+3. At least one reproducible data contribution accepted into a live spec issue. ✅ **Filed 2026-09-02** — two comments on `webmcp#227`, each carrying a build string and a reproduction that was run before it was posted. *Filed* is done; *accepted* is not this project's to decide.
+4. A cohort dataset captured on gallery-publish day and preserved. ⏳ **Tooling staged and rehearsed; the capture waits on the gallery** (expected 2026-09-04).
+5. The linter installed by developers who have never heard of the author. ❌ **Not started, and gated by the repo being private** until the report launch. `action.yml` is the intended on-ramp: `lint` needs no judge, no key and no browser flag.
+6. A report that becomes the default citation for "do WebMCP tools actually get called?" ❌ Milestone 6.
 
-Criterion 3 is the cheapest and the most valuable. The WebMCP community is small enough — a few named Chrome engineers, spec editors and library authors — that two or three good field-data contributions to open issues make an unknown solo developer a known one. That is the actual early advantage on offer here, and it does not require the product to succeed commercially.
+Criterion 3 is the cheapest and the most valuable. The WebMCP community is small enough — a few named Chrome engineers, spec editors and library authors — that two or three good field-data contributions to open issues make an unknown solo developer a known one. That is the actual early advantage on offer here, and it does not require the product to succeed commercially. **It is also the one criterion already met, on day five, for the cost of running a test before writing a comment.**
 
 ---
 

@@ -1,7 +1,7 @@
 # webmcp-gauge — How to Start, and How the Project Flows
 
-**Status:** measuring — steps 0–6 done, step 7 (Mode B) in progress; 4,040 trials published in `../reports/`
-**Written:** 2026-08-29 · **Updated:** 2026-09-01
+**Status:** measuring — steps 0–7 done, the cohort capture waits on the gallery (expected 2026-09-04); 4,040 trials published in `../reports/`, 175 tests pass
+**Written:** 2026-08-29 · **Updated:** 2026-09-02
 **Companions:** `concept.md` (what and why) · `explainer.md` (plain language) · `../PROJECT-LOG.md` (append-only record)
 
 Verification legend used throughout: ✅ verified on this machine · ⚠️ unverified · ❌ known wrong.
@@ -192,17 +192,22 @@ webmcp-gauge/
     explainer.md          plain language, non-technical
     getting-started.md    this file
   bin/webmcp-gauge.mjs    CLI entry — trial | run | session | lint
-  core/                   taxonomy, Wilson intervals, sweep, orchestrator, CI gate, L0 linter
+  core/                   taxonomy, Wilson intervals, sweep, orchestrator, CI gate, L0 linter,
+                          cohort.mjs + gallery.mjs (capture rules, under test because the capture cannot repeat)
   browser/                Chrome launch, CDP session, WebMCP page + browser views, fixture server
   judges/                 model adapters behind one interface (one so far: OpenAI-compatible)
-  report/                 JSON + Markdown emitters
-  probes/                 one-off measurements: launch, fixture manifest, WebMCP domain, arm comparison
-  fixtures/               frozen utterance sets, and broken/ — the degraded twin page and its widget
-  scripts/                scheduled-run glue (spaced-session.cmd)
-  reports/                published runs: report.md + report.json per run, plus the write-ups
-  artifacts/              git-ignored working output: checkpoints, logs, session profiles
+  report/                 JSON + Markdown emitters, badge.mjs, scorecard.mjs (private per-project feedback)
+  probes/                 one-off measurements: launch, fixture manifest, WebMCP domain, arm comparison,
+                          invoke paths, frame scope, cohort snapshot, gallery harvest, scorecard rendering
+  fixtures/               frozen utterance sets; broken/ (the degraded twin and its widget);
+                          spec-227/ (the frame-scope repro behind the spec contribution); cohort/ (target lists);
+                          gallery/ (a two-page stand-in for rehearsing the gallery walk)
+  scripts/                scheduled-run glue (spaced-session.cmd, wait-for-session.ps1)
+  reports/                published runs: report.md + report.json per run, plus the write-ups and badges
+  artifacts/              git-ignored working output: checkpoints, logs, session profiles, captures
   clients/                chrome-ot | chatgpt | edge | brave adapters        (not built — but the chatgpt browser layer is proven: probes\chatgpt-browser-probe.mjs)
-  action/                 GitHub Action wrapper + badge                     (not built)
+  action.yml              GitHub Action wrapping lint + run                 (built 2026-09-01)
+  .github/workflows/      the workflow that self-tests the linter on this repo's own twin
 ```
 
 Three constraints on this layout:

@@ -13,6 +13,7 @@ import { buildPlan, readCheckpoint, readFailures, runSessionSweep, trialKey } fr
 import { runTrial } from '../core/trial.mjs';
 import { createJudge } from '../judges/openai-compatible.mjs';
 import { buildReport, toMarkdown } from '../report/emit.mjs';
+import { buildBadge, renderBadgeSvg } from '../report/badge.mjs';
 
 const { name, version } = JSON.parse(
   await readFile(new URL('../package.json', import.meta.url), 'utf8')
@@ -71,6 +72,10 @@ run / session options:
   --fail-under <rate>  exit 1 when any tool's invocation rate is below this rate,
                        e.g. 0.9. Compared against the point rate; the interval is
                        reported beside it
+  --badge-label <text> label for badge.json / badge.svg, both written on every run
+                       (default "webmcp invocation"). An incomplete run's badge
+                       says "incomplete" rather than a rate, and never a colour
+                       that could be read as a pass
 
 Exit codes (a gate is only useful if 1 means one thing):
   0  every planned trial was measured, and nothing fell below --fail-under; for
@@ -172,6 +177,9 @@ if (needsJudge && fixture.authoring?.modelId && judgeModel === fixture.authoring
 
 const explicitPort = typeof flags.port === 'string' ? flags.port : process.env.CDP_PORT;
 const outDir = typeof flags.out === 'string' ? flags.out : 'artifacts';
+// A repo measuring more than one page needs more than one badge label, so this is
+// a flag rather than a constant. The default names the metric, not the subject.
+const badgeLabel = typeof flags['badge-label'] === 'string' ? flags['badge-label'] : 'webmcp invocation';
 const checkpointPath = `${outDir}/sweep.jsonl`;
 const tools =
   typeof flags.tools === 'string' ? flags.tools.split(',').map((part) => part.trim()) : null;
@@ -506,8 +514,16 @@ if (command === 'lint') {
   await writeFile(`${outDir}/report.json`, `${JSON.stringify(gated, null, 2)}\n`, 'utf8');
   await writeFile(`${outDir}/report.md`, toMarkdown(gated), 'utf8');
 
+  // A badge is written for every run, including the ones that cannot report a
+  // rate — an incomplete run gets a badge that says "incomplete", because the
+  // alternative is a stale badge from the last run that could report one.
+  const badge = buildBadge(gated, { label: badgeLabel });
+  await writeFile(`${outDir}/badge.json`, `${JSON.stringify(badge, null, 2)}\n`, 'utf8');
+  await writeFile(`${outDir}/badge.svg`, renderBadgeSvg(badge), 'utf8');
+
   console.log(toMarkdown(gated));
-  console.error(`report.json and report.md written to ${outDir}/ · checkpoint ${checkpointPath}`);
+  console.error(`report.json, report.md, badge.json and badge.svg written to ${outDir}/ · checkpoint ${checkpointPath}`);
+  console.error(`badge: ${badge.label} — ${badge.message}`);
   console.error(`gate: ${gate.summary}`);
   process.exitCode = gate.code;
 }

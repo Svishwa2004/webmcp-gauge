@@ -139,6 +139,7 @@ const withTempRun = async (body) => {
 };
 
 const readReport = async (dir) => JSON.parse(await readFile(join(dir, 'report.json'), 'utf8'));
+const readBadge = async (dir) => JSON.parse(await readFile(join(dir, 'badge.json'), 'utf8'));
 
 test('a complete run above the threshold exits 0', async () => {
   await withTempRun(async (dir) => {
@@ -154,6 +155,43 @@ test('a complete run above the threshold exits 0', async () => {
     assert.equal(report.gate.code, 0);
     assert.equal(report.coverage.missingTrials, 0);
     assert.equal(report.coverage.expectedTrials, planned);
+  });
+});
+
+/**
+ * The badge is written by the same command that writes the report, so these two
+ * cases check the wiring rather than the formatting (report/badge.test.mjs owns
+ * that): a complete run gets a rate, and an incomplete one must not.
+ */
+test('a complete run leaves a badge carrying the rate and the trial count', async () => {
+  await withTempRun(async (dir) => {
+    const { planned } = await seedCheckpoint({ dir, ok: 20 });
+
+    const result = await runCli(dir, ['--badge-label', 'airlock']);
+
+    assert.equal(result.code, 0, result.stderr);
+    const badge = await readBadge(dir);
+    assert.equal(badge.label, 'airlock');
+    assert.equal(badge.message, `100% (n=${planned})`);
+    assert.equal(badge.color, 'brightgreen');
+
+    const svg = await readFile(join(dir, 'badge.svg'), 'utf8');
+    assert.match(svg, /<svg/);
+    assert.match(svg, new RegExp(`100% \\(n=${planned}\\)`));
+  });
+});
+
+test('an incomplete run leaves a badge that says incomplete, not a rate', async () => {
+  await withTempRun(async (dir) => {
+    const { planned } = await seedCheckpoint({ dir, ok: 12, drop: 8 });
+
+    const result = await runCli(dir);
+
+    assert.equal(result.code, 2, result.stderr);
+    const badge = await readBadge(dir);
+    assert.equal(badge.message, `incomplete (${planned - 8}/${planned})`);
+    assert.equal(badge.isError, true);
+    assert.ok(!/%/.test(badge.message), 'an unmeasured run must not publish a percentage');
   });
 });
 

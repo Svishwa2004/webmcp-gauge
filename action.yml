@@ -1,0 +1,151 @@
+name: webmcp-gauge
+description: >-
+  Lint a page's WebMCP manifest, or measure whether an agent actually invokes its
+  tools, and fail the build when it regresses. Emits a badge either way.
+author: Sahan Vishwa
+
+# Two modes, because they cost different things and mean different things.
+#
+#   lint  — static manifest rules. No browser strictly required for --manifest, no
+#           judge, no API key, seconds. This is the on-ramp: any repo can run it on
+#           every push without a secret. A clean lint is NOT an invocation rate.
+#   run   — the real measurement. Needs Chrome and a judge model behind a key, and
+#           costs one model call per trial, so it belongs on a schedule or a label,
+#           not on every commit.
+#
+# The exit-code contract is the reason this action is thin: 0 pass, 1 the page
+# regressed, 2 the run could not answer. A workflow should let 1 fail the build and
+# treat 2 as "re-run with --resume", never as a regression.
+
+inputs:
+  mode:
+    description: 'lint (no judge, no key) or run (real trials, needs a judge)'
+    required: false
+    default: lint
+  url:
+    description: 'Page to measure. With serve, a path inside the served directory.'
+    required: true
+  serve:
+    description: 'Directory to publish on 127.0.0.1 and resolve url against'
+    required: false
+    default: ''
+  manifest:
+    description: 'Lint a declared manifest file instead of a live page (lint mode only)'
+    required: false
+    default: ''
+  fail-on:
+    description: 'lint mode: severity that fails the build (error or warning)'
+    required: false
+    default: error
+  fail-under:
+    description: 'run mode: exit 1 when any tool falls below this rate, e.g. 0.9'
+    required: false
+    default: ''
+  sessions:
+    description: 'run mode: isolated sessions (separate process, browser, cold profile)'
+    required: false
+    default: '1'
+  repeats:
+    description: 'run mode: repeats within each session'
+    required: false
+    default: '1'
+  judge:
+    description: 'run mode: judge model id. Must not be the model that authored the utterances.'
+    required: false
+    default: ''
+  base-url:
+    description: 'run mode: OpenAI-compatible endpoint for the judge'
+    required: false
+    default: ''
+  badge-label:
+    description: 'Label on badge.json / badge.svg'
+    required: false
+    default: webmcp invocation
+  out:
+    description: 'Directory for report.json, report.md, badge.json, badge.svg'
+    required: false
+    default: webmcp-gauge-out
+
+outputs:
+  badge:
+    description: 'Path to badge.json (Shields endpoint schema)'
+    value: ${{ steps.measure.outputs.badge }}
+  report:
+    description: 'Path to report.json, or to lint output in lint mode'
+    value: ${{ steps.measure.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check Node
+      shell: bash
+      run: |
+        node --version
+        # The harness needs global WebSocket and node --test, both of which arrived
+        # in Node 22 and are relied on rather than polyfilled.
+        node -e 'const [major] = process.versions.node.split(".").map(Number); if (major < 22) { console.error(`webmcp-gauge needs Node >= 22, found ${process.versions.node}`); process.exit(2); }'
+
+    - name: Locate Chrome
+      if: ${{ inputs.mode == 'run' || inputs.manifest == '' }}
+      shell: bash
+      run: |
+        # GitHub's ubuntu images ship Chrome; the launcher's default path is a
+        # Windows one, so it is told explicitly rather than left to guess.
+        for candidate in "$CHROME_PATH" google-chrome google-chrome-stable chromium chromium-browser; do
+          if [ -n "$candidate" ] && command -v "$candidate" >/dev/null 2>&1; then
+            echo "WEBMCP_GAUGE_CHROME=$(command -v "$candidate")" >> "$GITHUB_ENV"
+            "$candidate" --version
+            exit 0
+          fi
+        done
+        echo "no Chrome found. Install one (e.g. browser-actions/setup-chrome) before this action, or use mode: lint with a manifest input." >&2
+        exit 2
+
+    - name: Measure
+      id: measure
+      shell: bash
+      run: |
+        set -o pipefail
+        mkdir -p "${{ inputs.out }}"
+        args=()
+        if [ "${{ inputs.mode }}" = "lint" ]; then
+          args+=(lint)
+          if [ -n "${{ inputs.manifest }}" ]; then
+            args+=(--manifest "${{ inputs.manifest }}")
+          else
+            args+=(--url "${{ inputs.url }}")
+            [ -n "${{ inputs.serve }}" ] && args+=(--serve "${{ inputs.serve }}")
+          fi
+          args+=(--fail-on "${{ inputs.fail-on }}")
+        else
+          args+=(run --url "${{ inputs.url }}")
+          [ -n "${{ inputs.serve }}" ] && args+=(--serve "${{ inputs.serve }}")
+          args+=(--sessions "${{ inputs.sessions }}" --repeats "${{ inputs.repeats }}")
+          args+=(--out "${{ inputs.out }}" --badge-label "${{ inputs.badge-label }}")
+          [ -n "${{ inputs.fail-under }}" ] && args+=(--fail-under "${{ inputs.fail-under }}")
+          [ -n "${{ inputs.judge }}" ] && args+=(--judge "${{ inputs.judge }}")
+          [ -n "${{ inputs.base-url }}" ] && args+=(--base-url "${{ inputs.base-url }}")
+        fi
+
+        echo "webmcp-gauge ${args[*]}"
+        set +e
+        node "${{ github.action_path }}/bin/webmcp-gauge.mjs" "${args[@]}" | tee "${{ inputs.out }}/stdout.txt"
+        code=$?
+        set -e
+
+        echo "badge=${{ inputs.out }}/badge.json" >> "$GITHUB_OUTPUT"
+        echo "report=${{ inputs.out }}/report.json" >> "$GITHUB_OUTPUT"
+
+        # Exit 2 is surfaced as a failure, but named, because a workflow that
+        # treats "could not measure" as "the page regressed" will eventually block
+        # a merge over a provider outage.
+        if [ "$code" = "2" ]; then
+          echo "::error title=webmcp-gauge could not measure::The run did not measure its whole plan, or the arguments were unusable. Re-run with --resume; this is not a regression."
+        elif [ "$code" = "1" ]; then
+          echo "::error title=webmcp-gauge regression::A tool's invocation rate fell below the threshold."
+        fi
+        exit $code
+
+branding:
+  icon: activity
+  color: purple

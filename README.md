@@ -10,7 +10,7 @@ Four ablations, each the clean manifest plus exactly one defect, then answered *
 
 Re-running one arm with its sessions **9 to 17 hours apart instead of minutes** then asked whether any of this survives a clock. The reproducibility figures do: between-session σ came back 0.085 worst-case against 0.062 back-to-back. Point estimates did not sit still — both mid-range tools declined monotonically across the 26-hour span, 8 to 12 points with overlapping intervals — so a single arm measured at one time is sound, while comparing a page against itself across days inherits a drift question. [`spacing-2026-09-01.md`](reports/spacing-2026-09-01.md).
 
-What exists: `lint` (static manifest rules, no judge or key), `trial` (one utterance, one outcome), `run` (S isolated sessions × R repeats, Wilson intervals, control false-positive rate, stamped JSON and Markdown reports), JSONL checkpointing with `--resume`, a CI gate with split exit codes, a served fixture page for measuring pages this repo controls, and a browser-side tool view so a client that drops a tool can be told from a page that never registered one. What does not: the badge emitter, and Mode B's agent layer — the *browser* inside the ChatGPT desktop app is now confirmed CDP-drivable (`probes/chatgpt-browser-probe.mjs`), but driving that browser is not the same as driving the assistant that chooses the tools.
+What exists: `lint` (static manifest rules, no judge or key), `trial` (one utterance, one outcome), `run` (S isolated sessions × R repeats, Wilson intervals, control false-positive rate, stamped JSON and Markdown reports, plus a badge that refuses to report a rate it cannot stand behind), JSONL checkpointing with `--resume`, a CI gate with split exit codes, a [GitHub Action](action.yml) wrapping both modes, a served fixture page for measuring pages this repo controls, and a browser-side tool view so a client that drops a tool can be told from a page that never registered one. What does not: Mode B's agent layer — the *browser* inside the ChatGPT desktop app is now confirmed CDP-drivable (`probes/chatgpt-browser-probe.mjs`), but driving that browser is not the same as driving the assistant that chooses the tools.
 
 ## The problem
 
@@ -66,6 +66,42 @@ A gate is only useful if `1` means one thing, so the three cases are separated:
 Incomplete outranks a breach on purpose. Gaps are not random — a judge outage or a page that never loaded can take out one tool's utterances and nothing else — so a rate over a run with holes is a rate over a denominator the run did not choose, and reporting that as a regression would be a lie with a plausible number. Completeness is derived from the plan against the checkpoint, not from the failure log, because a session killed mid-plan logs nothing.
 
 The threshold is compared against the **point rate**, not the Wilson lower bound: 20 of 20 has a lower bound of 83.9%, so gating on the bound would fail a flawless page on sample size alone. The interval is printed beside the rate instead, and the verdict says so when a breach sits inside it.
+
+### Badge, and the one thing it refuses to do
+
+Every `run` writes `badge.json` (Shields endpoint schema) and a self-contained `badge.svg` beside its report. Here are two, generated from real published runs of the same page behind two manifests:
+
+![twin, clean manifest](reports/twin-clean-1.3.0-glm-5.3-s3r1.badge.svg) ![twin, degraded manifest](reports/twin-degraded-1.3.0-glm-5.3-s3r1.badge.svg)
+
+A badge is a bare number in a coloured pill — the exact thing this project refuses to publish. That is not resolved by styling it, but by making it unable to overstate:
+
+- **an incomplete run shows `incomplete`, never a rate**, because a rate over a denominator the run did not choose is the wrong number however it is coloured — the same rule that makes exit `2` outrank exit `1`;
+- **a report with no `coverage` block shows `coverage unknown`**, since schema 2 predates coverage and its absence means unknown rather than complete. The 960-trial reference run is schema 2, so its badge reads ![airlock, schema 2](reports/airlock-1.3.0-glm-5.3-s3r2.badge.svg) rather than the 99% it would otherwise claim;
+- **`n` travels with the rate**, so 100% of twenty cannot pass for 100% of a thousand.
+
+### GitHub Action
+
+[`action.yml`](action.yml) wraps both modes. `lint` needs no browser flag, no judge and no key, so it can run on every push; `run` spends a model call per trial and belongs on a schedule or a manual dispatch.
+
+```yaml
+- uses: Svishwa2004/webmcp-gauge@main
+  with:
+    mode: lint
+    url: https://your-page.example
+    fail-on: error
+
+- uses: Svishwa2004/webmcp-gauge@main
+  with:
+    mode: run
+    url: https://your-page.example
+    fail-under: '0.9'
+    judge: ${{ vars.JUDGE_MODEL }}
+    base-url: ${{ vars.JUDGE_BASE_URL }}
+  env:
+    WEBMCP_GAUGE_JUDGE_API_KEY: ${{ secrets.JUDGE_API_KEY }}
+```
+
+The action annotates exit `2` as *could not measure* rather than as a regression, because a workflow that treats a provider outage as a failing page will eventually block a merge for the wrong reason. [`.github/workflows/webmcp-gauge.yml`](.github/workflows/webmcp-gauge.yml) runs it against this repo's own deliberately mis-described fixture, and **fails if the degraded twin ever lints clean** — a linter that quietly stops flagging things is the failure mode a self-test has to catch.
 
 ## Documentation
 

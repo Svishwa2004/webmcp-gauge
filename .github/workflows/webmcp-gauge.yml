@@ -1,0 +1,118 @@
+name: webmcp-gauge
+
+# Two rhythms, deliberately, because the two modes cost different things:
+#
+#   lint  — every push. No judge, no API key, seconds. The gate a contributor
+#           actually feels, and the reason L0 exists at all.
+#   run   — on demand only. One model call per trial and a real browser per
+#           session, so it is never on the push path; it is dispatched by hand,
+#           against the fixture twin so the workflow needs no live third party.
+#
+# The exit-code contract is what makes both usable: 0 pass, 1 the page regressed,
+# 2 the run could not answer. A 2 must not read as a regression, so the run job
+# distinguishes them rather than letting any failure look the same.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      measure:
+        description: 'Also run the real measurement (needs the judge secrets)'
+        type: boolean
+        default: false
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+      - run: npm test
+
+  lint-the-fixture:
+    # Lints this repo's own deliberately mis-described twin, which is the honest
+    # self-test: the clean variant must pass and the degraded one must fail, so a
+    # linter that silently stopped flagging anything cannot go unnoticed.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+
+      - name: Clean manifest must lint clean
+        uses: ./
+        with:
+          mode: lint
+          serve: fixtures/broken
+          url: 'twin.html?variant=clean'
+          fail-on: error
+
+      - name: Degraded manifest must fail the same lint
+        id: degraded
+        continue-on-error: true
+        uses: ./
+        with:
+          mode: lint
+          serve: fixtures/broken
+          url: 'twin.html?variant=degraded'
+          fail-on: error
+
+      - name: A linter that passes the degraded twin is broken
+        if: steps.degraded.outcome == 'success'
+        run: |
+          echo "::error::the degraded fixture linted clean — the rules stopped working, and this job exists to catch exactly that"
+          exit 1
+
+  measure:
+    # Never on the push path: this spends model calls. Dispatch it by hand.
+    if: github.event_name == 'workflow_dispatch' && inputs.measure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+
+      - name: Measure the clean twin
+        id: gauge
+        continue-on-error: true
+        uses: ./
+        with:
+          mode: run
+          serve: fixtures/broken
+          url: 'twin.html?variant=clean'
+          sessions: '1'
+          repeats: '1'
+          fail-under: '0.8'
+          judge: ${{ vars.WEBMCP_GAUGE_JUDGE_MODEL }}
+          base-url: ${{ vars.WEBMCP_GAUGE_JUDGE_BASE_URL }}
+          badge-label: airlock twin (clean)
+          out: webmcp-gauge-out
+        env:
+          WEBMCP_GAUGE_JUDGE_API_KEY: ${{ secrets.WEBMCP_GAUGE_JUDGE_API_KEY }}
+
+      - name: Keep the evidence whatever the verdict
+        uses: actions/upload-artifact@v4
+        with:
+          name: webmcp-gauge-report
+          path: webmcp-gauge-out/
+          if-no-files-found: warn
+
+      - name: An unmeasurable run is not a regression
+        if: steps.gauge.outcome == 'failure'
+        run: |
+          code=$(node -e 'const r=require("./webmcp-gauge-out/report.json"); console.log(r.gate.code)' 2>/dev/null || echo unknown)
+          if [ "$code" = "2" ]; then
+            echo "::warning::the run could not measure its whole plan — re-dispatch with --resume rather than reading this as a page regression"
+            exit 0
+          fi
+          echo "::error::a tool's invocation rate fell below the threshold"
+          exit 1

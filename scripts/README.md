@@ -17,7 +17,8 @@ Shape: the degraded twin, 3 sessions × 1 repeat over all 160 utterances, concur
 `reports/twin-degraded-1.3.0-glm-5.3-s3r1.*`, whose between-session σ was measured
 back-to-back at **0.041** on `sum_by_category` and **0.062** on `top_expenses`. All
 three sessions append to one checkpoint in `artifacts/spaced-degraded/`; `report`
-runs `run --resume`, which fills any gaps and emits the report.
+waits for session 3 to be complete, then runs `run --resume`, which fills any gaps
+and emits the report — see the catch-up guard below.
 
 **Credentials come from `.env`**, loaded with `node --env-file=.env`. This is not a
 style choice: a scheduled task cannot see a key that exists only inside an
@@ -84,6 +85,46 @@ schtasks /Delete /TN "webmcp-gauge\spaced-session-3" /F
 schtasks /Delete /TN "webmcp-gauge\spaced-report" /F
 ```
 
+### If the machine sleeps through both triggers: the catch-up collision, and its guard
+
+Power on this machine (checked 2026-09-01, `powercfg /a` + `/query`): **Modern
+Standby only** — S0 Low Power Idle, S1/S2/S3 unsupported by the firmware, hibernate
+disabled — and the balanced plan sleeps **never on AC, after 15 min on battery**.
+Two consequences:
+
+- `WakeToRun` is unreliable at best here: classic wake timers target S3 or
+  hibernate, and this firmware has neither. (Unconfirmed — `powercfg /waketimers`
+  needs elevation.) Treat "the machine will wake for the 09:40 firing" as false.
+- If the laptop is on battery it sleeps after 15 min, and `StartWhenAvailable` then
+  starts **session 3 and the report at the same moment** whenever the machine next
+  wakes. The report is `run --resume`, which fills every gap — including all of
+  session 3 — so an unguarded catch-up would measure the whole third session
+  back-to-back inside the resume, while session 3's own process was writing the
+  same checkpoint file.
+
+So the `report` branch refuses to resume until session 3's 160 trials are in the
+checkpoint: `scripts\wait-for-session.ps1` polls `sweep.jsonl` every 30 s for up to
+45 min (session 3 normally takes ~12) and the script aborts with exit 2 — "could
+not measure its plan", the harness's own contract — if the wait runs out. Both
+paths were tested without spending a trial: the success path against session 1's
+real 158 records, the timeout path via `spaced-session.cmd report 0`, which is also
+the emergency brake — it aborts the reconcile before node starts.
+
+If an abort happens for real (session 3's task died or was deleted): fix whatever
+stopped session 3, re-arm or hand-run it, then re-fire `scripts\spaced-session.cmd
+report` — or `report 90` for a longer wait.
+
+**Operationally: keep the machine plugged in and logged on until ~10:45.** On AC it
+never sleeps and everything fires on time. On battery the guard keeps the run
+*honest* — late, wider spacing, timestamps saying so — but cannot keep it *on
+schedule*.
+
+One bug fixed in passing: the report branch used to be one parenthesized `if`
+block, and `exit /b %ERRORLEVEL%` inside a block expands at parse time, so a failed
+reconcile would have exited 0. Both branches are now linear `goto` code, where the
+exit code is read after `node` runs. The session branch was already linear, which
+is why sessions 1 and 2 correctly reported exit 2.
+
 ## Next steps that land here
 
 1. **Delete the four tasks** once the 10:20 reconcile on 2026-09-01 has produced its
@@ -93,10 +134,12 @@ schtasks /Delete /TN "webmcp-gauge\spaced-report" /F
    pushed this arm's span to 29.4 h across a day boundary, which is what a separate
    day-apart run was going to buy. What is *not* covered is a repeat at the same
    spacing — one arm cannot separate "spacing does nothing" from "this day was quiet".
-3. **A firing from sleep is still unproven.** `WakeToRun` is set on all four tasks and
-   has never been observed to wake anything; if the machine is shut down rather than
-   asleep, `StartWhenAvailable` runs the task late and the gap becomes whatever the
-   timestamps say it was.
+3. **A firing from sleep will not be proven here.** The firmware has no S3 and
+   hibernate is disabled (`powercfg /a`: S0 Low Power Idle only), so the wake timer
+   `WakeToRun` relies on has nothing classic to target — `powercfg /waketimers`
+   would confirm, but it needs elevation. The working answer is operational (stay
+   on AC) plus structural (the guard above turns a late catch-up into a
+   wider-spaced run rather than a corrupted one).
 4. **This is Windows-only.** If the harness is ever run on another OS, the equivalent
    is three `at`/`cron` entries calling the same CLI — the script is a convenience, not
    a dependency, and `--gap` in `run` does the same thing inside one process (tested,

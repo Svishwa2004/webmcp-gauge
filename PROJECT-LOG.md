@@ -1120,3 +1120,40 @@ Keep the machine plugged in and logged on until ~10:45. On AC it never sleeps an
 ### Still open
 - 🟡 Session 3 (09:40) and the reconcile (10:20) have not fired. No σ comparison exists yet; item 6 stays open until it does.
 - ⚠️ Whether a Modern-Standby machine wakes for a `WakeToRun` timer is untestable without elevation and probably moot — treat the answer as no.
+
+---
+
+## 2026-09-01 (morning, pre-firing) — correction: yesterday's guard would have aborted the reconcile in the normal case
+
+The question "can session 3 run early?" prompted a re-read of what an early run would do to the checkpoint, and that re-read found the defect below. Nothing had fired yet; the fix landed at 06:36, three hours before the 09:40 trigger.
+
+### What was wrong
+
+Yesterday's `wait-for-session.ps1` refused to let the reconcile resume until session 3's checkpoint held **160 records**. No session in this project has ever recorded its full plan: session 1 ended 158/160, session 2 143/160, and the published back-to-back arm's "480/480" only exists because `--resume` recovered 36 failures after the fact. Sessions ending short is not an anomaly — filling what they leave is the reconcile's entire job. As written, the 10:20 reconcile would have polled for forty-five minutes waiting for a condition that has never occurred once, then aborted exit 2. The guard would have failed in the *normal* case and "passed" only in the one case that cannot happen.
+
+How it got past yesterday's testing is worth recording: the success-path test was pointed at session 1 with `-MinRecords 158` — the threshold was tuned to the data so the test would pass, instead of testing the condition the guard would actually face at 10:20. **A guard's test must use the condition the guard will meet in production, not a threshold chosen to make the test green.** The timeout-path test was fine; the success-path test was theatre.
+
+### The fix
+
+Two conditions replace the one:
+
+1. **Accounted** — records + failure-log lines for session 3 ≥ 160. A session's process runs each planned trial exactly once, so a fully accounted plan is the signature of a finished process, and a finished session is *allowed* to end short of recorded-complete.
+2. **Recorded floor** — ≥ 140 of 160 (87.5%). The floor exists for the hollow-session case: if the provider eats most of a session, "accounted" alone would pass and the resume would then re-measure 100+ trials at 10:20 while the report labelled them session 3's. 140 sits just under session 2's 143 (89.4%), the level this arm already accepted with a documented caveat; below it, the refill stops being a minority of the session and the guard aborts for a human decision instead of silently relabelling trials. The floor is a parameter, not a constant.
+
+Once the plan is accounted the decision is final — success or hollow-abort immediately, without burning the rest of the wait, because a finished session cannot improve by waiting.
+
+### Verification, all against the real two-session checkpoint, zero trials spent
+
+| Case | Input | Result |
+|---|---|---|
+| session 1 (158 + 2) | `-Session 1 -MinRecords 158` | exit 0, "160/160 accounted" |
+| session 2 (143 + 17) | `-Session 2` (default floor 140) | exit 0 |
+| session 2, floor raised | `-Session 2 -MinRecords 150` | exit 2, hollow-abort, immediate |
+| session 3, nothing yet | `-Minutes 0` | exit 2, timeout |
+| wired end to end | `spaced-session.cmd report 0` | exit 2, node never launched, 2 s |
+
+The `report 0` entries stay in `artifacts\spaced-degraded-report.log` as provenance, dated before the real firing.
+
+### And the question that surfaced it
+
+Session 3 *can* run early — the arm's done-condition is "sessions hours apart", not "12.2 h apart", and a manual run at ~06:30 would make the gaps 17.2 h then ~9 h, still day-spanning. The costs are bookkeeping, not validity: the 09:40 task must be disabled first (a second firing would re-measure session 3's failed trials at 09:40, mixing two clocks inside one session), and the recorded spacing would change in three documents plus the report's subject string. The 09:40 scheduled firing is armed, the machine is on AC, and the scheduled path was re-proven by session 2's 21:29 firing — so waiting costs three hours and keeps every documented number true. The choice sits with the operator; whichever way it goes, the guard fix above was needed first.

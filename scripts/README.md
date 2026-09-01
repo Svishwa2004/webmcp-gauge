@@ -102,13 +102,20 @@ Two consequences:
   back-to-back inside the resume, while session 3's own process was writing the
   same checkpoint file.
 
-So the `report` branch refuses to resume until session 3's 160 trials are in the
-checkpoint: `scripts\wait-for-session.ps1` polls `sweep.jsonl` every 30 s for up to
-45 min (session 3 normally takes ~12) and the script aborts with exit 2 — "could
-not measure its plan", the harness's own contract — if the wait runs out. Both
-paths were tested without spending a trial: the success path against session 1's
-real 158 records, the timeout path via `spaced-session.cmd report 0`, which is also
-the emergency brake — it aborts the reconcile before node starts.
+So the `report` branch refuses to resume until session 3 has **accounted its whole
+plan** — every one of the 160 trials either recorded or failure-logged, which is
+what a finished session actually looks like (158/160 and 143/160 were this arm's
+first two; the refill exists precisely because sessions end short) — **and
+recorded at least 140**, so a hollow session cannot be silently re-measured at the
+reconcile's clock. `scripts\wait-for-session.ps1` polls both checkpoint files
+every 30 s for up to 45 min (session 3 normally takes ~12); it exits 0 when the
+session is complete enough, and 2 — "could not measure its plan", the harness's
+own contract — on timeout or when the recorded floor is missed, either way
+leaving the decision to a human. Tested without spending a trial against the real
+two-session checkpoint: session 1 (158 + 2) passes, session 2 (143 + 17) passes
+at the default floor and aborts at a raised one, nothing-accounted times out, and
+`spaced-session.cmd report 0` aborts end to end before node starts — that form is
+also the emergency brake.
 
 If an abort happens for real (session 3's task died or was deleted): fix whatever
 stopped session 3, re-arm or hand-run it, then re-fire `scripts\spaced-session.cmd

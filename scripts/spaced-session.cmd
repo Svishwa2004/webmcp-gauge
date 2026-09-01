@@ -48,11 +48,13 @@ rem  apart across a day boundary instead of 6 h and 6 h.
 rem
 rem  A machine that sleeps through both trigger times gets session 3 and this
 rem  reconcile started at the same moment when it wakes, because
-rem  StartWhenAvailable is retroactive. Resuming while session 3 has not landed
+rem  StartWhenAvailable is retroactive. Resuming before session 3 has finished
 rem  would measure the whole third session back-to-back inside the resume, while
 rem  session 3's own process was writing the same checkpoint. So the reconcile
-rem  refuses to resume until session 3's trials are all recorded, and aborts with
-rem  exit 2 ("could not measure its plan") if the wait runs out.
+rem  waits until session 3 has accounted its whole plan - recorded or
+rem  failure-logged - and recorded at least 140 of 160, and aborts with exit 2
+rem  ("could not measure its plan") on timeout or when the session ends too
+rem  hollow for a resume to be a refill rather than a re-measurement.
 :report
 echo === reconcile + report started %DATE% %TIME% >> artifacts\spaced-degraded-report.log
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\wait-for-session.ps1 -Minutes %WAIT_MINUTES% >> artifacts\spaced-degraded-report.log 2>&1

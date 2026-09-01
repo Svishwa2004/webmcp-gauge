@@ -95,6 +95,12 @@ runs:
           if [ -n "$candidate" ] && command -v "$candidate" >/dev/null 2>&1; then
             echo "WEBMCP_GAUGE_CHROME=$(command -v "$candidate")" >> "$GITHUB_ENV"
             "$candidate" --version
+            # A hosted runner is slower and far more variable than a developer
+            # machine: the default 30 s wait for DevTools lost a coin toss on
+            # 2026-09-02 and failed a green build. 90 s costs nothing when Chrome
+            # starts in two seconds, and the launcher now reports Chrome's own
+            # stderr when it does not.
+            echo "WEBMCP_GAUGE_LAUNCH_TIMEOUT_MS=90000" >> "$GITHUB_ENV"
             exit 0
           fi
         done

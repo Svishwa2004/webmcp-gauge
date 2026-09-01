@@ -195,6 +195,40 @@ test('an incomplete run leaves a badge that says incomplete, not a rate', async 
   });
 });
 
+/**
+ * Found by CI, not by reasoning: Chrome failed to start on a runner, the CLI's
+ * top-level await turned it into an unhandled rejection, Node exited 1, and the
+ * Action announced "the manifest has findings" for a lint that never ran. A broken
+ * environment must never be reportable as a bad page.
+ */
+test('a browser that cannot start is exit 2, not a threshold breach', async () => {
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const result = await new Promise((resolve) => {
+    const child = spawn(
+      process.execPath,
+      [binPath, 'lint', '--serve', 'fixtures/broken', '--url', 'twin.html?variant=clean'],
+      {
+        cwd: root,
+        env: {
+          ...process.env,
+          // A path no browser lives at. Everything else about the invocation is
+          // exactly what CI runs.
+          WEBMCP_GAUGE_CHROME: join(root, 'no-such-chrome-binary'),
+          WEBMCP_GAUGE_LAUNCH_TIMEOUT_MS: '2000',
+        },
+      }
+    );
+    let stderr = '';
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    child.on('close', (code) => resolve({ code, stderr }));
+  });
+
+  assert.equal(result.code, 2, `expected "could not measure", got ${result.code}: ${result.stderr}`);
+  assert.match(result.stderr, /could not measure/);
+});
+
 test('a complete run with a rate below --fail-under exits 1', async () => {
   await withTempRun(async (dir) => {
     await seedCheckpoint({ dir, ok: 16 });

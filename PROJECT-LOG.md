@@ -1714,3 +1714,32 @@ None. Every subject measured so far is single-origin, so the two views coincide 
 - ⏳ Item 12, the capture.
 - ⚠️ Cross-**site** (as opposed to cross-origin) and `Permissions-Policy` as a response header are both still untested; the mechanism is known, so neither blocks anything.
 - ⚠️ The invocation-rate harness records both views per trial already, but its `--fail-under` gate still thresholds the page-side rate. If a subject ever delegates tools to an embed, what a gate *should* fail on is undecided — and deliberately left so until a real page needs it.
+
+---
+
+## 2026-09-02 (after the push) — The first red CI run, and it was the exit-code bug again
+
+Pushed the union decision, and the workflow went **red** for the first time in five runs. The `tests` job passed in 15 s; `lint-the-fixture` failed on the step that is supposed to pass — *"Clean manifest must lint clean"* — and the annotation read:
+
+> The manifest has findings at or above `--fail-on 'error'`.
+
+**It was not the manifest.** The log's real cause:
+
+```
+Error: Chrome did not expose DevTools on 33711 within 30000ms
+  (The operation was aborted due to timeout)
+```
+
+Chrome never started on the runner. The CLI is a module with top-level await, so the throw became an unhandled rejection, Node exited **1** — the code reserved for *a measured rate below the threshold* — and the Action, correctly following that code, announced a lint finding for a lint that never ran. **A broken environment was reported as a bad page.** That is precisely the conflation the split exit codes exist to prevent, and it is the third time in two days that exit-code meaning has bitten: the parenthesized `exit /b` in the spaced-run script, the mode-blind annotation, and now this.
+
+### Three fixes, in order of importance
+
+1. **A crash is exit 2.** `bin\webmcp-gauge.mjs` installs `uncaughtException` and `unhandledRejection` handlers that print `could not measure — …` and exit with the incomplete code. The contract now holds for every failure path, not just the ones that were anticipated. A new CLI test drives the real binary with `WEBMCP_GAUGE_CHROME` pointed at a non-existent file and asserts **exit 2**, not 1 — the smallest possible reproduction of what CI hit.
+2. **The launcher now says why.** Chrome's stderr was being discarded (`stdio: 'ignore'` unless a debug env var was set), which is what reduced a startup failure to an unhelpful timeout. It is captured always now, and a launch failure carries the exit status and the last six stderr lines: *"chrome exited code=… signal=…; chrome stderr (tail): …"*. The difference between "this runner is slow" and "this build cannot start here" is no longer guesswork.
+3. **CI gets a longer leash.** `WEBMCP_GAUGE_LAUNCH_TIMEOUT_MS` (default 30 s, unchanged locally) is set to 90 s by the Action. A hosted runner is slower and far more variable than this machine; 30 s was a coin toss there, and it lost one.
+
+**167 tests pass.** What this run bought is worth more than the red tick cost: a green pipeline that mislabels its own failures is worse than a red one, and only a real runner failing at a real moment could have shown it.
+
+### Still open
+- ⏳ Item 12, the capture, unchanged.
+- ⚠️ Whether Chrome's failure on that runner was a slow start or a crash is **still unknown** — the diagnostics that would have said were added *because* of it. The next occurrence will name itself.

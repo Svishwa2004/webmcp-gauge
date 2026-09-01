@@ -125,6 +125,23 @@ const fail = (message) => {
   process.exit(EXIT.incomplete);
 };
 
+/**
+ * A crash is "could not measure", not "the page is bad".
+ *
+ * This file is a module with top-level await, so anything that throws becomes an
+ * unhandled rejection and Node exits **1** — the code reserved for a measured rate
+ * below the threshold. CI on 2026-09-02 proved what that costs: Chrome failed to
+ * start on the runner, the CLI exited 1, and the Action reported it as *"the
+ * manifest has findings"*. A broken environment was presented as a bad page, which
+ * is the exact conflation the split exit codes exist to prevent.
+ */
+const cannotMeasure = (error) => {
+  console.error(`webmcp-gauge: could not measure — ${error?.stack ?? error}`);
+  process.exit(EXIT.incomplete);
+};
+process.on('uncaughtException', cannotMeasure);
+process.on('unhandledRejection', cannotMeasure);
+
 const command = process.argv[2];
 
 if (command === undefined || command === '--help' || command === '-h') {

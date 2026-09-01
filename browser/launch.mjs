@@ -129,9 +129,17 @@ export const launchSession = async ({
 
   const child = spawn(chromePath, args, {
     // Chrome's own stderr is the only place a launch failure explains itself, and
-    // swallowing it turns any startup problem into an unhelpful timeout.
-    stdio: process.env.WEBMCP_GAUGE_CHROME_LOG ? 'inherit' : 'ignore',
+    // swallowing it turns any startup problem into an unhelpful timeout — which is
+    // exactly what happened in CI on 2026-09-02: "did not expose DevTools within
+    // 30000ms" with no reason attached. So it is captured always, and the tail is
+    // attached to the error; `WEBMCP_GAUGE_CHROME_LOG` still streams it live.
+    stdio: process.env.WEBMCP_GAUGE_CHROME_LOG ? 'inherit' : ['ignore', 'ignore', 'pipe'],
     detached: process.platform !== 'win32',
+  });
+
+  let stderr = '';
+  child.stderr?.on('data', (chunk) => {
+    stderr = `${stderr}${chunk}`.slice(-4000);
   });
 
   let exited = null;
@@ -140,7 +148,11 @@ export const launchSession = async ({
   });
 
   try {
-    const version = await waitForDevTools(chosenPort);
+    const version = await waitForDevTools(chosenPort, {
+      // CI runners are slower and more variable than a developer's machine, and a
+      // fixed 30 s is a coin toss there rather than a diagnosis.
+      timeoutMs: Number(process.env.WEBMCP_GAUGE_LAUNCH_TIMEOUT_MS ?? 30000),
+    });
     return {
       port: String(chosenPort),
       pid: child.pid,
@@ -165,6 +177,12 @@ export const launchSession = async ({
     };
   } catch (error) {
     if (child.pid) await killTree(child.pid);
-    throw error;
+    // Say why, not just that. The exit status and Chrome's own last words are the
+    // difference between "this runner is slow" and "this build cannot start here".
+    const detail = [
+      exited ? `chrome exited code=${exited.code} signal=${exited.signal}` : 'chrome was still running',
+      stderr.trim() ? `chrome stderr (tail): ${stderr.trim().split(/\r?\n/).slice(-6).join(' | ')}` : 'chrome wrote nothing to stderr',
+    ].join('; ');
+    throw new Error(`${error.message} — ${detail}`);
   }
 };

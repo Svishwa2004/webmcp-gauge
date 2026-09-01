@@ -33,7 +33,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Judge | ✅ **`glm-5.3` at `https://agentrouter.org/v1`** — verified with a real chat call, then two live trials. Distinct from the authoring model, as required |
 | Node / npm | ✅ `v24.18.0` / `12.0.2` |
 | Local Chrome | ✅ `152.0.7977.65` — **#268 not reproduced here.** With `#enable-webmcp-testing` on, `document.modelContext` is present and returns all 7 Airlock tools |
-| WebMCP CDP domain | ✅ Present on this build: commands `enable`, `disable`, `invokeTool`, `cancelInvocation`; events `toolsAdded`, `toolsRemoved`, `toolInvoked`, `toolResponded`. ⚠️ On the ChatGPT fork the same domain works but is **absent from `/json/protocol`** — presence must be probed, not read off the protocol file |
+| WebMCP CDP domain | ✅ Present on this build: commands `enable`, `disable`, `invokeTool`, `cancelInvocation`; events `toolsAdded`, `toolsRemoved`, `toolInvoked`, `toolResponded`. **`invokeTool` exercised 2026-09-01** on Chrome 152 and the ChatGPT fork: `{frameId, toolName, input:<object>}` → `{invocationId}`, result async via `toolResponded {invocationId, status, output}` — same payload as the page API, different shape, and `toolInvoked` carries `{toolName, input}`. ⚠️ On the ChatGPT fork the domain works but is **absent from `/json/protocol`** — presence must be probed, not read off the protocol file |
 | ChatGPT desktop client | ✅ **Drivable, verified 2026-09-01** — `OpenAI.Codex` MSIX (display name ChatGPT, `app\ChatGPT.exe`), Chromium `151.0.7922.174`. `--remote-debugging-port` honoured; WebMCP exposed only with `--enable-blink-features=WebMCPTesting`, and then all 7 reference tools read back with `modelContext` on **both** `document` and `navigator`. ⚠️ The in-app *agent* (ChatGPT Work / Codex, model-gated) has no automation surface |
 | Reference subject | ✅ Airlock — 7 tools, 27 passing tests, live at `https://airlock-app.netlify.app` |
 | Broken fixture | ✅ **Built 2026-08-30** — `fixtures\broken\twin.html`, one implementation and one dataset behind two manifests (`?variant=clean` / `?variant=degraded`), plus `?flood=N` for the budget rule. Dataset is a byte-identical copy of the reference CSV (SHA-256 `b737acf…a11c09`), so the frozen `1.3.0` set runs against it unedited. Injected defects and their predictions are registered in `fixtures\broken\tools.json` and were written before either sweep |
@@ -49,11 +49,11 @@ Append-only record of every change, decision, and verification in this project. 
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** item 9's second half — drive the agent layer (ChatGPT Work / Codex consuming site tools) or record the sampling design that the browser-automated column pairs with. Item 8's 🚦 dataset-licence decision is the only one still awaiting the maintainer.
+**Immediate next action:** ⏳ **item 11, the cohort snapshot** — it is the only item on this list with a deadline that cannot be moved (staged by Sep 3, runs Sep 4, and the URLs it captures stop existing afterwards), and nothing is built for it. Item 9 needs a 🚦 decision before its last step can run, and item 8's dataset-licence decision is still open. Numbers in the table are ids, not priorities; this line is the priority.
 
 ## What to do next, in order
 
-Ordered by what unblocks the most, with the condition that closes each one. Anything marked 🚦 needs an explicit go-ahead before it happens.
+Ids, not priorities — the **Immediate next action** line above says what is actually next, because a date-locked row can outrank a more useful one. Each row carries the condition that closes it. Anything marked 🚦 needs an explicit go-ahead before it happens.
 
 | # | Next step | Done when |
 |---|---|---|
@@ -65,8 +65,9 @@ Ordered by what unblocks the most, with the condition that closes each one. Anyt
 | ~~6~~ | ~~**Time-spaced sessions**~~ | ✅ **Done 2026-09-01.** 480/480 with sessions 17.2 h and 9.2 h apart across a day boundary. σ between sessions **0.085** worst-case (`sum_by_category`) against **0.062** back-to-back — the two load-bearing tools swap places — so the back-to-back reproducibility figures stand. Both mid-range tools declined **monotonically** across the 26 h span, from a starting point that matched the back-to-back arm measured 48 min earlier: the shape drift looks like, not established at n=20/session. One trial needed five attempts (judge near its 60 s ceiling on that prompt). `reports\spacing-2026-09-01.md` + `reports\twin-degraded-1.3.0-glm-5.3-s3r1-spaced.*` |
 | ~~7~~ | ~~**Audit the utterance set's own floor**~~ | ✅ **Done 2026-09-01.** List measured 2026-08-31 (`probes\utterance-floor.mjs`: 2,080 trials, 15 misses, one utterance accounting for 12), decision taken by the maintainer on 2026-09-01: **keep `sum_by_category-12` as written, no version bump.** Recorded in `fixtures\airlock.utterances.json` → `notes[0]` with the evidence (12 of 13 good, 14 of 14 degraded, invariant to description and clock), the reason the two alternatives cost more, and the measured cost — on a reference-quality manifest **all three** of `sum_by_category`'s misses in the clean arm are this utterance, so its 95.0% ceiling is 19 of 20 passing. A new test keeps the note from being deleted silently |
 | 8 | 🚦 **Decide where the raw dataset lives.** The JSONL per run is the evidence behind every number and currently stays local; code is MIT, and data meant to be cited usually wants CC BY 4.0 | A decision recorded here: in-repo, separate dataset repo, or aggregate-only — with the licence named |
-| 9 | 🟡 **Mode B adapters — browser layer driven 2026-09-01.** The ChatGPT desktop app ships as the `OpenAI.Codex` MSIX (Chromium 151 fork, `ChatGPT.exe`), honours `--remote-debugging-port`, and with **`--enable-blink-features=WebMCPTesting`** at launch reads the reference page's 7 tools through the page's own modelContext (present on both `document` and `navigator`, unlike Chrome 152) — the WebMCP CDP domain works but is not advertised in `/json/protocol` (falsified against a bogus domain). Local State labs entries are inert on this fork. **The agent layer is the remaining half:** per `learn.chatgpt.com/docs/webmcp` the consumers are ChatGPT Work and Codex (model-gated), with human inspection UI only, so driving the shell's tabs is not driving the user's agent session | The adapter's browser layer exists as a pinned launch recipe + probe. Closing needs either an agent-layer driven trial, or a recorded decision that the ChatGPT column is browser-automated + agent-sampled, with the sampling design written down |
+| 9 | 🟡 **Mode B adapters — browser layer driven, protocol designed, agent layer unrun (2026-09-01).** The ChatGPT desktop app ships as the `OpenAI.Codex` MSIX (Chromium 151 fork, `ChatGPT.exe`), honours `--remote-debugging-port`, and with **`--enable-blink-features=WebMCPTesting`** reads the reference page's 7 tools. `WebMCP.invokeTool` is now exercised on both builds — `{frameId, toolName, input:<object>}` → `{invocationId}`, result async via `toolResponded` — and `toolInvoked` carries `{toolName, input}`, which is the mechanism the **sampled design** records with: page and manifest automated, typing manual, outcome capture automated over CDP, stratified 10-pass/10-fail sample for divergence detection rather than a rate. Written up in `docs\concept.md`, "Mode B, as designed on 2026-09-01" | The design is recorded. What is left is one live sampled session, which is also the test of its own instrument: ⚠️ whether `toolInvoked` fires for *agent*-initiated invocations is unverified, and running it sends prompts from the maintainer's own ChatGPT account — 🚦 a decision, not a task |
 | 10 | **Badge and Action wrappers**, now unblocked: exit codes mean something and a threshold has been shown to discriminate | `webmcp-gauge run` emits a badge, and a GitHub Action runs it on a sample repo |
+| 11 | ⏳ **DATE-LOCKED, AND THE ONLY ROW THAT CANNOT BE RECOVERED — the cohort snapshot** (`docs\concept.md` milestone 4: staged by Sep 3, runs Sep 4). Nothing exists on disk for it; grepped 2026-09-01. Captures tool manifests, schemas, descriptions and URL liveness across the gallery on the one day its ~165 demo URLs are all simultaneously live, on free hosting tiers that will 404 within months. Two known obstacles: Devpost answers plain fetches with HTTP 202 and an empty body, so it needs a real browser, and yesterday's drift finding says the capture window should be **tight** rather than spread over days. Costs about a day of scripting per the concept doc's own estimate | A staged script, dry-run against a handful of known URLs before the gallery opens, that captures manifest + schema + description + liveness per project into one dated artifact — and a decision recorded on what is captured versus merely linked, per §12's derived-metrics-and-links-only rule |
 
 Deliberately deferred, and recorded so they are choices rather than oversights: privacy-mode payload differences get no utterance; multi-call sequences (discover then filter) are outside the one-utterance-one-trial protocol; control classes are too small for a safety claim (injection is 0 of 12, `[0.0%, 24.2%]`); the CI gate thresholds invocation rate only, because a control false-positive ceiling is a separate flag and a separate decision and letting `--fail-under` imply safety coverage would be worse than leaving it out; and `cdp-eval.mjs` still exits `-1073740791` on Windows after printing valid JSON, which is tolerable for probing and not for a gate.
 
@@ -1275,3 +1276,67 @@ The oblique tail is *meant* to be hard, and "I feel like I'm bleeding money some
 - 🚦 Item 8 (where the raw dataset lives, and under which licence) is now the **only** decision waiting on the maintainer.
 - 🟡 Item 9's second half remains the immediate next action.
 - ⚠️ One utterance at the floor out of 160 is the current answer, not proof there is only one: two subjects have been measured, and `fixtures\README.md` keeps that sweep as a next step.
+
+---
+
+## 2026-09-01 (afternoon) — Item 9: `invokeTool` exercised at last, and Mode B's design turns on what the browser announces
+
+Two things came out of this session that were not on the plan: the browser's own execution path is now measured on both builds, and that measurement produced a better Mode B design than the one the concept doc assumed.
+
+### `WebMCP.invokeTool`, unexercised since it was discovered, now works
+
+Every trial this project has published executed through the page — `document.modelContext.executeTool(...)`. A real client invokes through the browser. `probes\README.md` has carried that gap as next-step 3 since 2026-08-31, with the honest note that treating the two as equivalent was an assumption.
+
+The parameter shape is documented nowhere citable, and guessing it failed four times (`-32602 Invalid parameters` for every `name`/`arguments` combination). What worked was **reading the CDP deserializer's own complaints**: `error.data` names the missing mandatory field, one per call. Three calls walked it out —
+
+```
+Failed to deserialize params.frameId - mandatory field missing
+Failed to deserialize params.input   - mandatory field missing
+Failed to deserialize params.input   - CBOR: map start expected     ← input is an object, not a string
+Failed to deserialize params.toolName - mandatory field missing
+```
+
+— giving `WebMCP.invokeTool({ frameId, toolName, input: <object> })`. **Method for next time: -32602 with a `data` field is a specification, not a wall.** `session.send` throws message + code only, so the walk needed `chrome-remote-interface`'s fuller error object; worth remembering before guessing at any other undocumented domain.
+
+### The paths agree on the payload and differ on everything else
+
+`probes\invoke-paths.mjs` (new) runs both paths against the same tool and arguments, resetting page state between them. Measured on **Chromium 151.0.7922.174 (ChatGPT desktop)** and **Chrome 152.0.7977.65**, identical results on both:
+
+| | Page API | Browser domain |
+|---|---|---|
+| Call | `executeTool(toolObject, jsonString)` | `invokeTool({frameId, toolName, input: object})` |
+| Returns | the tool's result, awaitable | `{invocationId}` — **not** the result |
+| Result arrives | inline | asynchronously, `WebMCP.toolResponded {invocationId, status:"Completed", output}` |
+| Payload shape | JSON **string** | parsed **object** |
+| Payload content | identical | identical |
+
+So "probably equivalent" resolves to: **same answer, incompatible ergonomics.** An adapter cannot swap one for the other — one is an await, the other is a subscribe-then-correlate — and the argument encoding is inverted between them (string for the page, object for the domain), which is the second time this project has found the same build disagreeing with itself about string-versus-object.
+
+### The finding that redesigned Mode B
+
+`WebMCP.toolInvoked` carries **`{toolName, frameId, invocationId, input}`** — the chosen tool and its arguments, announced by the browser as it happens. That means a CDP client attached to the ChatGPT desktop browser is a **passive recorder of ground truth**, and the manual part of a sampled arm shrinks to typing.
+
+The design recorded in `docs\concept.md` ("Mode B, as designed on 2026-09-01"):
+
+- **Automated:** opening the page, capturing the manifest, capturing the outcome, classifying it through the existing nine-bucket taxonomy.
+- **Manual:** one human typing the utterance verbatim into a fresh chat.
+- **Sample:** stratified by what Mode A already predicts — 10 utterances it passes at ≥95%, 10 it fails at ≤35% — because Gate 3 asks whether the cheap loop *resembles* reality, and divergence detection needs far fewer trials than rate estimation. At K=5 per tool a perfect 5 of 5 still spans roughly [56%, 100%], so a manual arm must not pretend to be a rate.
+- **Labelling:** `mode: "B-sampled"` plus operator, client build, model id, date and n; never pooled with Mode A, never printed as an invocation rate, never fed to `--fail-under`.
+
+This designs out the weakest part of manual measurement — a person deciding what they think happened.
+
+### What was deliberately not done
+
+The app was found **already signed in**, with a composer and a "Work" menu in its UI, and its UI is itself a CDP target. So the last step is technically reachable: type into the composer over CDP and watch the events. It was not taken, for three reasons that are the maintainer's to weigh and not mine: it sends prompts from a real account and consumes its quota, it writes into a real chat history, and automating a first-party client's UI is a terms question this project has no standing to answer for someone else. Recorded as 🚦 on item 9 rather than done.
+
+⚠️ And one assumption still stands between the design and a number: `toolInvoked` is verified to fire for invocations **this project** makes. Whether it fires when the **agent** invokes has not been observed, because that needs a live agent invocation. The first sampled session is therefore the test of its own instrument, and `docs\concept.md` says so — it must use a tool whose effect is visible on the page, so a missed event is detectable rather than silent.
+
+### Plan hygiene: the date-locked row was missing from the plan
+
+The ordered table ran 1–10 and did not contain milestone 4, the **cohort snapshot** — the one deliverable whose deadline cannot be moved (staged by Sep 3, runs Sep 4; the ~165 gallery URLs are simultaneously live for one day and sit on hosting that will 404). It existed only in `docs\concept.md` §11, which is not where this project looks for what to do next. Added as **item 11**, marked ⏳ date-locked, with its two known obstacles recorded: Devpost answers plain fetches with HTTP 202 and an empty body, and yesterday's drift finding argues for a tight capture window. The **Immediate next action** line now points at it, and the table header says plainly that its numbers are ids rather than priorities — the previous wording claimed the rows were ordered by leverage, which is how a deadline row ends up last.
+
+### Still open
+- ⏳ Item 11 (cohort snapshot) is next, and nothing is built.
+- 🚦 Item 9's final step needs a maintainer decision about using their own ChatGPT account.
+- 🚦 Item 8 (dataset licence) unchanged.
+- ⚠️ The tool budget on the ChatGPT build is still unmeasured, and now trivially reachable — the launch recipe and the flood fixture both exist.

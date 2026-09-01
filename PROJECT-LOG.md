@@ -37,8 +37,8 @@ Append-only record of every change, decision, and verification in this project. 
 | ChatGPT desktop client | ✅ **Drivable, verified 2026-09-01** — `OpenAI.Codex` MSIX (display name ChatGPT, `app\ChatGPT.exe`), Chromium `151.0.7922.174`. `--remote-debugging-port` honoured; WebMCP exposed only with `--enable-blink-features=WebMCPTesting`, and then all 7 reference tools read back with `modelContext` on **both** `document` and `navigator`. ⚠️ The in-app *agent* (ChatGPT Work / Codex, model-gated) has no automation surface |
 | Reference subject | ✅ Airlock — 7 tools, 27 passing tests, live at `https://airlock-app.netlify.app` |
 | Broken fixture | ✅ **Built 2026-08-30** — `fixtures\broken\twin.html`, one implementation and one dataset behind two manifests (`?variant=clean` / `?variant=degraded`), plus `?flood=N` for the budget rule. Dataset is a byte-identical copy of the reference CSV (SHA-256 `b737acf…a11c09`), so the frozen `1.3.0` set runs against it unedited. Injected defects and their predictions are registered in `fixtures\broken\tools.json` and were written before either sweep |
-| Chrome 152 compatibility | ✅ **Four findings.** `registerTool` **throws `"Invalid tool name"`** for a name containing a space — not the silent no-op #145 describes — while a dotted name registers fine. `getTools()` returns `inputSchema` as a **JSON string**, so #241's DOMString→object move has not landed in this build's read-back path; the harness parses it and records `inputSchemaWire` per tool. The **296-tool budget anecdote does not reproduce**: 507 registered tools were all accepted, listed and surfaced (2026-08-31). A **subframe's tools appear in the top frame's `getTools()`**, so an embed can add tools to its host's agent surface |
-| Browser-side tool view | ✅ **Built 2026-08-31** — `watchBrowserTools` accumulates `WebMCP.toolsAdded` / `toolsRemoved` (the domain has no command that lists tools), started before navigation, and every trial records `client.browserView` with the page/browser difference in both directions. `not_discovered` is reachable at last; on Chrome 152 the two views have never disagreed, at any tool count or across frames |
+| Chrome 152 compatibility | ✅ **Five findings.** `registerTool` **throws `"Invalid tool name"`** for a name containing a space — not the silent no-op #145 describes — while a dotted name registers fine. `getTools()` returns `inputSchema` as a **JSON string**, so #241's DOMString→object move has not landed in this build's read-back path; the harness parses it and records `inputSchemaWire` per tool. The **296-tool budget anecdote does not reproduce**: 507 registered tools were all accepted, listed and surfaced (2026-08-31). A **same-origin** subframe's tools appear in the top frame's `getTools()`, so an embed can add tools to its host's agent surface. And **WebMCP is gated by a Permissions Policy feature named `tools`** (2026-09-02): a cross-origin embed has `document.modelContext` but throws until the framing document sends `allow="tools"` — and once delegated, the browser reports all four tools across two frames while **no script-visible surface returns the union** (host sees 3, embed sees 1). That is the only page-view/browser-view divergence found so far |
+| Browser-side tool view | ✅ **Built 2026-08-31** — `watchBrowserTools` accumulates `WebMCP.toolsAdded` / `toolsRemoved` (the domain has no command that lists tools), started before navigation, and every trial records `client.browserView` with the page/browser difference in both directions. `not_discovered` is reachable at last; the two views agreed at 7, 71, 187, 307 and 507 tools and across a same-origin iframe, and **diverged for the first time on 2026-09-02** — a cross-origin embed with `allow="tools"` is in the browser's view and in nobody's `getTools()` |
 | Reusable rig | ✅ `_spike\cdp-eval.mjs` (zero-dep, raw WebSocket; ⚠️ exits `-1073740791` on Windows after printing valid JSON) and `_spike\cdp-command.mjs` (needs `chrome-remote-interface`, resolves only from `airlock\`, **port 9222 hardcoded**) |
 | Clean Chrome profile | ✅ `_spike\chrome-baseline\` — WebMCP flag now enabled in it (`enabled_labs_experiments: ["enable-webmcp-testing@1"]`) |
 | Ground check (does Chrome 152 see WebMCP?) | ✅ **Answered 2026-08-30 — yes.** Gate 1 cleared; Chrome 152 is the reference client |
@@ -1619,3 +1619,44 @@ The comment pastes a self-contained repro. The first draft's snippet was **writt
 
 ### Still open
 - ⏳ Item 12 is now the only unstruck row that is not blocked by it: the capture, on gallery-publish day.
+
+---
+
+## 2026-09-02 (later) — The cross-origin test, and the first time the two views disagree
+
+Asked to run the cross-origin case the first comment said was untested. It is measured now, posted as a follow-up ([comment 5499568493](https://github.com/webmachinelearning/webmcp/issues/227#issuecomment-5499568493)), and it found more than expected. `probes\frame-scope.mjs` (new) runs three cases against Chrome `152.0.7977.65`, host page registering 3 tools and an embed registering `widget_ping`:
+
+| embed | host's `getTools()` | embed's own `getTools()` | browser's `toolsAdded` |
+|---|---|---|---|
+| same-origin | all 4 | same 4 | 4, across 2 frames |
+| cross-origin, no `allow` | 3 | **throws** | 3, across 1 frame |
+| cross-origin, `allow="tools"` | **3** | **`widget_ping` only** | **4, across 2 frames** |
+
+### WebMCP is gated by a Permissions Policy feature called `tools`
+
+The middle row's error names it exactly:
+
+```
+Access to the feature "tools" is disallowed by permissions policy.
+```
+
+`document.modelContext` **exists** in the cross-origin child; every call throws until the framing document delegates with `<iframe allow="tools">`. So the platform already has an origin-granular control, opt-in, inherited from the framer — directly relevant to a thread in which several comments reason about what a site can and cannot control about embedded tools.
+
+### And with delegation, the page view and the browser view disagree
+
+The third row is the finding worth the run. Once `allow="tools"` is set, the embed registers successfully, **the browser reports all four tools across two frames** — and no script-visible surface returns the union: the host sees its own 3, the embed sees its own 1. A host page **cannot enumerate what an agent can actually call on it**.
+
+That is the **first page-view/browser-view divergence this project has found.** The two views agreed at 7, 71, 187, 307 and 507 tools and across a same-origin iframe; `not_discovered` was built on 2026-08-31 for exactly this case and had never fired for a structural reason. Now it has, and it reproduces across runs.
+
+### Three wrong turns on the way, each worth remembering
+
+1. **The first verdict was ambiguous and nearly published.** "Host sees 3 tools" is consistent with *the embed never registered* and with *the embed registered and the host cannot see it* — opposite answers to #227's question. The probe now looks inside the embed, and only then names a verdict.
+2. **A substring match attached to the wrong frame.** Selecting the embed's CDP target by `url.includes('widget.html')` matched the **host** page, whose own URL carries the widget URL in its query string — and dutifully reported the host's tools as the embed's. A false negative that looked like a result. Matching is by child `frameId` now.
+3. **The child is not an out-of-process iframe, and the OOPIF hunt was wasted.** A different **port** on 127.0.0.1 is cross-origin but **same-site**, and Chrome isolates by site — so no separate CDP target exists at all (verified absent from `/json/list`, `Target.getTargets`, and `getTargets` after `setDiscoverTargets`). The child lives in the page session's frame tree, reachable by matching `Runtime.executionContextCreated` on its frame id.
+
+That last one is also a bound on the finding, stated in the comment: this is an **origin** boundary, not a **site** boundary, and a real cross-site test needs real hostnames. Offered to run it, and to test `Permissions-Policy` as a header rather than the attribute, if the thread wants either.
+
+### Still open
+- ⏳ Item 12, the capture, unchanged.
+- ⚠️ Cross-**site** untested, and `Permissions-Policy` as a response header untested. Both are cheap; neither is worth doing unasked now that the mechanism is known.
+- ⚠️ Whether the harness should record the browser/page union rather than the page's manifest for a subject that embeds cross-origin tools. Every published number so far comes from single-origin pages, so nothing is affected retroactively — but a cohort page with a delegated embed would be measured against the wrong denominator, and item 12 captures pages nobody controls. Worth deciding before the aggregate write-up in item 14.

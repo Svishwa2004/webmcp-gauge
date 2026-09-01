@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>spec #227 repro — host frame, cross-origin embed</title>
+  </head>
+  <body>
+    <!--
+      Same as host.html, except the iframe's origin is supplied at runtime so the
+      embed can be served from a *different* port — and a different port is a
+      different origin, which is all "cross-origin" needs to mean here.
+
+      Usage: host-cross.html?widget=<url-encoded absolute url to widget.html>
+    -->
+    <h1>host frame: registers 3 tools, embeds a cross-origin widget</h1>
+    <p id="state">registering…</p>
+    <p id="embed">no widget url given</p>
+
+    <script type="module">
+      const state = document.getElementById('state');
+      const params = new URLSearchParams(location.search);
+      const widget = params.get('widget');
+
+      if (widget) {
+        const frame = document.createElement('iframe');
+        frame.src = widget;
+        frame.width = '320';
+        frame.height = '90';
+        frame.title = 'embedded widget, another origin';
+        // `?allow=1` delegates the Permissions Policy feature that gates WebMCP.
+        // Measured on Chrome 152: without it a cross-origin child has
+        // `document.modelContext` but every call throws
+        // 'Access to the feature "tools" is disallowed by permissions policy.'
+        if (params.get('allow') === '1') frame.allow = 'tools';
+        document.getElementById('embed').textContent = `embedding ${new URL(widget).origin}${frame.allow ? ` with allow="${frame.allow}"` : ' with no allow attribute'}`;
+        document.body.append(frame);
+      }
+
+      if (!('modelContext' in document) || !document.modelContext) {
+        state.textContent = 'no modelContext in this frame';
+      } else {
+        for (const name of ['host_alpha', 'host_beta', 'host_gamma']) {
+          await document.modelContext.registerTool({
+            name,
+            description: `Host-frame tool ${name}, registered by the top-level document.`,
+            inputSchema: { type: 'object', properties: {} },
+            annotations: { readOnlyHint: true },
+            async execute() {
+              return { tool: name, registeredIn: 'top' };
+            },
+          });
+        }
+        state.textContent = 'host registered 3 tools';
+      }
+    </script>
+  </body>
+</html>

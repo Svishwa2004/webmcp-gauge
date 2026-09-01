@@ -16,6 +16,7 @@ The set records its **authoring model** (`deepseek v4 by agentrouter`), and the 
 | `broken/tools.json` | The manifests, frozen at `1.1.0`, with every injected defect registered next to the prediction it was written to test — written **before** the sweeps ran |
 | `broken/compose.mjs` | Composes an ablation from `clean` plus a patch. Shared by the page and the tests, so "nothing else moved" is structural rather than a promise |
 | `broken/widget.html` | Registers one tool from inside an iframe. Answers who can see a subframe's tools: on Chrome 152, the host page's own `getTools()` can |
+| `spec-227/host.html` + `spec-227/widget.html` | The reproduction pasted into [`webmachinelearning/webmcp#227`](https://github.com/webmachinelearning/webmcp/issues/227#issuecomment-5499217166), kept because a public claim should have a re-runnable artifact behind it. 3 host tools + 1 same-origin iframe tool → **4 in the top frame's `getTools()`**, and 4 across **2 `frameId`s** in the browser view, on Chrome `152.0.7977.65`. Run before the comment was posted, not after |
 | `broken/sample-expenses.csv` | Byte-identical copy of the reference page's dataset (SHA-256 `b737acf…a11c09`), so the frozen set runs against the twin unedited |
 
 `broken/compose.test.mjs` asserts each ablation changes exactly the tools it declares and trips its own linter family and no other — the isolation claim is checked before any trial is spent on it.

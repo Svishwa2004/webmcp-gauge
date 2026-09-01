@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>spec #227 repro — host frame</title>
+  </head>
+  <body>
+    <!--
+      The exact reproduction pasted into webmachinelearning/webmcp#227, kept here
+      so the public claim has a re-runnable artifact behind it rather than a
+      snippet nobody executed.
+
+      Question: does a same-origin subframe's tool appear in the TOP frame's
+      getTools()? Measured answer on Chrome 152.0.7977.65 with
+      chrome://flags/#enable-webmcp-testing: yes — 3 here + 1 in the iframe = 4.
+
+      Serve over http; file: has no origin a subframe can share.
+    -->
+    <h1>host frame: registers 3 tools</h1>
+    <p id="state">registering…</p>
+    <iframe src="widget.html" title="embedded widget" width="320" height="90"></iframe>
+
+    <script type="module">
+      const state = document.getElementById('state');
+      if (!('modelContext' in document) || !document.modelContext) {
+        state.textContent = 'no modelContext in this frame';
+      } else {
+        for (const name of ['host_alpha', 'host_beta', 'host_gamma']) {
+          await document.modelContext.registerTool({
+            name,
+            description: `Host-frame tool ${name}, registered by the top-level document.`,
+            inputSchema: { type: 'object', properties: {} },
+            annotations: { readOnlyHint: true },
+            async execute() {
+              return { tool: name, registeredIn: 'top' };
+            },
+          });
+        }
+        state.textContent = 'host registered 3 tools';
+      }
+    </script>
+  </body>
+</html>

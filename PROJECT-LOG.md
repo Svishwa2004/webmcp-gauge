@@ -49,7 +49,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** ⏳ **item 12 — run the capture when the gallery opens** (verified unpublished at 00:36 local on 2026-09-02; deadline 2026-09-04 01:30 IST). Both halves are built, tested and rehearsed, so it is a timing job. **Item 15 is the one thing that is neither blocked nor date-locked** — four measured browser findings are already contributable to a live spec issue, and it needs a 🚦 go-ahead rather than more work. Items 13 and 14 wait on the capture; items 1–11 are closed.
+**Immediate next action:** ⏳ **item 12 — run the capture when the gallery opens** (verified unpublished at 00:36 local on 2026-09-02; deadline 2026-09-04 01:30 IST). Both halves are built, tested and rehearsed, so it is a timing job. Items 13 and 14 wait on that capture; everything else is closed, including item 15, whose spec-issue contribution was filed on 2026-09-02.
 
 ## What to do next, in order
 
@@ -71,7 +71,7 @@ Ids, not priorities — the **Immediate next action** line above says what is ac
 | 12 | ⏳ **DATE-LOCKED — run the capture on gallery-publish day.** Verified still unpublished at 00:36 local on **2026-09-02**; the deadline reads 2026-09-04 01:30 IST, so the gallery opens on the 4th. The harvester is built and rehearsed (`core\gallery.mjs` 16 tests + `probes\gallery-harvest.mjs`, verified against three published galleries and three real project pages): Devpost answers **headless** Chrome with 202, so this runs **headed**; robots.txt permits `/project-gallery`; cards are `a.link-to-software`; the pager names the last page; submission links live in `.app-links` and only there. Both probes now take a per-invocation Chrome profile and a **local**-timezone date stamp, after a stale `SingletonLock` and a UTC date were both found by the 2026-09-02 check | `node probes/gallery-harvest.mjs` on publish day, then `cohort-snapshot.mjs --targets=…` in one tight window, with the dated artifact, its census and the drift caveat committed. Both steps refuse rather than guess, so a wrong dataset is not a failure mode either can reach quietly |
 | 13 | **Per-builder scorecards, private** (concept milestone 5). The capture plus the existing L0 linter is most of a scorecard generator already: `core\lint.mjs` reads a captured manifest and names what is wrong with it. What does not exist is the per-project rendering, or a position on sending one to somebody who did not ask | A scorecard rendered from **real captured data** for at least one project, plus a recorded decision on delivery. 🚦 Contacting entrants is a Gate 4 action needing an explicit go-ahead — and note this project is not a competitor (not eligible, never submitted), so the question is unsolicited critique rather than advantage. Blocked by item 12 |
 | 14 | **Aggregate-only public stats.** Item 8 decided the shape: derived tables under the repo's MIT licence, raw rows stay local. The census from `summarize()` and the lint-finding distribution across the cohort are the two numbers nobody has published for WebMCP | A write-up in `reports\` built **only** from `publishable.json`, carrying n, the capture date, the adoption definition (registered ≥1 tool, never "the API exists"), and the drift caveat. Blocked by item 12 |
-| 15 | **File at least one reproducible data contribution on a live spec issue** — success criterion 5, and **not blocked by the capture.** Four measured findings are already contributable: the 296-tool budget anecdote does not reproduce up to 507 tools on Chrome 152; `navigator.modelContext` is gone in 152 while the ChatGPT fork still has it; a subframe's tools appear in the host page's manifest; and `WebMCP.invokeTool` takes `{frameId, toolName, input:<object>}` and answers asynchronously, which is documented nowhere | One issue comment carrying a number, the browser build it came from, and steps someone else can run. ⚠️ The repo is private until ~Sep 23, so the evidence must be **inline** rather than a link. 🚦 Public action — needs a go-ahead |
+| ~~15~~ | ~~**File a reproducible data contribution on a live spec issue**~~ | ✅ **Done 2026-09-02 — success criterion 5 met.** Posted to **`webmachinelearning/webmcp#227`** ("Tool discovery should not be limited to a single traversable navigable"), an open editor-level design thread: [comment 5499217166](https://github.com/webmachinelearning/webmcp/issues/227#issuecomment-5499217166). Contributes a measured baseline for the thread's own premise — on Chrome `152.0.7977.65` a **same-origin subframe's tool lands in the top frame's `getTools()`** (`["host_alpha","host_beta","host_gamma","widget_ping"]`), with the browser's `toolsAdded` view agreeing at 4 tools across **2 distinct `frameId`s** — plus the observation that **provenance exists browser-side and not page-side**, which speaks directly to the granularity and tool-coherence concerns raised in the thread, and the 507-tool no-ceiling result as context for widening the surface. Bounds stated in the comment: same-origin only, one build, flag rather than origin trial, frame tree rather than openers. The reproduction was **run before it was posted** and lives in `fixtures\spec-227\` |
 
 Deliberately deferred, and recorded so they are choices rather than oversights: privacy-mode payload differences get no utterance; multi-call sequences (discover then filter) are outside the one-utterance-one-trial protocol; control classes are too small for a safety claim (injection is 0 of 12, `[0.0%, 24.2%]`); the CI gate thresholds invocation rate only, because a control false-positive ceiling is a separate flag and a separate decision and letting `--fail-under` imply safety coverage would be worse than leaving it out; and `cdp-eval.mjs` still exits `-1073740791` on Windows after printing valid JSON, which is tolerable for probing and not for a gate.
 
@@ -1582,3 +1582,40 @@ Neither defect was reachable by reading the code; both came from running it at a
 
 ### Still open
 - ⏳ Item 12 unchanged: re-check on 2026-09-04 and run the capture when the gallery opens.
+
+---
+
+## 2026-09-02 — Item 15: the first contribution back, and it was verified before it was posted
+
+Success criterion 5 — *"at least one reproducible data contribution filed on a live spec issue"* — is met. Filed on `webmachinelearning/webmcp` **#227**, "Tool discovery should not be limited to a single traversable navigable": [comment 5499217166](https://github.com/webmachinelearning/webmcp/issues/227#issuecomment-5499217166).
+
+### Choosing the issue took longer than writing the comment
+
+The obvious candidate was **#268**, the Brave-works-Chrome-doesn't report this project refuted on day one. It is **closed**, so a comment there is an epitaph rather than a contribution. Searching the open issues instead turned up the right target: #227 is a live editor-level design thread — @domfarolino, @johannhof, @bvandersloot-mozilla, @beaufortfrancois, nine comments over six weeks — arguing about whether tool discovery *should* widen beyond one traversable navigable, with security and tool-coherence objections already on the table.
+
+What that thread did not have was a measurement of what shipping Chrome does **today** for the iframe case. Its opening premise ("`getTools()` retrieves tools from all documents underneath one's traversable navigable") is stated as a reading of the spec, and everyone since has reasoned from it without a build string. That gap is exactly what this project produces cheaply.
+
+### The comment, and the part that makes it worth reading
+
+Three things, in order of usefulness to them:
+
+1. **The baseline, measured.** Chrome `152.0.7977.65`, `#enable-webmcp-testing`, fresh profile: a same-origin subframe's tool lands in the **top** frame's `getTools()` — `["host_alpha","host_beta","host_gamma","widget_ping"]` — and the browser's own `toolsAdded` view agrees at 4 tools arriving across **2 distinct `frameId`s**. Page view and browser view never disagreed.
+2. **An observation the thread can act on:** provenance already exists at the browser layer and **not** in the page API. `toolsAdded` carries a `frameId` and a stack trace, so the browser knows which document registered each tool, while `getTools()` returns no frame or origin attribution — so a host page cannot tell its own tools from an embed's. That is precisely the information a site would need for @johannhof's point that embedding controls are not sufficient, and for @domfarolino's tool-coherence risk. Not a proposal, just the asymmetry named.
+3. **The 507-tool no-ceiling result** as context for widening the surface: tool volume will not self-limit.
+
+And the bounds, stated in the comment rather than left for someone to discover: same-origin only (cross-origin belongs to #52), one build, one platform, flag rather than origin trial, frame tree rather than openers.
+
+### The reproduction was run before it was posted
+
+The comment pastes a self-contained repro. The first draft's snippet was **written but not executed** — a simplification of this repo's own fixture, which is exactly the kind of thing that is wrong in a way nobody notices until a spec editor runs it. So it was built as `fixtures\spec-227\{host.html,widget.html}`, served, and run against Chrome 152: 3 host tools + 1 iframe tool → 4 in the top frame, 2 frames in the browser view. The output quoted in the comment is that run's output.
+
+**The rule, again, and it is the same one the badge taught yesterday:** do not publish a claim whose evidence you have not executed. Yesterday it was a badge overstating a schema-2 report; today it would have been a snippet in front of the people who wrote the specification.
+
+### Practical notes
+
+- The repo is private until ~Sep 23, so the comment carries its evidence **inline** — no links to anything unreadable. Worth keeping as a pattern: a contribution that depends on a reader's access is not a contribution.
+- Tone was deliberately data-not-opinion, with an offer to re-run on other builds. This project has no standing in that thread; the measurements do.
+- ⚠️ Unverified: whether anyone replies, and whether the frame-provenance observation is already known to the editors. Being told "yes, we know" is a fine outcome and costs nothing.
+
+### Still open
+- ⏳ Item 12 is now the only unstruck row that is not blocked by it: the capture, on gallery-publish day.

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>spec #227 repro — embedded widget</title>
+  </head>
+  <body>
+    <!-- Registers one tool from inside the iframe. Same origin as host.html. -->
+    <p id="state">registering…</p>
+    <script type="module">
+      const state = document.getElementById('state');
+      if (!('modelContext' in document) || !document.modelContext) {
+        state.textContent = 'no modelContext in this frame';
+      } else {
+        await document.modelContext.registerTool({
+          name: 'widget_ping',
+          description: 'A tool registered by an embedded document, not by the host page.',
+          inputSchema: { type: 'object', properties: {} },
+          annotations: { readOnlyHint: true },
+          async execute() {
+            return { registeredIn: 'iframe', href: location.href };
+          },
+        });
+        state.textContent = 'widget_ping registered from the iframe';
+      }
+    </script>
+  </body>
+</html>

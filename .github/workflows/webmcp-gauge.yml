@@ -27,8 +27,8 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
       - run: npm ci --ignore-scripts
@@ -40,8 +40,8 @@ jobs:
     # linter that silently stopped flagging anything cannot go unnoticed.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
       - run: npm ci --ignore-scripts
@@ -75,8 +75,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.measure
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
       - run: npm ci --ignore-scripts
@@ -100,7 +100,7 @@ jobs:
           WEBMCP_GAUGE_JUDGE_API_KEY: ${{ secrets.WEBMCP_GAUGE_JUDGE_API_KEY }}
 
       - name: Keep the evidence whatever the verdict
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: webmcp-gauge-report
           path: webmcp-gauge-out/

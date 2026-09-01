@@ -1482,5 +1482,12 @@ Verified locally rather than assumed: both YAML files parse, `lint … variant=c
 ### Still open
 - ⏳ Item 12 (the capture) remains the only date-locked work.
 - 🚦 Item 9's final step still needs a decision about the maintainer's own ChatGPT account.
-- ⚠️ The workflow is unrun on a real runner. First push to `main` will either confirm it or produce a red tick to fix, and neither costs a measurement.
 - ⚠️ Badge colour bands were chosen, not calibrated. They are stated in `report\badge.mjs` so a project can disagree with them, but no evidence says 85% is a meaningful boundary rather than a round number.
+
+### First real run, and the annotation it got wrong
+
+Pushed at 406190a, and the workflow ran for the first time: **green**, `tests` 27 s, `lint-the-fixture` 16 s, `measure` skipped as designed. Chrome detection worked on `ubuntu-latest` without a setup action, which was the part that could only be verified here.
+
+One defect, visible only because it ran: the `lint-the-fixture` job's expected exit 1 produced the annotation **"A tool's invocation rate fell below the threshold."** No rate was measured in that job — it was a *lint*. The message was mode-blind, and in the one place a reader looks when a build goes red it said the wrong thing about why. Exit 1 means "a finding at or above `--fail-on`" in lint mode and "a rate below `--fail-under`" in run mode, and the annotations now say so separately. `actions/checkout`, `setup-node` and `upload-artifact` moved to v5 in the same pass, clearing the Node 20 deprecation warnings.
+
+Nothing about this was catchable locally: the annotation only exists inside a runner, which is exactly why "the workflow has not run on a runner" was recorded as a caveat rather than rounded off.

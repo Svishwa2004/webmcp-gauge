@@ -138,11 +138,16 @@ runs:
 
         # Exit 2 is surfaced as a failure, but named, because a workflow that
         # treats "could not measure" as "the page regressed" will eventually block
-        # a merge over a provider outage.
+        # a merge over a provider outage. Exit 1 means different things in the two
+        # modes, and the first real run of this action proved why that matters: a
+        # mode-blind message announced "a tool's invocation rate fell below the
+        # threshold" for a *lint* step, where no rate was measured at all.
         if [ "$code" = "2" ]; then
           echo "::error title=webmcp-gauge could not measure::The run did not measure its whole plan, or the arguments were unusable. Re-run with --resume; this is not a regression."
+        elif [ "$code" = "1" ] && [ "${{ inputs.mode }}" = "lint" ]; then
+          echo "::error title=webmcp-gauge lint findings::The manifest has findings at or above --fail-on '${{ inputs.fail-on }}'. This is a static reading of the manifest, not a measured invocation rate."
         elif [ "$code" = "1" ]; then
-          echo "::error title=webmcp-gauge regression::A tool's invocation rate fell below the threshold."
+          echo "::error title=webmcp-gauge regression::A tool's invocation rate fell below --fail-under."
         fi
         exit $code
 

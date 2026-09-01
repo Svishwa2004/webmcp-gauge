@@ -7,6 +7,7 @@ import {
   toRecord,
   toPublishable,
   summarize,
+  attributeTools,
   localDateStamp,
   HARNESS_UA_SUFFIX,
 } from './cohort.mjs';
@@ -195,6 +196,98 @@ test('the census counts adoption, not browser support', () => {
   assert.equal(summary.reachableWithoutTools, 1);
   assert.equal(summary.totalTools, 2);
   assert.equal(summary.maxToolCount, 2);
+});
+
+/**
+ * The union decision, taken 2026-09-02 before the capture. A cross-origin embed
+ * with allow="tools" puts a tool in the browser's view and in nobody's
+ * getTools(), so "what this builder shipped" and "what an agent can call here"
+ * stop being the same number. Both are captured; neither is allowed to stand in
+ * for the other.
+ */
+const embedRecord = () =>
+  toRecord({
+    target: { project: 'host', url: 'https://host.example/', repo: null, aliases: [] },
+    capturedAt: 'now',
+    status: 200,
+    finalUrl: 'https://host.example/',
+    manifest: { present: true, tools: [{ name: 'own_one', description: 'x' }] },
+    browserTools: [
+      { name: 'own_one', frameId: 'F1' },
+      {
+        name: 'embedded_pay',
+        frameId: 'F2',
+        stackTrace: { callFrames: [{ url: 'https://widget.example/w.js' }] },
+      },
+    ],
+    frames: [
+      { id: 'F1', origin: 'https://host.example' },
+      { id: 'F2', origin: 'https://widget.example' },
+    ],
+  });
+
+test('a third party\u2019s tool is agent-visible but never credited to the page', () => {
+  const record = embedRecord();
+
+  assert.equal(record.webmcp.toolCount, 1, 'the page shipped one tool');
+  assert.equal(record.webmcp.agentToolCount, 2, 'an agent can call two');
+  assert.equal(record.webmcp.thirdPartyToolCount, 1);
+  assert.deepEqual(record.webmcp.divergence.onlyInBrowser, ['embedded_pay']);
+  assert.deepEqual(record.webmcp.divergence.onlyInPage, []);
+
+  const attributed = record.webmcp.attribution.find((t) => t.name === 'embedded_pay');
+  assert.equal(attributed.origin, 'https://widget.example');
+  assert.equal(attributed.sameOrigin, false);
+});
+
+test('the published row carries the counts but not a third party\u2019s identity', () => {
+  const published = toPublishable(embedRecord());
+
+  assert.equal(published.toolCount, 1);
+  assert.equal(published.agentVisibleToolCount, 2);
+  assert.equal(published.thirdPartyToolCount, 1);
+  assert.equal(published.viewsDiverge, true);
+  assert.ok(
+    !JSON.stringify(published).includes('widget.example'),
+    "a fourth party's origin must not appear in somebody else's published row"
+  );
+});
+
+test('a tool whose origin cannot be established is unattributed, not assumed to be the page\u2019s', () => {
+  const attributed = attributeTools([{ name: 'mystery', frameId: 'gone' }], [], 'https://host.example');
+  assert.equal(attributed[0].origin, null);
+  assert.equal(attributed[0].sameOrigin, null, 'null, not true');
+});
+
+test('no browser view means null throughout, never zero or an empty list', () => {
+  const record = toRecord({
+    target: { project: 'x', url: 'https://x.example/', repo: null, aliases: [] },
+    capturedAt: 'now',
+    status: 200,
+    finalUrl: 'https://x.example/',
+    manifest: { present: true, tools: [{ name: 'a' }] },
+    browserTools: null,
+  });
+
+  assert.equal(record.webmcp.agentTools, null);
+  assert.equal(record.webmcp.agentToolCount, null);
+  assert.equal(record.webmcp.divergence, null);
+  assert.equal(record.webmcp.thirdPartyToolCount, null);
+
+  const summary = summarize([record]);
+  assert.equal(summary.pagesWithAgentView, 0);
+  assert.equal(summary.totalAgentVisibleTools, null, 'a cohort with no browser view reports null, not 0');
+  assert.equal(summary.pagesWhereViewsDiverge, null);
+});
+
+test('the census reports agent-side totals separately from adoption', () => {
+  const summary = summarize([embedRecord()]);
+
+  assert.equal(summary.usingWebmcp, 1);
+  assert.equal(summary.totalTools, 1, 'adoption counts what the builder shipped');
+  assert.equal(summary.totalAgentVisibleTools, 2, 'reality counts what an agent can call');
+  assert.equal(summary.pagesWithThirdPartyTools, 1);
+  assert.equal(summary.pagesWhereViewsDiverge, 1);
 });
 
 test('an empty cohort summarizes to zeroes rather than throwing', () => {

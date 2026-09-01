@@ -27,7 +27,7 @@ import { resolve } from 'node:path';
 
 import { launchSession } from '../browser/launch.mjs';
 import { openSession } from '../browser/session.mjs';
-import { captureManifest } from '../browser/webmcp.mjs';
+import { captureManifest, watchBrowserTools } from '../browser/webmcp.mjs';
 import {
   normalizeTargets,
   robotsAllows,
@@ -115,6 +115,10 @@ for (const [index, target] of targets.entries()) {
   } else {
     const session = await openSession({ port: browser.port });
     try {
+      // The browser's tool view has to be watched from before navigation: the set
+      // arrives as events and there is no command that lists it.
+      const browserView = await watchBrowserTools(session);
+
       // The main document's own status code, taken from the network event rather
       // than a second request: fetching twice to learn a status would double the
       // load this snapshot puts on someone else's free hosting.
@@ -147,6 +151,20 @@ for (const [index, target] of targets.entries()) {
         const title = await session
           .evaluate('document.title')
           .catch(() => null);
+        // Both views, per the 2026-09-02 decision: the page's manifest answers
+        // "what did this builder ship", the browser's stream answers "what can an
+        // agent call here", and a cross-origin embed with `allow="tools"` makes
+        // those different answers. Frame origins turn the browser's `frameId`s
+        // into attribution, so a third party's tools are never credited to the page.
+        const frameTree = await session
+          .send('Page.getFrameTree')
+          .then(({ frameTree: tree }) =>
+            [tree.frame, ...(tree.childFrames ?? []).map((c) => c.frame)].map((f) => ({
+              id: f.id,
+              origin: f.securityOrigin,
+            }))
+          )
+          .catch(() => []);
         record = toRecord({
           target,
           capturedAt: new Date().toISOString(),
@@ -154,9 +172,12 @@ for (const [index, target] of targets.entries()) {
           finalUrl,
           title,
           manifest,
+          browserTools: browserView.tools(),
+          frames: frameTree,
         });
       }
       off();
+      browserView.stop();
     } catch (error) {
       record = toRecord({
         target,

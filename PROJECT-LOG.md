@@ -21,7 +21,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Plain-language explainer | ✅ `docs\explainer.md` |
 | Start guide + pipeline flow | ✅ `docs\getting-started.md` |
 | Publishing policy | ✅ **Decided** — private during judging, aggregate after; conflict of interest disclosed |
-| Code | ✅ **Sweep runs end to end, sessions isolated, gate wired, L0 linter built, every wait bounded** — `bin\webmcp-gauge.mjs` (`trial`, `run`, `session`, `lint`), `core\{taxonomy,trial,sweep,orchestrate,stats,gate,lint,cohort,gallery}.mjs`, `browser\{launch,session,serve,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`, `report\badge.mjs`, `scripts\spaced-session.cmd`, `action.yml` + `.github\workflows\`. **160 tests pass.** The cohort snapshot and its gallery harvester are staged and rehearsed, and the badge and Action are built (2026-09-01). Mode B ships **browser-automated, agent-unreached** by decision (2026-09-02) — that column's adapter is a launch recipe and a probe, not a running arm |
+| Code | ✅ **Sweep runs end to end, sessions isolated, gate wired, L0 linter built, every wait bounded** — `bin\webmcp-gauge.mjs` (`trial`, `run`, `session`, `lint`), `core\{taxonomy,trial,sweep,orchestrate,stats,gate,lint,cohort,gallery}.mjs`, `browser\{launch,session,serve,webmcp}.mjs`, `judges\openai-compatible.mjs`, `report\emit.mjs`, `report\badge.mjs`, `scripts\spaced-session.cmd`, `action.yml` + `.github\workflows\`. **166 tests pass.** The cohort snapshot and its gallery harvester are staged and rehearsed, and the badge and Action are built (2026-09-01). Mode B ships **browser-automated, agent-unreached** by decision (2026-09-02) — that column's adapter is a launch recipe and a probe, not a running arm |
 | L0 linter | ✅ **Built 2026-08-30** — `core\lint.mjs`, 13 rules in four families (names, descriptions, schemas, budget), thresholds calibrated so the reference page lints clean. Live reference page: **0 errors, 0 warnings**. Degraded fixture twin: **6 errors, 13 warnings**. `--manifest` lints what source declares, live mode lints what the browser returns |
 | Discrimination | ✅ **Proven, and then explained** — 2026-08-30: one page, two manifests, clean **99.3%** against degraded **83.1%** overall, `sum_by_category` 95.0%→**60.0%** and `top_expenses` 100%→**26.7%**, intervals well clear of a between-session σ of ≤0.094. 2026-08-31: four ablations show **defects compound** — the two defects on `sum_by_category` cost −5.0 and −3.3 alone and **−35.0 together**. `reports\ablation-2026-08-31.md` |
 | Reproducibility | ✅ **σ between sessions ≤ 0.094** across every arm of the 1,320-trial ablation run (3 processes, 3 browsers, 3 cold profiles each), against effects of 0.35 and larger — **and ≤ 0.085 with sessions 9–17 h apart** (time-spaced arm, 2026-09-01), against 0.062 back-to-back: spacing does not degrade session-level reproducibility. Within-session σ still reported separately and is 0.000 at one repeat by construction |
@@ -70,7 +70,7 @@ Ids, not priorities — the **Immediate next action** line above says what is ac
 | ~~11~~ | ~~**Stage the cohort snapshot**~~ | ✅ **Staged and dry-run 2026-09-01**, three days before it is needed. `core\cohort.mjs` (16 tests) holds the rules; `probes\cohort-snapshot.mjs` does the browser work; `fixtures\cohort\dry-run.json` is the rehearsal list. Dry run: 4 targets → 3 captures (aliases collapse), 7 tools on the reference page, 0 on a live page without WebMCP, 404 recorded dead. **Capture-versus-publish decision, enforced in code:** the local `snapshot.jsonl` keeps manifests verbatim because the text is the measured object; `publishable.json` carries tool *names*, description *lengths*, schema shape and annotation presence — never a description, never a page title, never markup. Manners are unconditional: one page at a time, a delay between projects, our UA on every request, robots.txt honoured |
 | 12 | ⏳ **DATE-LOCKED — run the capture on gallery-publish day.** Verified still unpublished at 00:36 local on **2026-09-02**; the deadline reads 2026-09-04 01:30 IST, so the gallery opens on the 4th. The harvester is built and rehearsed (`core\gallery.mjs` 16 tests + `probes\gallery-harvest.mjs`, verified against three published galleries and three real project pages): Devpost answers **headless** Chrome with 202, so this runs **headed**; robots.txt permits `/project-gallery`; cards are `a.link-to-software`; the pager names the last page; submission links live in `.app-links` and only there. Both probes now take a per-invocation Chrome profile and a **local**-timezone date stamp, after a stale `SingletonLock` and a UTC date were both found by the 2026-09-02 check | `node probes/gallery-harvest.mjs` on publish day, then `cohort-snapshot.mjs --targets=…` in one tight window, with the dated artifact, its census and the drift caveat committed. Both steps refuse rather than guess, so a wrong dataset is not a failure mode either can reach quietly |
 | 13 | **Per-builder scorecards, private** (concept milestone 5). The capture plus the existing L0 linter is most of a scorecard generator already: `core\lint.mjs` reads a captured manifest and names what is wrong with it. What does not exist is the per-project rendering, or a position on sending one to somebody who did not ask | A scorecard rendered from **real captured data** for at least one project, plus a recorded decision on delivery. 🚦 Contacting entrants is a Gate 4 action needing an explicit go-ahead — and note this project is not a competitor (not eligible, never submitted), so the question is unsolicited critique rather than advantage. Blocked by item 12 |
-| 14 | **Aggregate-only public stats.** Item 8 decided the shape: derived tables under the repo's MIT licence, raw rows stay local. The census from `summarize()` and the lint-finding distribution across the cohort are the two numbers nobody has published for WebMCP | A write-up in `reports\` built **only** from `publishable.json`, carrying n, the capture date, the adoption definition (registered ≥1 tool, never "the API exists"), and the drift caveat. Blocked by item 12 |
+| 14 | **Aggregate-only public stats.** Item 8 decided the shape: derived tables under the repo's MIT licence, raw rows stay local. The census from `summarize()` and the lint-finding distribution across the cohort are the two numbers nobody has published for WebMCP. The union decision (2026-09-02) settles which denominator each claim uses: adoption counts what a builder's own origin registered, agent-reality counts the browser's view, and the two are reported side by side | A write-up in `reports\` built **only** from `publishable.json`, carrying n, the capture date, the adoption definition (registered ≥1 tool, never "the API exists"), **the view each number came from**, and the drift caveat. Blocked by item 12 |
 | ~~15~~ | ~~**File a reproducible data contribution on a live spec issue**~~ | ✅ **Done 2026-09-02 — success criterion 5 met.** Posted to **`webmachinelearning/webmcp#227`** ("Tool discovery should not be limited to a single traversable navigable"), an open editor-level design thread: [comment 5499217166](https://github.com/webmachinelearning/webmcp/issues/227#issuecomment-5499217166). Contributes a measured baseline for the thread's own premise — on Chrome `152.0.7977.65` a **same-origin subframe's tool lands in the top frame's `getTools()`** (`["host_alpha","host_beta","host_gamma","widget_ping"]`), with the browser's `toolsAdded` view agreeing at 4 tools across **2 distinct `frameId`s** — plus the observation that **provenance exists browser-side and not page-side**, which speaks directly to the granularity and tool-coherence concerns raised in the thread, and the 507-tool no-ceiling result as context for widening the surface. Bounds stated in the comment: same-origin only, one build, flag rather than origin trial, frame tree rather than openers. The reproduction was **run before it was posted** and lives in `fixtures\spec-227\` |
 
 Deliberately deferred, and recorded so they are choices rather than oversights: privacy-mode payload differences get no utterance; multi-call sequences (discover then filter) are outside the one-utterance-one-trial protocol; control classes are too small for a safety claim (injection is 0 of 12, `[0.0%, 24.2%]`); the CI gate thresholds invocation rate only, because a control false-positive ceiling is a separate flag and a separate decision and letting `--fail-under` imply safety coverage would be worse than leaving it out; and `cdp-eval.mjs` still exits `-1073740791` on Windows after printing valid JSON, which is tolerable for probing and not for a gate.
@@ -1659,4 +1659,58 @@ That last one is also a bound on the finding, stated in the comment: this is an 
 ### Still open
 - ⏳ Item 12, the capture, unchanged.
 - ⚠️ Cross-**site** untested, and `Permissions-Policy` as a response header untested. Both are cheap; neither is worth doing unasked now that the mechanism is known.
-- ⚠️ Whether the harness should record the browser/page union rather than the page's manifest for a subject that embeds cross-origin tools. Every published number so far comes from single-origin pages, so nothing is affected retroactively — but a cohort page with a delegated embed would be measured against the wrong denominator, and item 12 captures pages nobody controls. Worth deciding before the aggregate write-up in item 14.
+- ⚠️ Whether the harness should record the browser/page union rather than the page's manifest for a subject that embeds cross-origin tools. ✅ **Decided 2026-09-02 — see the next entry.**
+
+---
+
+## 2026-09-02 (before the capture) — The union question, decided: capture both views, and say which one each number used
+
+Asked to settle this before Friday, because after Friday it cannot be settled at all. The question was whether a cohort record should hold the page's `getTools()` or the browser's agent-visible union, for a page that delegates `tools` to a cross-origin embed.
+
+**The answer is neither-as-a-substitute: capture both, attribute every tool to the document that registered it, and make each published number name the view it came from.**
+
+### Why "pick one" is the wrong shape
+
+The two views answer different questions, and the cohort dataset makes both claims:
+
+- *"This builder shipped tools"* is an **attribution** claim. Counting an embedded third party's tools would credit a builder with somebody else's work — a project embedding a payment widget that registers `pay` would appear to have shipped a tool it never wrote. That claim needs the page's own view, restricted to the page's origin.
+- *"An agent can call these tools here"* is a **reality** claim, and only the browser's view answers it, because 2026-09-02's measurement showed a delegated embed's tool is in the browser's list and in **nobody's** `getTools()`.
+
+Picking one would have made one of those claims wrong. And the asymmetry settles the cost question: capturing one view on a one-day capture loses the other **permanently**, while capturing both costs nothing but a `Page.getFrameTree` call.
+
+### What was built
+
+`core\cohort.mjs` gains `attributeTools()`, and `toRecord` now takes the browser's tool list and the frame tree:
+
+- **`webmcp.registered`** — unchanged adoption signal: reachable **and** the page's own manifest has a tool.
+- **`webmcp.agentTools` / `agentToolCount`** — the browser's view. `null`, never `[]`, when the domain was unavailable: a view you do not have is not evidence of absence.
+- **`webmcp.attribution`** — per tool, its `frameId`, the frame's `origin`, the registering `scriptUrl` from the tool's own `stackTrace`, and `sameOrigin`. An origin that cannot be established gives `sameOrigin: null`, never `true` — unknown provenance must not be silently credited to the page.
+- **`webmcp.divergence`** — `onlyInBrowser` and `onlyInPage`, both directions, because a browser that *dropped* a tool is as interesting as one that added it.
+- The census reports `pagesWithAgentView`, `totalAgentVisibleTools`, `pagesWithThirdPartyTools` and `pagesWhereViewsDiverge` **separately** from adoption, rather than folded in.
+
+Publication follows the existing split: the counts and a `viewsDiverge` boolean go out, third-party **origins** stay local. Publishing "this project embeds tools from x.example" would put a fourth party's identity into somebody else's row.
+
+### Verified against a live capture, not only in unit tests
+
+Two fixture origins, the delegated embed, and the real snapshot runner:
+
+```
+[1/1] 127.0.0.1:7801 — 200, WebMCP: 3 tools
+  totalTools: 3            ← what the builder shipped
+  totalAgentVisibleTools: 4 ← what an agent can call
+  pagesWithThirdPartyTools: 1
+  pagesWhereViewsDiverge: 1
+```
+
+with the local record attributing `widget_ping` to `http://127.0.0.1:7802`, `sameOrigin=false`, and `divergence.onlyInBrowser = ["widget_ping"]`. The ordinary dry run still reads 7/7 and no divergence, so nothing regressed. **166 tests pass** (23 in `cohort.test.mjs`).
+
+One check produced a scare worth writing down: a grep for the embed's origin in `publishable.json` came back **true**. It is in the subject's own `url` — this fixture passes the widget URL as a query parameter — and nowhere else; excluding `url` and `project`, the origin does not appear. Publishing the subject's URL verbatim is the point of the row, so this is the fixture's shape rather than a leak, and the unit test that asserts no leak uses clean URLs. Recorded because the first reading looked like a real failure.
+
+### Consequences for the numbers already published
+
+None. Every subject measured so far is single-origin, so the two views coincide and no published rate changes. What changes is Friday: a cohort page with a delegated embed will be recorded correctly rather than being quietly measured against the wrong denominator.
+
+### Still open
+- ⏳ Item 12, the capture.
+- ⚠️ Cross-**site** (as opposed to cross-origin) and `Permissions-Policy` as a response header are both still untested; the mechanism is known, so neither blocks anything.
+- ⚠️ The invocation-rate harness records both views per trial already, but its `--fail-under` gate still thresholds the page-side rate. If a subject ever delegates tools to an embed, what a gate *should* fail on is undecided — and deliberately left so until a real page needs it.

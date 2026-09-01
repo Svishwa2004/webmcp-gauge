@@ -151,6 +151,55 @@ export const robotsAllows = (robotsTxt, path, agent = 'webmcp-gauge') => {
 };
 
 /**
+ * Attribute each browser-visible tool to the document that registered it.
+ *
+ * Decided 2026-09-02, before the capture, because the alternative is unrecoverable.
+ * A cross-origin embed with `allow="tools"` registers tools that reach the
+ * **browser** — and therefore an agent — while appearing in **nobody's**
+ * `getTools()`: not the host's, not the union of any script-visible surface. Two
+ * different claims then need two different denominators:
+ *
+ *   - "this project shipped tools" is an **attribution** claim, and counting an
+ *     embedded third party's tools would credit a builder with someone else's
+ *     work. It uses the page's own view, restricted to the page's origin.
+ *   - "an agent can call these tools here" is a **reality** claim, and the
+ *     browser's view is the only one that answers it.
+ *
+ * So both are captured and each published number says which it used. Capturing
+ * one view is a permanent loss on a one-day capture; capturing both is not.
+ *
+ * `frameId` on each browser-view tool maps to a frame's origin; the top call frame
+ * of its `stackTrace` names the registering script, which is the fallback when a
+ * frame has gone by the time the tree is read.
+ */
+export const attributeTools = (browserTools, frames = [], pageOrigin = null) => {
+  if (!Array.isArray(browserTools)) return null;
+
+  const originByFrame = new Map((frames ?? []).map((f) => [f.id, f.origin]));
+  const originOf = (url) => {
+    try {
+      return new URL(url).origin;
+    } catch {
+      return null;
+    }
+  };
+
+  return browserTools.map((tool) => {
+    const scriptUrl = tool?.stackTrace?.callFrames?.[0]?.url ?? null;
+    const origin = originByFrame.get(tool?.frameId) ?? originOf(scriptUrl) ?? null;
+    return {
+      name: tool?.name ?? null,
+      frameId: tool?.frameId ?? null,
+      origin,
+      scriptUrl,
+      // Unknown provenance is not "same origin". A tool whose origin could not be
+      // established must not be silently credited to the page.
+      sameOrigin: origin && pageOrigin ? origin === pageOrigin : null,
+    };
+  });
+};
+
+/**
  * One captured project as it is stored locally: the full manifest, because the
  * linter and every later analysis need the real text.
  *
@@ -163,7 +212,17 @@ export const robotsAllows = (robotsTxt, path, agent = 'webmcp-gauge') => {
  * A project *uses* WebMCP when it registers at least one tool, and nothing else
  * counts.
  */
-export const toRecord = ({ target, capturedAt, status, finalUrl, title, manifest, error = null }) => {
+export const toRecord = ({
+  target,
+  capturedAt,
+  status,
+  finalUrl,
+  title,
+  manifest,
+  browserTools = null,
+  frames = [],
+  error = null,
+}) => {
   const reachable = typeof status === 'number' && status < 400;
   const tools =
     manifest?.tools?.map((tool) => ({
@@ -173,6 +232,18 @@ export const toRecord = ({ target, capturedAt, status, finalUrl, title, manifest
       inputSchemaWire: tool.inputSchemaWire ?? null,
       annotations: tool.annotations ?? null,
     })) ?? [];
+
+  const pageOrigin = (() => {
+    try {
+      return new URL(finalUrl ?? target.url).origin;
+    } catch {
+      return null;
+    }
+  })();
+
+  const attributed = reachable ? attributeTools(browserTools, frames, pageOrigin) : null;
+  const pageNames = tools.map((t) => t.name);
+  const agentNames = attributed ? attributed.map((t) => t.name) : null;
 
   return {
     project: target.project,
@@ -198,6 +269,22 @@ export const toRecord = ({ target, capturedAt, status, finalUrl, title, manifest
       inNavigator: manifest?.inNavigator ?? null,
       toolCount: reachable ? tools.length : 0,
       tools: reachable ? tools : [],
+      // The agent's own view. `null`, never `[]`, when the browser domain was
+      // unavailable — a view you do not have is not evidence of absence.
+      agentTools: agentNames,
+      agentToolCount: agentNames?.length ?? null,
+      attribution: attributed,
+      thirdPartyToolCount: attributed ? attributed.filter((t) => t.sameOrigin === false).length : null,
+      unattributedToolCount: attributed ? attributed.filter((t) => t.sameOrigin === null).length : null,
+      // Divergence in both directions, which is what makes the two views worth
+      // keeping separately. `onlyInBrowser` is the delegated-embed case measured
+      // on 2026-09-02; `onlyInPage` would mean the browser dropped a tool.
+      divergence: agentNames
+        ? {
+            onlyInBrowser: agentNames.filter((n) => !pageNames.includes(n)),
+            onlyInPage: pageNames.filter((n) => !agentNames.includes(n)),
+          }
+        : null,
     },
     error,
   };
@@ -226,6 +313,16 @@ export const toPublishable = (record) => ({
   usesWebmcp: record.webmcp.registered,
   browserApiPresent: record.webmcp.apiPresent,
   toolCount: record.webmcp.toolCount,
+  // The agent-visible count travels with the page-visible one, because they can
+  // differ and the difference is the interesting part. Third-party *origins* stay
+  // local: publishing "this project embeds tools from x.example" would put a
+  // fourth party's identity into somebody else's row, so only the count and a
+  // per-tool boolean go out.
+  agentVisibleToolCount: record.webmcp.agentToolCount,
+  thirdPartyToolCount: record.webmcp.thirdPartyToolCount,
+  viewsDiverge: record.webmcp.divergence
+    ? record.webmcp.divergence.onlyInBrowser.length > 0 || record.webmcp.divergence.onlyInPage.length > 0
+    : null,
   tools: record.webmcp.tools.map((tool) => ({
     name: tool.name,
     descriptionLength: typeof tool.description === 'string' ? tool.description.length : null,
@@ -245,11 +342,17 @@ export const toPublishable = (record) => ({
  * `usingWebmcp` counts pages that registered a tool. There is deliberately no
  * count of pages where the API merely existed, because that number describes the
  * browser and would be misread as adoption the moment it appeared in a table.
+ *
+ * The agent-side totals are reported separately rather than folded in: they
+ * answer "what could an agent call across this cohort", which is a different
+ * question from "how many builders shipped tools", and 2026-09-02's measurement
+ * showed the two can disagree on a single page.
  */
 export const summarize = (records) => {
   const reachable = records.filter((r) => r.liveness.reachable);
   const using = reachable.filter((r) => r.webmcp.registered);
   const toolCounts = using.map((r) => r.webmcp.toolCount).sort((a, b) => a - b);
+  const withAgentView = reachable.filter((r) => Array.isArray(r.webmcp.agentTools));
 
   return {
     projects: records.length,
@@ -262,6 +365,22 @@ export const summarize = (records) => {
       ? toolCounts[Math.floor((toolCounts.length - 1) / 2)]
       : null,
     maxToolCount: toolCounts.length ? toolCounts.at(-1) : null,
+    // Agent-side, and null-safe: a cohort captured without the browser domain
+    // reports nulls rather than zeroes.
+    pagesWithAgentView: withAgentView.length,
+    totalAgentVisibleTools: withAgentView.length
+      ? withAgentView.reduce((sum, r) => sum + (r.webmcp.agentToolCount ?? 0), 0)
+      : null,
+    pagesWithThirdPartyTools: withAgentView.length
+      ? withAgentView.filter((r) => (r.webmcp.thirdPartyToolCount ?? 0) > 0).length
+      : null,
+    pagesWhereViewsDiverge: withAgentView.length
+      ? withAgentView.filter(
+          (r) =>
+            (r.webmcp.divergence?.onlyInBrowser.length ?? 0) > 0 ||
+            (r.webmcp.divergence?.onlyInPage.length ?? 0) > 0
+        ).length
+      : null,
     errors: records.filter((r) => r.error).length,
   };
 };

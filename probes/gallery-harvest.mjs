@@ -36,7 +36,7 @@ import { resolve } from 'node:path';
 import { launchSession } from '../browser/launch.mjs';
 import { openSession } from '../browser/session.mjs';
 import { startFixtureServer } from '../browser/serve.mjs';
-import { HARNESS_UA_SUFFIX, robotsAllows, localDateStamp } from '../core/cohort.mjs';
+import { HARNESS_UA_SUFFIX, robotsAllows, localDateStamp, flagFormError } from '../core/cohort.mjs';
 import { pickTarget, galleryPageUrl, toHarvest } from '../core/gallery.mjs';
 
 const argv = process.argv.slice(2);
@@ -44,6 +44,15 @@ const flag = (name, fallback) => {
   const hit = argv.find((a) => a.startsWith(`--${name}=`));
   return hit ? hit.split('=').slice(1).join('=') : fallback;
 };
+
+// Before anything opens a browser: an option written with a space never reaches
+// the parser above, so `--serve fixtures/gallery` would walk the *live* gallery
+// while its operator believed otherwise. Measured on 2026-09-03. Refuse instead.
+const formError = flagFormError(argv);
+if (formError) {
+  console.error(`cannot harvest: ${formError}`);
+  process.exit(2);
+}
 
 const serveDir = flag('serve', null);
 const delayMs = Number(flag('delay', '2500'));

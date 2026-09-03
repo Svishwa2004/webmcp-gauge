@@ -29,6 +29,33 @@ export const localDateStamp = (date = new Date()) => {
 };
 
 /**
+ * Every option the capture probes take is `--name=value`, or a bare `--switch`.
+ * A space-separated `--gallery https://…` therefore parses as **nothing**, and the
+ * probe quietly uses its default instead.
+ *
+ * Found 2026-09-03, the day before the capture: `--serve fixtures/gallery` was
+ * meant to walk a local fixture and walked the **live gallery** instead, because
+ * the value never reached the parser. The same slip on capture day aims a run at
+ * the wrong target while its operator believes otherwise — and the CLI in `bin/`
+ * *does* accept the space form, which is exactly how the habit forms.
+ *
+ * Returns an error string, or null when the argv is well formed.
+ */
+export const flagFormError = (argv = []) => {
+  const list = Array.isArray(argv) ? argv : [];
+  const strayIndex = list.findIndex((arg) => typeof arg !== 'string' || !arg.startsWith('--'));
+  if (strayIndex === -1) return null;
+
+  const stray = String(list[strayIndex]);
+  const previous = strayIndex > 0 ? String(list[strayIndex - 1]) : null;
+  const hint =
+    previous && previous.startsWith('--') && !previous.includes('=')
+      ? ` — write ${previous}=${stray}, not ${previous} ${stray}`
+      : '';
+  return `unexpected argument '${stray}'${hint}. Every option here is --name=value or a bare --switch, so an option written with a space is silently ignored rather than applied.`;
+};
+
+/**
  * Accepts the messy shapes a URL list arrives in and returns one canonical row
  * per project, or throws with the offending entry. A list assembled by hand on
  * the day will contain duplicates and bare hostnames; both are cheaper to handle

@@ -36,6 +36,7 @@ import {
   summarize,
   HARNESS_UA_SUFFIX,
   localDateStamp,
+  flagFormError,
 } from '../core/cohort.mjs';
 
 const argv = process.argv.slice(2);
@@ -43,6 +44,15 @@ const flag = (name, fallback) => {
   const hit = argv.find((a) => a.startsWith(`--${name}=`));
   return hit ? hit.split('=').slice(1).join('=') : fallback;
 };
+
+// `--delay 5000` and `--out artifacts/x` parse as nothing here and leave the
+// defaults in place silently. On a capture that cannot be repeated, a refused run
+// is cheap and a run against the wrong target or into the wrong directory is not.
+const formError = flagFormError(argv);
+if (formError) {
+  console.error(`cannot capture: ${formError}`);
+  process.exit(2);
+}
 
 const targetsPath = flag('targets', null);
 const singleUrl = flag('url', null);

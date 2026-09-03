@@ -110,6 +110,7 @@ const apiSignal = await (async () => {
 const lsRemote = await git(['-c', 'credential.helper=', 'ls-remote', '--heads', remoteUrl], {
   env: { GIT_TERMINAL_PROMPT: '0' },
   timeout: timeoutMs,
+  label: 'ls-remote',
 });
 const lsSignal = { name: 'anonymous-ls-remote', ...classifyLsRemoteSignal(lsRemote) };
 

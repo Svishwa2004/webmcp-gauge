@@ -1,0 +1,86 @@
+#!/bin/sh
+#
+# pre-push: refuse to push while the remote's visibility is not what the
+# publishing policy expects.
+#
+# The policy is private-during-judging (PROJECT-LOG, 2026-08-29), so a push is
+# only safe while a stranger cannot read the remote. That precondition was checked
+# by hand three times and got it wrong once: on 2026-09-03 an inline one-liner
+# reported a DNS failure as a private repository, because its catch block printed
+# the answer it was hoping for. `probes/remote-visibility.mjs` replaced it, and
+# this hook is the habit made automatic.
+#
+# Measurement and policy are deliberately split. The probe answers *what the
+# visibility is* (exit 0 private, 1 public, 2 cannot answer) and this hook decides
+# *what that means for a push*. That is the same separation as core/ against
+# probes/ elsewhere in the repo.
+#
+# Installed as a three-line shim by `node scripts/install-hooks.mjs`, so the logic
+# lives here under version control and cannot drift from what .git/hooks holds.
+
+set -u
+
+# Flip to `public` when PROJECT-LOG item 18 lands (repo goes public at the report
+# launch, ~Sep 23). Leaving it at `private` after that turns this hook into a wall
+# in front of every push, and the muscle-memory answer to a wall is --no-verify.
+EXPECTED_VISIBILITY=private
+
+remote_name="${1:-origin}"
+remote_url="${2:-}"
+
+# git feeds the refs being pushed on stdin. Draining it matters: a hook that exits
+# without reading can leave git writing into a closed pipe. No refs means nothing
+# is being pushed, so there is nothing to gate.
+refs=$(cat)
+if [ -z "$refs" ]; then
+  exit 0
+fi
+
+if [ "$EXPECTED_VISIBILITY" = "public" ]; then
+  echo "pre-push: visibility gate is off — the private-during-judging window is recorded as closed."
+  exit 0
+fi
+
+timeout_ms="${WEBMCP_GAUGE_VISIBILITY_TIMEOUT_MS:-10000}"
+
+# The remote actually being pushed to, not a hardcoded `origin`: if someone adds a
+# second remote, that is the one whose visibility decides this push.
+if [ -n "$remote_url" ]; then
+  node probes/remote-visibility.mjs --url="$remote_url" --timeout="$timeout_ms"
+else
+  node probes/remote-visibility.mjs --remote="$remote_name" --timeout="$timeout_ms"
+fi
+status=$?
+
+if [ "$status" -eq 0 ]; then
+  exit 0
+fi
+
+echo ""
+if [ "$status" -eq 1 ]; then
+  # A definitive public answer is a policy breach, and no environment variable
+  # overrides it. If the repo is meant to be public now, that is item 18 and it is
+  # a recorded decision, not something to wave through at push time.
+  echo "pre-push BLOCKED: the remote is readable without credentials."
+  echo "  The publishing policy keeps this repository private until the report launch."
+  echo "  If that has changed, land PROJECT-LOG item 18 and set EXPECTED_VISIBILITY=public"
+  echo "  in scripts/hooks/pre-push — deliberately, in a commit, not with --no-verify."
+  exit 1
+fi
+
+if [ -n "${WEBMCP_GAUGE_ALLOW_UNVERIFIED_PUSH:-}" ]; then
+  echo "pre-push: visibility could not be established, and WEBMCP_GAUGE_ALLOW_UNVERIFIED_PUSH is set."
+  echo "  Pushing anyway. This is on the record: the remote's visibility was NOT measured for this push."
+  exit 0
+fi
+
+echo "pre-push BLOCKED: could not establish the remote's visibility (exit $status)."
+echo "  An unmeasured check is not a pass, so this refuses rather than guesses."
+echo "  Fix the signal above and push again. If you have to push through a network"
+echo "  outage and accept the risk knowingly:"
+echo ""
+echo "    WEBMCP_GAUGE_ALLOW_UNVERIFIED_PUSH=1 git push"
+echo ""
+echo "  That overrides this one check only. --no-verify would skip every hook,"
+echo "  which is how a project ends up with hooks nobody runs."
+exit 1

@@ -125,6 +125,48 @@ reconcile would have exited 0. Both branches are now linear `goto` code, where t
 exit code is read after `node` runs. The session branch was already linear, which
 is why sessions 1 and 2 correctly reported exit 2.
 
+## `hooks/pre-push` + `install-hooks.mjs`
+
+The publishing policy keeps this remote private until the report launch, so "is it
+still private?" is a precondition of every push. It was checked by hand three
+times and got it wrong once — on 2026-09-03 an inline one-liner reported a **DNS
+failure** as a private repository, because its `catch` block printed the answer it
+was hoping for. `probes/remote-visibility.mjs` replaced the one-liner; this hook is
+the habit made automatic.
+
+```
+node scripts/install-hooks.mjs            # install
+node scripts/install-hooks.mjs --uninstall
+```
+
+Four decisions in it worth knowing before it blocks something of yours:
+
+- **It installs a three-line shim, not a copy.** `.git/hooks/pre-push` execs
+  `scripts/hooks/pre-push`, so the logic stays under version control and cannot
+  drift from the installed copy. It does **not** set `core.hooksPath`: changing
+  git config on someone's machine as a side effect of a helper script is not this
+  project's call. The installer refuses to overwrite a hook it did not write.
+- **The remote being pushed to is the one checked**, from git's own `$2`, not a
+  hardcoded `origin`.
+- **Exit 1 — a definitive *public* answer — cannot be overridden by anything.** If
+  the repo is meant to be public, that is PROJECT-LOG item 18: land it and set
+  `EXPECTED_VISIBILITY=public` at the top of the hook, in a commit. Leaving that
+  constant at `private` after the flip would turn this into a wall in front of
+  every push, and the muscle-memory answer to a wall is `--no-verify`.
+- **Exit 2 — could not measure — blocks too, but has a named escape hatch:**
+  `WEBMCP_GAUGE_ALLOW_UNVERIFIED_PUSH=1 git push`. It overrides this one check,
+  says on the record that visibility was not measured for that push, and leaves
+  every other hook running. `--no-verify` is the alternative it exists to avoid.
+
+Verified on 2026-09-03 by producing all four outcomes rather than assuming them:
+the real remote allows the push; a known-public URL blocks with exit 1; a forced
+1 ms timeout blocks with exit 2; the same timeout with the override allows it and
+says so. Pushing nothing (empty stdin) exits 0 without a network call.
+
+Measurement and policy stay separate: the probe answers *what the visibility is*,
+the hook decides *what that means for a push* — the same split as `core/` against
+`probes/` elsewhere in the repo.
+
 ## Next steps that land here
 
 1. ~~**Delete the four tasks**~~ ✅ **Done 2026-09-01**, after the reconcile's report and the published comparison (`reports/spacing-2026-09-01.md`).

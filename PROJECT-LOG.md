@@ -2214,3 +2214,42 @@ Also fixed in passing: the control case originally passed the *same* origin twic
 - ⏳ The Edge sweep — in flight, results next entry.
 - ⚠️ Whether a **browser-level** CDP session sees the cross-site child's registrations. One more attach point, and the honest scope line in the matrix says so.
 - ⚠️ `Permissions-Policy` as a response header rather than an `allow` attribute — still unmeasured.
+
+---
+
+## 2026-09-03 (late night, continued) — Edge 153 becomes the second measured client: 99%, every tool inside its Chrome interval
+
+The approved single-session sweep finished while the cross-site probe was being written up: `artifacts\edge-s1\`, utterance set `1.3.0`, judge `glm-5.3`, **160/160 trials measured in 869 s, 0 harness failures**. Write-up: `reports\airlock-1.3.0-glm-5.3-edge-s1r1.md`.
+
+### The numbers
+
+| | Edge 153 (160 trials, 1 session) | Chrome 152 (960 trials, 3×2) |
+|---|---|---|
+| six of seven tools | 100.0% | 100.0% (five), 99.2% (`filter_rows`) |
+| `sum_by_category` | 95.0% [76.4%, 99.1%], 1 `wrong_tool` | 94.2% [88.4%, 97.1%] |
+| controls | **0/20** | **0/120** |
+| overall | 99.3% (139/140) | 99.0% (832/840, derived from the per-tool figures) |
+
+Every Edge rate sits inside or above its Chrome interval. `sum_by_category` — the weakest tool on both clients — fails the same way on both: a `wrong_tool`. Phrasing gradient holds too (plain 100, paraphrase 100, oblique 97.6).
+
+**This is the clean single-variable experiment the project had not run**: page fixed, utterance set fixed, judge fixed, and only the client coordinate moved — because the same `WEBMCP_GAUGE_CHROME` override that aimed the probes at Edge aims the sweep harness at it, with no second harness. The expected result (another Chromium build hands the judge the same manifest bytes) is now a measured one.
+
+### Stated plainly, what it is not
+
+- **Not a variance measurement.** One session, one repeat — the σ columns are vacuous and every interval is a single-session interval. The reproducibility figures stay Chrome-only. A 3×2 Edge sweep remains available and unrepeated.
+- **One judge.** The client coordinate moved; the judge coordinate did not. "Rate in three clients" with one judge is the weaker claim, and criterion 1 now says exactly that.
+- **Both clients are Chromium.** The remaining gap for criterion 1 is a third client that is not.
+
+### Where it landed
+- `reports\airlock-1.3.0-glm-5.3-edge-s1r1.md` — the write-up, with the reproduce command.
+- `reports\README.md` — indexed between the draft and the discrimination run.
+- `docs\concept.md` criterion 1: ⚠️ → **🟡 two measured clients, both Chromium**, with the point-measurement caveat in the criterion text itself.
+- `reports\public-report-draft.md` — headline now **4,200 trials across 13 published runs and four browser builds**; the four-coordinates paragraph carries the Edge result; the browser-behaviours section gains the cross-site gradient bullet; the budget bullet says three engines; `inputSchema` says four builds; reproduce block gains `site-scope.mjs`; test count corrected to 210.
+- Concept criterion 2's line and the matrix index entry were also stale from the afternoon (three builds, 20 rows) — corrected to four builds, 22 rows while in there.
+
+**210 tests pass.** No core code changed tonight; the suite is unchanged from the afternoon.
+
+### Still open
+- ⏳ Item 12 — the gallery. It is now late on 2026-09-03; the deadline is 01:30 IST on the 4th, so the gallery opens within hours of this entry. The rig is five defects better than 2026-09-02 and rehearsed end to end.
+- ⚠️ A 3×2 Edge sweep for variance, if the single-session result ever needs its own σ.
+- ⚠️ Brave — still not installed; criterion 1's honest remaining gap.

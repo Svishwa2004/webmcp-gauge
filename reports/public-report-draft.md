@@ -6,13 +6,13 @@
 
 WebMCP lets a page hand an agent a list of tools. Whether the agent then *calls the right one* is a property of the page's own metadata — and until you measure it, a manifest that reads perfectly well to its author is indistinguishable from one that quietly sends every third request to the wrong function.
 
-This is a measurement instrument for that question, plus what it found on **4,040 trials across 12 published runs** and three browser builds.
+This is a measurement instrument for that question, plus what it found on **4,200 trials across 13 published runs** and four browser builds.
 
 ## What is being measured
 
 **Invocation rate**: given an utterance a specific tool should serve, how often is that tool the one invoked?
 
-The number is only meaningful with its four coordinates attached. Invocation rate is a property of ***(page, client, judge, utterances)***, and every published figure here pins all four: one page, Chrome `152.0.7977.65` with `--headless=new`, judge `glm-5.3` at agentrouter, and the frozen `1.3.0` utterance set. Move any coordinate and the number is a different number.
+The number is only meaningful with its four coordinates attached. Invocation rate is a property of ***(page, client, judge, utterances)***, and every published figure here pins all four: one page, Chrome `152.0.7977.65` with `--headless=new`, judge `glm-5.3` at agentrouter, and the frozen `1.3.0` utterance set. Move any coordinate and the number is a different number. One coordinate has been moved deliberately: the same page, set and judge through Edge `153.0.4234.13` reads 99% (139/140), every tool inside or above its Chrome interval — a point measurement on a second client, with the variance figures remaining Chrome-only.
 
 Three design rules make the rates comparable at all:
 
@@ -102,18 +102,19 @@ Every figure above came from sessions minutes apart, which measures process and 
 
 ## What the browser actually does with a manifest
 
-Twenty measured behaviours across Chrome `152.0.7977.65` and the ChatGPT desktop app's Chromium at `151.0.7922.174` and `152.0.7977.64`, each cell dated and traceable to a re-runnable probe: [`compatibility-matrix.md`](compatibility-matrix.md).
+Twenty-two measured behaviours across Chrome `152.0.7977.65`, the ChatGPT desktop app's Chromium at `151.0.7922.174` and `152.0.7977.64`, and Edge `153.0.4234.13`, each cell dated and traceable to a re-runnable probe: [`compatibility-matrix.md`](compatibility-matrix.md).
 
 The ones that change how a page should be written:
 
 - **`registerTool` throws `"Invalid tool name"`** for a name containing a space — it does not silently no-op as reported. The consequence is structural: **a live manifest cannot show you the worst names, because they were never in it.** Linting source is not the same job as linting a live page, and neither is a superset of the other.
-- **`getTools()` returns `inputSchema` as a JSON string**, not an object, on all three builds measured. Anything reading `inputSchema.properties` silently gets `undefined`.
+- **`getTools()` returns `inputSchema` as a JSON string**, not an object, on all four builds measured. Anything reading `inputSchema.properties` silently gets `undefined`.
 - **`getTools()` returns a `Promise`, and registration settles late and in batches** — an early read returned 3 of 7 tools. A reader must wait for the set to stop changing; "non-empty" reports part of a manifest as all of it.
 - **The manifest comes back alphabetised**, not in registration order — and manifest order is the order a model reads it in.
-- **No per-page tool ceiling was found up to 507 tools**, on two independent clients. The widely repeated report of ~296 tools silently disabling the feature reproduced on neither.
+- **No per-page tool ceiling was found up to 507 tools**, on three engines. The widely repeated report of ~296 tools silently disabling the feature reproduced on none of them.
 - **A same-origin subframe's tools fold into the host's manifest.** An embed can add tools to its host's agent surface.
 - **Cross-origin embeds are gated by a Permissions Policy feature named `tools`** — `document.modelContext` exists in the child and every call throws until the framing document sends `allow="tools"`.
 - **Once delegated, no script-visible surface returns the union.** The host sees 3 tools, the embed sees its 1, the browser sees all 4 across 2 frames. **A page cannot enumerate what an agent can actually call on it** — and provenance (`frameId`, `backendNodeId`, a stack trace) exists browser-side only. That measurement was contributed to the specification's own design thread on frame scope.
+- **At a site boundary, even the browser-side view attached to the host loses the embed.** A cross-site child is site-isolated with its own debugging target; it registers and reads its own tool back through that target, but its registration events never arrive at a client attached to the host page. The union exists only in the child's own target. The gradient, measured: same-origin, everyone sees the embed; cross-origin same-site, only the browser; cross-site, nobody attached to the host. (The measurement needed no real domains — `localhost` and `127.0.0.1` are different sites, proven by the isolation itself.)
 
 The matrix also carries a **Corrections** section, because one of its rows was wrong for two days and the error was ours: a claim that the ChatGPT fork implemented the debugging-protocol domain without advertising it came from a membership test keyed on a field that does not exist in that JSON, which is false for every domain of every build. It is withdrawn there, in public, next to the rows that survived.
 
@@ -149,10 +150,11 @@ webmcp-gauge lint <url>                      # the static rules
 webmcp-gauge run --sessions 3 --repeats 2    # a full sweep with intervals and σ
 node probes/webmcp-domain.mjs 0,507          # the budget result, and both views of the manifest
 node probes/frame-scope.mjs                  # the three frame results, including the invisible union
+node probes/site-scope.mjs                   # the cross-site rows: the union exists only in the child's target
 node probes/remote-visibility.mjs            # (housekeeping) is this repo still private
 ```
 
-The utterance set, the fixture page, every injected defect and the prediction it was written to test are all committed. **194 tests** cover the rules that decide published numbers — the taxonomy, the intervals, the exit codes, the capture and publication filters — on the principle that anything load-bearing for a number gets tests and anything exploratory stays a probe.
+The utterance set, the fixture page, every injected defect and the prediction it was written to test are all committed. **210 tests** cover the rules that decide published numbers — the taxonomy, the intervals, the exit codes, the capture and publication filters — on the principle that anything load-bearing for a number gets tests and anything exploratory stays a probe.
 
 ## Licence and data
 

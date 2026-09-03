@@ -2173,3 +2173,44 @@ Settle times across every Edge run: 824–1085 ms — no cold-start outlier like
 - ⏳ Item 12 tomorrow — the gallery deadline is 01:30 IST, so it opens on the 4th.
 - ⚠️ An invocation-rate sweep through Edge: one command, judge tokens, maintainer's call.
 - ⚠️ Brave: not installed.
+
+---
+
+## 2026-09-03 (late night) — Cross-site measured with no domains, and the union disappears entirely
+
+Both follow-ups were approved: the single-session Edge sweep (running as this is written; results land in the next entry) and the free cross-site probe. The cross-site one finished first, and it found something the matrix had been carrying as "not measured" because it was assumed to need two registrable domains.
+
+### `localhost` and `127.0.0.1` are different sites in Chrome 152
+
+The OOPIF signature proves it: with the host on `localhost` and the embed on `127.0.0.1`, the child gets its own `type:"iframe"` target in `/json/list`; with host and embed on different ports of `127.0.0.1`, it gets none. The usual assumption is "both localhost, same thing" — they are not, and that assumption is why this measurement was free. `browser\serve.mjs` already took a `host` parameter, so `probes\site-scope.mjs` needed no new infrastructure: three servers, one bound to each name.
+
+### The finding: at a site boundary, the union is gone from every surface a host-side client can reach
+
+The same-site delegated case (the #227 row) reads: host `getTools()` 3, embed's own 1, browser view **4 across 2 frames** — the browser's accumulated view is the one place the union exists. The **cross-site** delegated case reads:
+
+- the embed is site-isolated, with its own target;
+- it registers, and reads its own `widget_ping` back **through that target**;
+- the **host session's** accumulated view holds only the host's 3 tools across **1** frameId — `widget_ping` never arrives;
+- the child appears in neither the host session's frame tree nor its execution contexts.
+
+So the cross-site union exists **only in the child's own target**. Scope stated in the matrix rather than blurred: this is a CDP client attached to the host page's target — the natural attach point for any harness, and the one every measurement here uses — and whether a browser-level session would accumulate the child's registrations is unmeasured. The no-`allow` case also holds across the site boundary: the child's own `getTools()` throws the Permissions Policy error, read through the child's target since the host session cannot reach an OOPIF at all.
+
+Practical form for the #227 thread: **the further the embed is from the host, the fewer surfaces see its tools — same-origin, everyone; cross-origin-same-site, the browser only; cross-site, nobody attached to the host.**
+
+### The probe's first version was wrong twice, both in ways worth keeping
+
+1. **`/json/list` matched by URL substring** — `url.includes('widget.html')` — which hit the *host page*, because the host URL carries the widget URL in its query string. `insideTheEmbed` therefore read the host's tools and called them the embed's. This is the **same documented trap** `frame-scope.mjs` hit and wrote a comment about; the comment was ten lines below where this probe was written from. Fixed by matching the parsed origin and pathname.
+2. **CDP's frame tree hangs `childFrames` off the tree node, not the frame object.** `flatten(frameTree.frame)` therefore printed only the root, and the first run's "no child in the frame tree at all" was a display bug, not a measurement. Fixed by flattening the node.
+
+Both corrections are kept as comments in the probe file, in the repo's style — the frame-scope comment did not stop the trap being hit again, so the warning needs to live where the code is written, not where the last bug was.
+
+Also fixed in passing: the control case originally passed the *same* origin twice, silently measuring the same-origin fold instead of the cross-port row it claimed to be. A control that is not the case it labels is worse than no control.
+
+### Where this lands
+- Matrix: two new rows (cross-site with/without `allow`), the section preamble rewritten around three boundaries, the #227 contradiction row extended, "cross-site frames" removed from the not-measured list, replaced by the browser-level-session question.
+- `probes\site-scope.mjs` added; `probes\README.md` row added; `frame-scope.mjs`'s row now carries the Edge reproduction and the #227 link together.
+
+### Still open
+- ⏳ The Edge sweep — in flight, results next entry.
+- ⚠️ Whether a **browser-level** CDP session sees the cross-site child's registrations. One more attach point, and the honest scope line in the matrix says so.
+- ⚠️ `Permissions-Policy` as a response header rather than an `allow` attribute — still unmeasured.

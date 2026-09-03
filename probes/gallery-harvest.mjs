@@ -36,30 +36,30 @@ import { resolve } from 'node:path';
 import { launchSession } from '../browser/launch.mjs';
 import { openSession } from '../browser/session.mjs';
 import { startFixtureServer } from '../browser/serve.mjs';
-import { HARNESS_UA_SUFFIX, robotsAllows, localDateStamp, flagFormError } from '../core/cohort.mjs';
+import { HARNESS_UA_SUFFIX, robotsAllows, localDateStamp } from '../core/cohort.mjs';
+import { parseOptions } from '../core/args.mjs';
 import { pickTarget, galleryPageUrl, toHarvest } from '../core/gallery.mjs';
 
-const argv = process.argv.slice(2);
-const flag = (name, fallback) => {
-  const hit = argv.find((a) => a.startsWith(`--${name}=`));
-  return hit ? hit.split('=').slice(1).join('=') : fallback;
-};
-
-// Before anything opens a browser: an option written with a space never reaches
-// the parser above, so `--serve fixtures/gallery` would walk the *live* gallery
-// while its operator believed otherwise. Measured on 2026-09-03. Refuse instead.
-const formError = flagFormError(argv);
-if (formError) {
-  console.error(`cannot harvest: ${formError}`);
+// One parser for `bin/` and `probes/` since 2026-09-03, and both syntaxes work.
+// This file read `--name=value` only, so `--serve fixtures/gallery` was ignored
+// and the run walked the **live** gallery while claiming to walk a fixture.
+const { options, error: optionsError } = parseOptions(process.argv.slice(2), {
+  values: ['serve', 'delay', 'max-pages', 'gallery', 'out', 'targets-out'],
+  switches: ['no-projects', 'probe', 'headless'],
+  maxPositional: 0,
+});
+if (optionsError) {
+  console.error(`cannot harvest: ${optionsError}`);
   process.exit(2);
 }
+const flag = (name, fallback) => options[name] ?? fallback;
 
 const serveDir = flag('serve', null);
 const delayMs = Number(flag('delay', '2500'));
 const maxPages = Number(flag('max-pages', '40'));
-const visitProjects = !argv.includes('--no-projects');
-const probeOnly = argv.includes('--probe');
-const headless = argv.includes('--headless');
+const visitProjects = options['no-projects'] !== true;
+const probeOnly = options.probe === true;
+const headless = options.headless === true;
 const today = localDateStamp();
 const outDir = resolve(flag('out', `artifacts/gallery-${today}`));
 

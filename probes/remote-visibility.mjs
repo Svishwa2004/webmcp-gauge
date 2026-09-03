@@ -31,12 +31,17 @@
 import { execFile } from 'node:child_process';
 
 import { VISIBILITY_EXIT, classifyApiSignal, classifyLsRemoteSignal, combineSignals, parseGitHubSlug } from '../core/visibility.mjs';
+import { parseOptions } from '../core/args.mjs';
 
-const argv = process.argv.slice(2);
-const flag = (name, fallback) => {
-  const hit = argv.find((arg) => arg.startsWith(`--${name}=`));
-  return hit ? hit.split('=').slice(1).join('=') : fallback;
-};
+const { options, error: optionsError } = parseOptions(process.argv.slice(2), {
+  values: ['remote', 'url', 'timeout'],
+  maxPositional: 0,
+});
+if (optionsError) {
+  console.error(`cannot check visibility: ${optionsError}`);
+  process.exit(VISIBILITY_EXIT.indeterminate);
+}
+const flag = (name, fallback) => options[name] ?? fallback;
 
 const remoteName = flag('remote', 'origin');
 const urlOverride = flag('url', null);

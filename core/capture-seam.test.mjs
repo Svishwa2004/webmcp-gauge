@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { pickTarget, toHarvest } from './gallery.mjs';
-import { flagFormError, normalizeTargets } from './cohort.mjs';
+import { normalizeTargets } from './cohort.mjs';
 
 /**
  * The seam between the two halves of the one-day capture.
@@ -79,26 +79,8 @@ test('an empty harvest normalizes to nothing rather than throwing', () => {
 });
 
 /**
- * Found 2026-09-03, one day before the capture: `--serve fixtures/gallery` walked
- * the **live** gallery, because the probes' argument parser only reads
- * `--name=value` and silently ignored the space-separated form. On capture day the
- * same slip aims a run at the wrong target while its operator believes otherwise.
+ * The option-syntax half of this story lives in `core/args.test.mjs` now. It began
+ * here on 2026-09-03, when `--serve fixtures/gallery` walked the **live** gallery
+ * because the probes read `--name=value` only — then `bin/` turned out to have the
+ * mirror-image bug, so both went onto one parser and the tests followed it.
  */
-test('a space-separated option is refused rather than silently ignored', () => {
-  const error = flagFormError(['--serve', 'fixtures/gallery', '--probe']);
-  assert.ok(error, 'a stray value must be reported');
-  assert.match(error, /--serve=fixtures\/gallery/);
-});
-
-test('well-formed argv passes, switches and all', () => {
-  assert.equal(flagFormError(['--serve=fixtures/gallery', '--probe', '--delay=200']), null);
-  assert.equal(flagFormError([]), null);
-  assert.equal(flagFormError(undefined), null);
-});
-
-test('a bare stray with no preceding option is still refused, without a bogus hint', () => {
-  const error = flagFormError(['fixtures/gallery']);
-  assert.ok(error);
-  assert.match(error, /unexpected argument/);
-  assert.doesNotMatch(error, /write =/);
-});

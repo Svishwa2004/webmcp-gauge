@@ -14,12 +14,17 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 import { buildScorecard, scorecardToMarkdown } from '../report/scorecard.mjs';
+import { parseOptions } from '../core/args.mjs';
 
-const argv = process.argv.slice(2);
-const flag = (name, fallback) => {
-  const hit = argv.find((a) => a.startsWith(`--${name}=`));
-  return hit ? hit.split('=').slice(1).join('=') : fallback;
-};
+const { options, error: optionsError } = parseOptions(process.argv.slice(2), {
+  values: ['snapshot', 'only', 'out'],
+  maxPositional: 0,
+});
+if (optionsError) {
+  console.error(`cannot render: ${optionsError}`);
+  process.exit(2);
+}
+const flag = (name, fallback) => options[name] ?? fallback;
 
 const snapshotPath = flag('snapshot', null);
 const only = flag('only', null);

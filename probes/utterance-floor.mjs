@@ -18,9 +18,16 @@
  */
 import { readFile } from 'node:fs/promises';
 
-const MIN_FAILURES = Number(
-  (process.argv.find((argument) => argument.startsWith('--min=')) ?? '--min=1').split('=')[1]
-);
+import { parseOptions } from '../core/args.mjs';
+
+const { options, error: optionsError } = parseOptions(process.argv.slice(2), { values: ['min'], maxPositional: 0 });
+if (optionsError) {
+  console.error(`cannot count: ${optionsError}`);
+  process.exit(2);
+}
+// The usage line above has always shown `--min 2`, and until 2026-09-03 this file
+// read `--min=` only — so the documented form was the one that did nothing.
+const MIN_FAILURES = Number(options.min ?? '1');
 
 /**
  * Reference-quality manifests only. The 1.2.0 sweep is excluded on purpose: the

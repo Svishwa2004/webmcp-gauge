@@ -36,23 +36,23 @@ import {
   summarize,
   HARNESS_UA_SUFFIX,
   localDateStamp,
-  flagFormError,
 } from '../core/cohort.mjs';
+import { parseOptions } from '../core/args.mjs';
 
-const argv = process.argv.slice(2);
-const flag = (name, fallback) => {
-  const hit = argv.find((a) => a.startsWith(`--${name}=`));
-  return hit ? hit.split('=').slice(1).join('=') : fallback;
-};
-
-// `--delay 5000` and `--out artifacts/x` parse as nothing here and leave the
-// defaults in place silently. On a capture that cannot be repeated, a refused run
-// is cheap and a run against the wrong target or into the wrong directory is not.
-const formError = flagFormError(argv);
-if (formError) {
-  console.error(`cannot capture: ${formError}`);
+// Shared with `bin/` since 2026-09-03: both `--name=value` and `--name value`
+// work, and an unknown or valueless option is refused rather than leaving a
+// default silently in place. On a capture that cannot be repeated, a refused run
+// is cheap and a run into the wrong directory is not.
+const { options, error: optionsError } = parseOptions(process.argv.slice(2), {
+  values: ['targets', 'url', 'delay', 'settle', 'out'],
+  switches: ['headed'],
+  maxPositional: 0,
+});
+if (optionsError) {
+  console.error(`cannot capture: ${optionsError}`);
   process.exit(2);
 }
+const flag = (name, fallback) => options[name] ?? fallback;
 
 const targetsPath = flag('targets', null);
 const singleUrl = flag('url', null);
@@ -60,7 +60,7 @@ const delayMs = Number(flag('delay', '2000'));
 const settleMs = Number(flag('settle', '10000'));
 const today = localDateStamp();
 const outDir = resolve(flag('out', `artifacts/cohort-${today}`));
-const headless = !argv.includes('--headed');
+const headless = options.headed !== true;
 
 if (!targetsPath && !singleUrl) {
   console.error('usage: node probes/cohort-snapshot.mjs --targets=<file.json> | --url=<url>');

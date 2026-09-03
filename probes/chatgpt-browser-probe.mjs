@@ -21,12 +21,18 @@
  */
 import { openSession } from '../browser/session.mjs';
 import { captureManifest } from '../browser/webmcp.mjs';
+import { parseOptions } from '../core/args.mjs';
 
-const args = process.argv.slice(2);
-const urlFlag = args.find((a) => !a.startsWith('--'));
-const portFlag = args.find((a) => a.startsWith('--port='));
-const port = portFlag ? portFlag.split('=')[1] : process.env.CDP_PORT ?? '9333';
-const url = urlFlag ?? 'https://airlock-app.netlify.app';
+const { options, positional, error: optionsError } = parseOptions(process.argv.slice(2), {
+  values: ['port'],
+  maxPositional: 1,
+});
+if (optionsError) {
+  console.error(`cannot probe: ${optionsError}`);
+  process.exit(2);
+}
+const port = options.port ?? process.env.CDP_PORT ?? '9333';
+const url = positional[0] ?? 'https://airlock-app.netlify.app';
 
 const report = { attached: false, browser: null, webmcpDomain: null, page: null, conclusion: null };
 

@@ -23,17 +23,23 @@
 import { openSession } from '../browser/session.mjs';
 import { captureManifest, executeTool } from '../browser/webmcp.mjs';
 import { launchSession } from '../browser/launch.mjs';
+import { parseOptions } from '../core/args.mjs';
 
-const args = process.argv.slice(2);
-const flag = (name, fallback) => {
-  const hit = args.find((a) => a.startsWith(`--${name}=`));
-  return hit ? hit.split('=').slice(1).join('=') : fallback;
-};
-const url = args.find((a) => !a.startsWith('--')) ?? 'https://airlock-app.netlify.app';
+const { options, positional, error: optionsError } = parseOptions(process.argv.slice(2), {
+  values: ['tool', 'args', 'port'],
+  switches: ['launch'],
+  maxPositional: 1,
+});
+if (optionsError) {
+  console.error(`cannot probe: ${optionsError}`);
+  process.exit(2);
+}
+const flag = (name, fallback) => options[name] ?? fallback;
+const url = positional[0] ?? 'https://airlock-app.netlify.app';
 const toolName = flag('tool', 'sum_by_category');
 const toolArgs = JSON.parse(flag('args', '{"highlight":"Groceries"}'));
 
-const browser = args.includes('--launch')
+const browser = options.launch === true
   ? await launchSession({ profileDir: 'artifacts/invoke-paths-profile' })
   : null;
 const port = browser ? browser.port : flag('port', process.env.CDP_PORT ?? '9333');

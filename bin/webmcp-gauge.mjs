@@ -6,6 +6,7 @@ import { launchSession } from '../browser/launch.mjs';
 import { startFixtureServer } from '../browser/serve.mjs';
 import { openSession } from '../browser/session.mjs';
 import { captureManifest } from '../browser/webmcp.mjs';
+import { parseOptions } from '../core/args.mjs';
 import { EXIT, gateRun, parseFailUnder } from '../core/gate.mjs';
 import { lintManifest, lintToText } from '../core/lint.mjs';
 import { runSessions } from '../core/orchestrate.mjs';
@@ -29,7 +30,8 @@ Commands:
   session        run one session (used by run; each session gets its own process)
   lint           static checks on a page's tool manifest: no judge, no API key
 
-Shared options:
+Shared options (each accepts --name value or --name=value; an unknown option is an
+error, never a silently ignored default):
   --fixture <path>     utterance set (default fixtures/airlock.utterances.json)
   --url <url>          subject page (default the fixture's subject url). With
                        --serve, a path relative to the served directory
@@ -90,29 +92,24 @@ The judge must not be the model that authored the utterance set; the set records
 which one that was. See docs/getting-started.md and .env.example.`;
 
 /**
- * Walks argv once so a flag's value is never mistaken for a positional. Filtering
- * on "does not start with --" looks equivalent and is not: it swallowed the judge
- * model and the port as positionals, and the first one became the target url.
+ * Every option this CLI accepts, declared so the parser can refuse the rest.
+ *
+ * Before 2026-09-03 an unknown option was silently kept and `--fail-under=0.9`
+ * parsed as a *switch* named `fail-under=0.9`, so the threshold was never read and
+ * a CI job written that way was never gated. Both forms work now, and a typo is an
+ * error rather than a default. `session` is internal: `run` spawns `session` with
+ * it (see core/orchestrate.mjs).
  */
-const parseArgs = (argv) => {
-  const flags = {};
-  const positional = [];
-  for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index];
-    if (!token.startsWith('--')) {
-      positional.push(token);
-      continue;
-    }
-    const key = token.slice(2);
-    const next = argv[index + 1];
-    if (next !== undefined && !next.startsWith('--')) {
-      flags[key] = next;
-      index += 1;
-    } else {
-      flags[key] = true;
-    }
-  }
-  return { flags, positional };
+const CLI_OPTIONS = {
+  values: [
+    'fixture', 'url', 'serve', 'judge', 'base-url', 'port',
+    'manifest', 'variant', 'fail-on', 'min-description', 'max-properties', 'budget-warn',
+    'tool', 'utterance',
+    'sessions', 'repeats', 'concurrency', 'gap', 'tools', 'out', 'subject', 'fail-under', 'badge-label',
+    'session',
+  ],
+  switches: ['json', 'no-controls', 'headful', 'resume'],
+  maxPositional: 1,
 };
 
 /**
@@ -160,7 +157,8 @@ if (!['trial', 'run', 'session', 'lint'].includes(command)) {
   process.exit(EXIT.incomplete);
 }
 
-const { flags, positional } = parseArgs(process.argv.slice(3));
+const { options: flags, positional, error: optionsError } = parseOptions(process.argv.slice(3), CLI_OPTIONS);
+if (optionsError) fail(`${optionsError}. Run 'webmcp-gauge --help' for the full list.`);
 
 const needsJudge = command !== 'lint';
 const serveDir = typeof flags.serve === 'string' ? flags.serve : null;

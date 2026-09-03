@@ -27,12 +27,17 @@ import { writeFile, mkdir, appendFile } from 'node:fs/promises';
 
 import { openSession } from '../browser/session.mjs';
 import { captureManifest } from '../browser/webmcp.mjs';
+import { parseOptions } from '../core/args.mjs';
 
-const argv = process.argv.slice(2);
-const flag = (name, fallback) => {
-  const hit = argv.find((a) => a.startsWith(`--${name}=`));
-  return hit ? hit.split('=').slice(1).join('=') : fallback;
-};
+const { options, error: optionsError } = parseOptions(process.argv.slice(2), {
+  values: ['port', 'url', 'utterance', 'expect', 'deliver', 'wait', 'operator', 'out'],
+  maxPositional: 0,
+});
+if (optionsError) {
+  console.error(`cannot run a session: ${optionsError}`);
+  process.exit(2);
+}
+const flag = (name, fallback) => options[name] ?? fallback;
 
 const port = flag('port', '9333');
 const url = flag('url', 'https://airlock-app.netlify.app');

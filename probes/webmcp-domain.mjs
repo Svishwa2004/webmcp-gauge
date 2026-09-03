@@ -24,10 +24,18 @@ import { launchSession } from '../browser/launch.mjs';
 import { startFixtureServer } from '../browser/serve.mjs';
 import { openSession } from '../browser/session.mjs';
 import { captureManifest, watchBrowserTools } from '../browser/webmcp.mjs';
+import { parseOptions } from '../core/args.mjs';
 
-const argv = process.argv.slice(2);
-const portFlag = argv.find((arg) => arg.startsWith('--port='));
-const floods = (argv.find((arg) => !arg.startsWith('--')) ?? '0,64,180,300')
+const { options, positional, error: optionsError } = parseOptions(process.argv.slice(2), {
+  values: ['port'],
+  maxPositional: 1,
+});
+if (optionsError) {
+  console.error(`cannot probe: ${optionsError}`);
+  process.exit(2);
+}
+const portFlag = options.port ?? null;
+const floods = (positional[0] ?? '0,64,180,300')
   .split(',')
   .map((value) => Number.parseInt(value.trim(), 10))
   .filter((value) => Number.isInteger(value) && value >= 0);
@@ -45,7 +53,7 @@ const browser = portFlag
         signal: AbortSignal.timeout(15000),
       }).then((response) => response.json());
       return { port, build: version.Browser, close: async () => {} };
-    })(portFlag.split('=')[1])
+    })(portFlag)
   : await launchSession({ profileDir: 'artifacts/webmcp-domain-probe' });
 
 try {

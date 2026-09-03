@@ -15,22 +15,38 @@
  *      tools silently disabling WebMCP predicts a divergence somewhere, and a
  *      divergence is exactly what `not_discovered` is for.
  *
- * Usage: node probes/webmcp-domain.mjs [floodCounts]
+ * Usage: node probes/webmcp-domain.mjs [floodCounts] [--port=9333]
  *   node probes/webmcp-domain.mjs            # protocol dump + 0, 64, 180, 300
  *   node probes/webmcp-domain.mjs 0,500
+ *   node probes/webmcp-domain.mjs 0,500 --port=9333   # attach to a browser we cannot launch
  */
 import { launchSession } from '../browser/launch.mjs';
 import { startFixtureServer } from '../browser/serve.mjs';
 import { openSession } from '../browser/session.mjs';
 import { captureManifest, watchBrowserTools } from '../browser/webmcp.mjs';
 
-const floods = (process.argv[2] ?? '0,64,180,300')
+const argv = process.argv.slice(2);
+const portFlag = argv.find((arg) => arg.startsWith('--port='));
+const floods = (argv.find((arg) => !arg.startsWith('--')) ?? '0,64,180,300')
   .split(',')
   .map((value) => Number.parseInt(value.trim(), 10))
   .filter((value) => Number.isInteger(value) && value >= 0);
 
 const server = await startFixtureServer({ root: 'fixtures/broken' });
-const browser = await launchSession({ profileDir: 'artifacts/webmcp-domain-probe' });
+
+// --port attaches to a browser somebody else started. It is the only way to ask
+// this question of a client the harness cannot launch: the ChatGPT desktop app
+// needs its own entry point and its own switch
+// (`--enable-blink-features=WebMCPTesting`). The default stays "launch our own
+// cold Chrome", so every published number keeps the profile it was measured on.
+const browser = portFlag
+  ? await (async (port) => {
+      const version = await fetch(`http://127.0.0.1:${port}/json/version`, {
+        signal: AbortSignal.timeout(15000),
+      }).then((response) => response.json());
+      return { port, build: version.Browser, close: async () => {} };
+    })(portFlag.split('=')[1])
+  : await launchSession({ profileDir: 'artifacts/webmcp-domain-probe' });
 
 try {
   const protocol = await fetch(`http://127.0.0.1:${browser.port}/json/protocol`, {

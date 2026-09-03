@@ -45,7 +45,13 @@ console.log(`attached: ${version.Browser}`);
 
 try {
   const protocol = await (await fetch(`http://127.0.0.1:${port}/json/protocol`)).json();
-  report.webmcpDomain = protocol.domains?.some((d) => d.name === 'WebMCP') ?? null;
+  // Entries in /json/protocol are keyed `domain`, never `name`. This read tested
+  // `d.name` until 2026-09-03, which is structurally always false, and it cost a
+  // published finding: "the fork implements WebMCP but does not advertise it" was
+  // our own bug, not a fork behaviour. The count travels with the answer now, so
+  // a false reads as a claim about a list of known length.
+  report.protocolDomains = protocol.domains?.length ?? null;
+  report.webmcpDomain = protocol.domains?.some((d) => d.domain === 'WebMCP') ?? null;
 } catch {
   report.webmcpDomain = null;
 }

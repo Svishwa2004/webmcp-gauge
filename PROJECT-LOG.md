@@ -49,7 +49,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Dependencies | ✅ `chrome-remote-interface@0.33.3` exact-pinned, lockfile committed-pending; `npm audit` → 0 vulnerabilities, 4 packages |
 | Utterance set | ✅ **FROZEN at `1.3.0` on 2026-08-30, and stays frozen** — `fixtures\airlock.utterances.json`: 7 × 20 at a 7/7/6 tag mix plus 20 negative controls, 24 passing validation tests, reviewed line by line by Sahan Vishwa, and `revisions` records the `1.2.0` → `1.3.0` bump with the superseded wording and its reason. A `notes` entry records the 2026-09-01 maintainer decision to **keep `sum_by_category-12` as written** with its measured cost. Authoring model `deepseek v4 by agentrouter` (operator-attested), **disqualified as a judge** |
 | Git | ✅ Repo at `webmcp-gauge\` on `main`, tracking `origin/main`, pushed after every step. The head commit is not repeated here — it went stale twice in one evening; `git log -1` is authoritative, and each entry below names the commit it produced |
-| Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry). Flip to public at the report launch, ~Sep 23 |
+| Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry), and **checkable in one command since 2026-09-03**: `node probes/remote-visibility.mjs` runs both signals and exits 0 private / 1 public / 2 cannot-answer, with the classification rules in `core\visibility.mjs` under 19 tests. Flip to public at the report launch, ~Sep 23 |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
 **Immediate next action:** ⏳ **item 12 — run the capture when the gallery opens** (verified still unpublished at **03:28 UTC / 08:58 local on 2026-09-03**, ~16 h before the 2026-09-04 01:30 IST deadline, so the gallery opens on the 4th). It is a timing job: both halves are built, tested and rehearsed, and the harvester's pre-flight ran clean this morning — headed Chrome, fresh profile, no `SingletonLock`, robots.txt permitting `/project-gallery`, and the unpublished guard exiting 2 rather than writing an empty list. With **items 16 and 19 closed on 2026-09-03**, nothing left on the list is both unblocked and ungated: 14 and 17 wait on the capture, and 13's delivery and 18 are 🚦.
@@ -1926,3 +1926,51 @@ Corrections landed in every place the claim was published, and the matrix carrie
 - ⚠️ **Brave and Edge remain unmeasured**, and they are the two clients #268 actually names. Everything measured so far is Chromium 152 in three coats of paint, which is a real bound on the matrix: it currently answers "why does my tool behave differently in ChatGPT's browser?" and not "why does it work in Brave but not Chrome?"
 - ⚠️ Whether `toolInvoked` fires when a **real agent** invokes is still unobserved, on all three builds.
 - ⚠️ The invalid-name, dotted-name and delegated-embed rows are still Chrome-only: the fork was served the twin's *clean* variant and never the `spec-227` fixtures.
+
+---
+
+## 2026-09-03 (evening) — The pre-push visibility check gets the same treatment, and its own verification failed the same way twice more
+
+Asked to fix the visibility check the way the CDP-domain read was fixed. It is the same defect, so it gets the same shape: rules in `core/`, under test; I/O in `probes/`; three outcomes, never two.
+
+### What was wrong
+
+Before pushing this morning's commits the remote's privacy was checked with an inline one-liner whose `catch` block printed `404 = private` for **any** thrown error. DNS happened to be failing at that moment, so a request that never received an HTTP status at all was reported as a private repository. The push was held only because the second signal — `git ls-remote` — named the real cause (`Could not resolve host: github.com`). A one-signal version of that check would have waved a push through on no evidence whatever, during the exact window the private-during-judging policy exists to cover.
+
+### What replaced it
+
+`core/visibility.mjs` (19 tests) + `probes/remote-visibility.mjs`.
+
+- **Three verdicts, because `indeterminate` has to be one of them.** The only failure this gate must never produce is a confident *private* it did not measure.
+- **Exit codes borrowed from `gate.mjs`, for the same reason:** `0` every signal answered and all say private, `1` a signal definitively says public — a real answer that breaks the policy — `2` cannot answer.
+- **Two signals, chosen because their failure modes differ:** an unauthenticated GitHub API read (`200` public, `404` not visible anonymously, `401/403/429` explicitly *not* a visibility answer), and an anonymous `ls-remote` with the credential helper disabled and prompts off.
+- **A `private` pass needs at least two agreeing signals.** One signal cannot audit itself, which is now the third time today that sentence has earned its place.
+- **The slug is read off the configured remote**, not hardcoded, because a constant `owner/repo` is how a check quietly starts testing a different repository than the one being pushed. A non-GitHub remote makes that signal *not applicable* rather than a pass.
+- **Order matters in the `ls-remote` classifier.** Git reports DNS failure as `fatal: unable to access '…': Could not resolve host` and an HTTP error as `unable to access '…': The requested URL returned error: 403`; the shared prefix decides nothing, so transport patterns are tested before any conclusion, and only a message that actually demands credentials counts as private. Exit 0 with no refs is indeterminate too — an empty *public* repo answers exactly that way.
+
+### Verified against all three of its own exits, live
+
+Unit tests are not enough for a gate whose job is to refuse, so each exit was produced on purpose:
+
+- `node probes/remote-visibility.mjs` → **0**, both signals private (`HTTP 404`; `could not read Username … terminal prompts disabled`).
+- `--url=https://github.com/webmachinelearning/webmcp` → **1**, both signals public. `--url=` exists for exactly this, and is documented as such.
+- `--timeout=1` → **2**, both signals reporting transport failure and the output saying *an unmeasured check is not a pass*.
+
+### And the verification itself was wrong twice, in the same way
+
+Both worth recording, because they are the same bug class as the thing being fixed:
+
+1. **`echo exit=%ERRORLEVEL%` chained after the command prints the value from *before* the run** — cmd expands it at parse time. My first two "verifications" of the exit code were reading a stale 0, which is to say they were not verifications. Running the probe as the only command in the call, and reading the shell's own reported exit status, is what actually answered it.
+2. **A killed child process reported as `exit 0`.** `execFile`'s `timeout` kills the child and leaves `error.code` undefined, so `error?.code ?? 0` turned a timeout into a successful empty answer — and the first `--timeout=1` run duly announced "no URL for remote 'origin' (exit 0)". Fixed: a killed call is reported as killed, with the timeout in the message, and the network timeout no longer applies to the local `git remote get-url`, which is a config read.
+
+Also removed: `GIT_ASKPASS=echo`, tried and rejected. It turned a clean *cannot read Username* into an empty-credential authentication attempt against GitHub's servers — a worse signal and worse manners.
+
+**194 tests pass.**
+
+### The rule this session produced, stated once
+
+Three different checks failed the same way in one day: a protocol read keyed on a field that does not exist, a privacy check whose catch block asserted the answer it was hoping for, and an exit-code check that read a variable expanded before the command ran. **A check whose failure path cannot distinguish *no answer* from *the answer I expected* is not a check.** It is in `docs/getting-started.md`'s troubleshooting table now, next to the CDP-domain row, because that is where someone will meet it again.
+
+### Still open
+- ⏳ Item 12 tomorrow, unchanged.
+- ⚠️ The gate is not wired into anything — it is a probe, run by hand before a push, and nothing enforces that habit. Making it a pre-push hook was considered and left alone: this project does not install hooks in someone's repo without asking, and a hook that fails on a flaky network would teach `--no-verify`, which is worse than the habit it replaces.

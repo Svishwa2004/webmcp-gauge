@@ -12,7 +12,13 @@ WebMCP lets a page hand an agent a list of tools. Whether the agent then *calls 
 
 **Manifest**, throughout: the live set of tools a page has registered, with the name, description, and JSON-Schema-shaped `inputSchema` of each, as a client reads them back. Not a file — a runtime object.
 
-**webmcp-gauge** is the instrument for that question. So far it has produced **4,200 measured trials across 13 published runs**, on two browser builds (4,040 on Chrome `152.0.7977.65`, 160 on Edge `153.0.4234.13`) and two pages — a live 7-tool reference app, and a local fixture twin built to be measurably worse. Separately, **22 API behaviours** are measured across four builds.
+**webmcp-gauge** is the instrument for that question. So far it has produced **4,200 measured trials across 13 published runs**, on two browser builds (4,040 on Chrome `152.0.7977.65`, 160 on Edge `153.0.4234.13`) and two pages — a live 7-tool reference app, and a local fixture twin built to be measurably worse. Separately, **22 API behaviours** are measured across four builds. Three runs are analysed below; **all thirteen are indexed, with their trial counts and what supersedes what, in [`reports/README.md`](README.md)**, and each has a machine record beside its write-up. Run files are named `<page>-<utterance set>-<judge>-<shape>`, where `s3r2` means three sessions of two repeats — so `airlock-1.3.0-glm-5.3-s3r2` is the reference app, frozen set `1.3.0`, judge `glm-5.3`, three sessions × two repeats.
+
+**Is WebMCP worth your attention yet?** Honestly: it is early, and this report is about method rather than momentum. As of this measurement the API is behind a flag or an origin trial in Chromium — no ship milestone — Edge's trial has an expiry, WebKit's published standards position is opposition and Mozilla's is neutral, and an independent scan of 111,076 of the top 200,000 sites in mid-2026 found **zero** implementations. The reason to measure now is that the failure mode this report is about — a page whose tools are never called, silently — is the one thing that does not get cheaper to discover later.
+
+### What follows
+
+The instrument first (is it sound, does it discriminate), then the findings (defects compound, tokens, drift, the instrument's own floor), then what the browser does that changes how you write a page, then the limit, the linter, and the census that has not run.
 
 ## What is being measured
 
@@ -51,7 +57,7 @@ A well-described page sits at the ceiling and stays there across processes. That
 
 ## It discriminates, and the effect is not subtle
 
-One page, one dataset, one implementation, **two manifests**. The clean arm carries the reference page's own descriptions minus their privacy sentences — close correspondence rather than identity, and the sentence to keep in mind before reading the clean arm as a copy of the live page. The degraded arm injects defects that were registered, with their predictions, *before any of these sweeps ran*. Six arms, 3 sessions each, **1,320 trials**: [`ablation-2026-08-31.md`](ablation-2026-08-31.md).
+One page, one dataset, one implementation, **two manifests**. The clean arm carries the reference page's own descriptions minus their privacy sentences — close correspondence rather than identity, and the sentence to keep in mind before reading the clean arm as a copy of the live page. The degraded arm injects defects that were registered, with their predictions, *before any of these sweeps ran* — a pre-registration claim, and the kind that is worth only as much as its timestamp: the defect register and every prediction are committed files, so the ordering is checkable in this repository's history rather than on trust, once the repository is public. Six arms, 3 sessions each, **1,320 trials**: [`ablation-2026-08-31.md`](ablation-2026-08-31.md).
 
 | Arm | Overall | `sum_by_category` | `top_expenses` |
 |---|---|---|---|
@@ -78,7 +84,7 @@ The parts sum to −8.3. Together they cost **four times that**. A vague descrip
 
 **The caveat that belongs in the same breath: "both together" is not a dedicated two-defect arm — it is the degraded manifest.** `sum_by_category` carries exactly those two defects there and no third, but its *neighbours* are degraded too, and the magnet finding two paragraphs down shows neighbours are not inert. So −35.0 is the cost of two defects **in a manifest that is also bad elsewhere**. The arm that would separate interaction from neighbourhood — two defects on this tool, a clean page around it — was not run, and it is the obvious next measurement.
 
-**For anyone triaging a manifest, the practical result stands either way: you cannot fix findings one at a time and add up the savings.** And the two findings in question are not both alarms — by this project's own linter, `description/near-duplicate` is a *warning* while `description/duplicate` is an *error*. A warning and an error, each costing 3–5 points alone, cost 35 together.
+**For anyone triaging a manifest, the practical result stands either way: you cannot fix findings one at a time and add up the savings.** Bounds on that, stated rather than left for a reader to notice: one tool pair, one page, one judge, three sessions. It is a demonstration that the additive assumption *can* fail badly, not a measured law about how often it does. And the two findings in question are not both alarms — by this project's own linter, `description/near-duplicate` is a *warning* while `description/duplicate` is an *error*. A warning and an error, each costing 3–5 points alone, cost 35 together.
 
 `top_expenses` shows the same shape from the other side. An over-parameterised schema — 9 properties, 3 required and undocumented — costs −51.7 points alone (100.0% → 48.3%) and −73.3 inside the degraded manifest. What changes is *where* the failures go. Schema alone, of 31 failures: **26 `exec_error`**, 3 `not_selected`, 2 `wrong_tool` — the model reaches for the right tool and cannot fill the form. In the degraded manifest, of 44: **23 `wrong_tool`**, 18 `exec_error`, 3 `not_selected` — the same tool, the same defect, and now the model mostly goes somewhere else instead. One defect, three buckets, and the mix is set by its neighbours.
 
@@ -124,7 +130,7 @@ Every figure above came from sessions minutes apart, which measures process and 
 
 ## What the browser actually does with a manifest
 
-Twenty-two measured behaviours across four builds — Chrome `152.0.7977.65`, the ChatGPT desktop app's own Chromium at `151.0.7922.174` and then at `152.0.7977.64` (the app updated mid-project with nothing announcing it, so both are kept as separate columns), and Edge `153.0.4234.13`. Each cell is dated and traceable to a re-runnable probe: [`compatibility-matrix.md`](compatibility-matrix.md). All four are Blink builds; nothing here says anything about a non-Chromium engine, and WebKit's published standards position on the feature was opposition (2026-06-11).
+Twenty-two measured behaviours across four builds — Chrome `152.0.7977.65`, the ChatGPT desktop app's own Chromium at `151.0.7922.174` and then at `152.0.7977.64` (the app updated mid-project with nothing announcing it, so both are kept as separate columns; and yes, `…64` against Chrome's `…65` is one build apart rather than a typo), and Edge `153.0.4234.13`. Each cell is dated and traceable to a re-runnable probe: [`compatibility-matrix.md`](compatibility-matrix.md). All four are Blink builds; nothing here says anything about a non-Chromium engine, and WebKit's published standards position on the feature was opposition (2026-06-11).
 
 The ones that change how a page should be written:
 
@@ -186,7 +192,7 @@ node probes/site-scope.mjs                        # the cross-site rows: the uni
 
 One thing `run` does **not** do: work on an arbitrary page out of the box. A rate needs an utterance set naming that page's tools and what a correct call to each looks like, and the set shipped here describes the reference app only. Pointing `run` at your own page means writing your own set — which is the real cost of the method, and the reason `lint` exists as a one-command starting point.
 
-The utterance set, the fixture page, every injected defect and the prediction it was written to test are all committed. **210 tests** cover the rules that decide published numbers — the taxonomy, the intervals, the exit codes, the capture and publication filters — on the principle that anything load-bearing for a number gets tests and anything exploratory stays a probe.
+The utterance set, the fixture page, every injected defect and the prediction it was written to test are all committed. **212 tests** cover the rules that decide published numbers — the taxonomy, the intervals, the exit codes, the capture and publication filters — on the principle that anything load-bearing for a number gets tests and anything exploratory stays a probe. Two of them check this folder itself: every run write-up has to have its machine record beside it, and every machine record has to stamp its judge and its utterance-set version.
 
 ## Licence and data
 

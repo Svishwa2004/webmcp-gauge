@@ -2,7 +2,7 @@
 
 Every file here is a measurement that was actually taken, with the code that took it in the same commit. Nothing is edited after the fact: a superseded number stays published, with a pointer to what superseded it.
 
-Each run is `<subject>-<utterance set>-<judge>-<shape>`, where shape is `sNrM` for N sessions × M repeats (`r3` alone is the pre-isolation form, all repeats in one browser). `.md` is for reading, `.json` is the machine record — same numbers, plus the per-tool outcome counts, the coverage diff and the gate verdict.
+Each run is `<subject>-<utterance set>-<judge>-<shape>`, where shape is `sNrM` for N sessions × M repeats (`r3` alone is the pre-isolation form, all repeats in one browser). `.md` is for reading, `.json` is the machine record — same numbers, plus the per-tool outcome counts, the coverage diff and the gate verdict. **That pairing is a test since 2026-09-05** (`report/published-runs.test.mjs`), because it was a rule in this file for a week and the Edge run broke it unnoticed: a README sentence is not a check.
 
 ## Write-ups — start here
 
@@ -10,7 +10,7 @@ Each run is `<subject>-<utterance set>-<judge>-<shape>`, where shape is `sNrM` f
 |---|---|
 | [`public-report-draft.md`](public-report-draft.md) | 🟡 **DRAFT, unpublished** — the whole story in one place: what invocation rate is and its four coordinates, that it discriminates, that defects compound, the drift caveat, the instrument's own floor, the nine browser behaviours that change how a page should be written, and the agent gate stated as unanswered. Every section is final except the cohort census, a marked placeholder whose rules are fixed in advance. **Reviewed 2026-09-05** — read cold by a reviewer given nothing but the file, and fact-checked line by line against the machine records in this folder; every number and claim that did not survive is corrected, and the ones that trace back to this folder's own write-ups are recorded in [`ablation-2026-08-31.md`](ablation-2026-08-31.md)'s Corrections section. Publication is gated on the repo going public (PROJECT-LOG item 18). |
 | [`compatibility-matrix.md`](compatibility-matrix.md) | Same page, same code — why does it behave differently in another client? 22 measured behaviours across four builds, each cell dated and traced to its probe, with a Corrections section for the one finding that turned out to be ours. Undated filename on purpose: it accretes columns, so the date lives in the cell. |
-| [`airlock-1.3.0-glm-5.3-edge-s1r1.md`](airlock-1.3.0-glm-5.3-edge-s1r1.md) | Does the rate survive a second client? Yes — Edge 153, single session, 99% (139/140) with every tool inside or above its Chrome interval. A point measurement, not a variance one, and both clients are Chromium. |
+| [`airlock-1.3.0-glm-5.3-edge-s1r1.md`](airlock-1.3.0-glm-5.3-edge-s1r1.md) | Does the rate survive a second client? Yes — Edge 153, single session, 99.3% (139/140) with every tool inside or above its Chrome interval. A point measurement, not a variance one, and both clients are Chromium. Its machine record was **missing until 2026-09-05** — the only published run without one, against this folder's own rule; `airlock-1.3.0-glm-5.3-edge-s1r1.json` is now beside it. |
 | [`discrimination-2026-08-30.md`](discrimination-2026-08-30.md) | Does invocation rate tell a well-described page from a badly described one? Yes. |
 | [`ablation-2026-08-31.md`](ablation-2026-08-31.md) | *Which* defect did it? None alone — they compound. Also scores the predictions that were wrong. |
 | [`spacing-2026-09-01.md`](spacing-2026-09-01.md) | Do hours-between-sessions change the answer? σ doesn't care (0.085 vs 0.062 worst-case) — but both mid-range tools declined monotonically across 26 h, the shape drift looks like. |
@@ -36,7 +36,7 @@ Each run is `<subject>-<utterance set>-<judge>-<shape>`, where shape is `sNrM` f
 | `twin-ablate-thin-…-s3r1` | 120 | One defect: descriptions carrying no information |
 | `twin-ablate-schema-…-s3r1` | 60 | One defect: an over-parameterised schema |
 | `twin-degraded-1.3.0-glm-5.3-s3r1-spaced` | 480 | Same arm as `twin-degraded-…-s3r1` with sessions 17.2 h and 9.2 h apart across a day boundary |
-| `airlock-1.3.0-glm-5.3-edge-s1r1` | 160 | **Second client** — Edge `153.0.4234.13`, single session: 99% (139/140), every tool inside or above its Chrome interval. A point measurement, not a variance one |
+| `airlock-1.3.0-glm-5.3-edge-s1r1` | 160 | **Second client** — Edge `153.0.4234.13`, single session: 99.3% (139/140), every tool inside or above its Chrome interval. A point measurement, not a variance one. Machine record published 2026-09-05, two days after the write-up |
 
 4,200 trials across 13 runs. The raw per-trial JSONL stays local in `artifacts/` — see next step 4.
 

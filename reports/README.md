@@ -12,7 +12,8 @@ Each run is `<subject>-<utterance set>-<judge>-<shape>`, where shape is `sNrM` f
 | [`compatibility-matrix.md`](compatibility-matrix.md) | Same page, same code — why does it behave differently in another client? 22 measured behaviours across four builds, each cell dated and traced to its probe, with a Corrections section for the one finding that turned out to be ours. Undated filename on purpose: it accretes columns, so the date lives in the cell. |
 | [`airlock-1.3.0-glm-5.3-edge-s1r1.md`](airlock-1.3.0-glm-5.3-edge-s1r1.md) | Does the rate survive a second client? Yes — Edge 153, single session, 99.3% (139/140) with every tool inside or above its Chrome interval. A point measurement, not a variance one, and both clients are Chromium. Its machine record was **missing until 2026-09-05** — the only published run without one, against this folder's own rule; `airlock-1.3.0-glm-5.3-edge-s1r1.json` is now beside it. |
 | [`discrimination-2026-08-30.md`](discrimination-2026-08-30.md) | Does invocation rate tell a well-described page from a badly described one? Yes. |
-| [`ablation-2026-08-31.md`](ablation-2026-08-31.md) | *Which* defect did it? None alone — they compound. Also scores the predictions that were wrong. |
+| [`ablation-2026-08-31.md`](ablation-2026-08-31.md) | *Which* defect did it? None alone — they compound. Also scores the predictions that were wrong, and carries a **Corrections** section added 2026-09-05 for six readings of its own numbers that did not survive an audit. |
+| [`pair-2026-09-05.md`](pair-2026-09-05.md) | Does the compounding result need a degraded page around it? **No.** Two defects on one tool, reference-quality neighbours: `sum_by_category` 48.3% [36.2, 60.7], −46.7 against clean — more than the whole degraded manifest cost it. Also scores its own prediction, two of whose six sub-claims were wrong, and records what composing the arm destroyed: the published table's parts were never subsets of its whole. |
 | [`spacing-2026-09-01.md`](spacing-2026-09-01.md) | Do hours-between-sessions change the answer? σ doesn't care (0.085 vs 0.062 worst-case) — but both mid-range tools declined monotonically across 26 h, the shape drift looks like. |
 
 ## The reference page (Airlock, live)
@@ -37,8 +38,9 @@ Each run is `<subject>-<utterance set>-<judge>-<shape>`, where shape is `sNrM` f
 | `twin-ablate-schema-…-s3r1` | 60 | One defect: an over-parameterised schema |
 | `twin-degraded-1.3.0-glm-5.3-s3r1-spaced` | 480 | Same arm as `twin-degraded-…-s3r1` with sessions 17.2 h and 9.2 h apart across a day boundary |
 | `airlock-1.3.0-glm-5.3-edge-s1r1` | 160 | **Second client** — Edge `153.0.4234.13`, single session: 99.3% (139/140), every tool inside or above its Chrome interval. A point measurement, not a variance one. Machine record published 2026-09-05, two days after the write-up |
+| `twin-ablate-pair-1.3.0-glm-5.3-s3r1` | 120 | **The interaction arm, 2026-09-05** — the degraded manifest's own `sum_by_category`, `filter_rows` and `summarise_by_category` entries on an otherwise clean page, so the neighbourhood is the only difference from `twin-degraded-…-s3r1`. `sum_by_category` **48.3%** [36.2, 60.7] against clean's 95.0% and degraded's 60.0%; `filter_rows` 98.3%, matching its degraded-arm rate exactly. Declared in the fixture as a strict subset of `degraded`, with a test enforcing it. Write-up: [`pair-2026-09-05.md`](pair-2026-09-05.md) |
 
-4,200 trials across 13 runs. The raw per-trial JSONL stays local in `artifacts/` — see next step 4.
+4,320 trials across 14 runs. The raw per-trial JSONL stays local in `artifacts/` — see next step 4.
 
 ## Next steps that land here
 

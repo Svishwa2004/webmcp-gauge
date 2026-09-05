@@ -89,6 +89,8 @@ Ids, not priorities — the **Immediate next action** line above says what is ac
 
 | ~~22~~ | ~~**Decide what the linter does about a harm it cannot see**~~ | ✅ **Decided 2026-09-05 by the maintainer: adopt (b).** `description/indistinguishable-pair` is the **fourteenth rule** in `core\lint.mjs` — fires when two tool names are lexically close **and** neither description says what its own tool is for, which is the measured mechanism rather than a property of the text. ❌ (a) was closed on evidence by the ladder: no similarity threshold separates the harmful case from the harmless one over 1.000 → 0.130. ✅ (b) was measured **before** it shipped, as this row's done-condition required — `probes\name-proxy-rule.mjs` fires it on all five collapsed rungs, keeps it silent on all four manifests that cost nothing, and **the live reference page still lints 0/0**, the calibration invariant the whole linter rests on. Shipped as a **warning**, not an error: 13 manifests all written here is not a false-positive rate, and this project demoted `budget/headroom` for exactly that reason. Five tests pin the rule and the four silences; the fixture's declared families caught up at `1.6.0` with no variant changed; the degraded twin moves 6E/13W → **6E/15W** live | ⚠️ Two things left open on purpose. **Promotion to error** waits on a false-positive rate from manifests this project did not write — the cohort capture (item 12) is that corpus. And the rule is a **proxy**: the variable that actually tracked the harm is description-versus-**request** relevance, which no static linter can see, so this catches the shape of the failure and not its cause. `probes\name-proxy-rule.mjs` exits 1 if the rule ever stops reproducing the arms |
 
+| 23 | **The cohort capture undercounts a cross-site delegating page, and this was found before the capture ran.** `probes\browser-scope.mjs` (2026-09-05) established that a cross-site embed's registration reaches a client only if it arms `Target.setAutoAttach` **recursively**, session by session, down to the OOPIF. `probes\cohort-snapshot.mjs` does not: it calls `watchBrowserTools(session)` on a single page session, which is exactly the host-attached view that saw 3 tools where the browser-level view saw 4. So for any cohort page that delegates tools to a **different-site** embed, `agentVisibleToolCount` would be an **undercount** — in precisely the case the report cites as the reason for publishing that number beside the page-registered one | Either arm recursive auto-attach in `core\cohort.mjs`'s browser view and re-rehearse the capture against the `spec-227` cross-site fixture, or record the limitation in the census write-up so the number is read correctly. **Sixteen days before the capture is the time to change a rehearsed script; the day before is not**, which is why this is a row rather than an edit already made. Rehearsal evidence has to include a delegating page, because a fix nobody exercised on the shape that breaks it is not a fix |
+
 Deliberately deferred, and recorded so they are choices rather than oversights: privacy-mode payload differences get no utterance; multi-call sequences (discover then filter) are outside the one-utterance-one-trial protocol; control classes are too small for a safety claim (injection is 0 of 12, `[0.0%, 24.2%]`); the CI gate thresholds invocation rate only, because a control false-positive ceiling is a separate flag and a separate decision and letting `--fail-under` imply safety coverage would be worse than leaving it out; and `cdp-eval.mjs` still exits `-1073740791` on Windows after printing valid JSON, which is tolerable for probing and not for a gate.
 
 **Where the next steps live, besides this table.** Each working folder carries its own `README.md` with the pending work that belongs to it, because someone opening `reports\` should not have to read a 1,000-line log to find out what is missing: [`reports\README.md`](reports/README.md) (the run index, what supersedes what, and the dataset-licence decision), [`fixtures\README.md`](fixtures/README.md) (freeze discipline, the twin's variants, and the `sum_by_category-12` decision with its three options costed), [`probes\README.md`](probes/README.md) (what each probe measured, and which two are commands-in-waiting), [`scripts\README.md`](scripts/README.md) (the scheduled run as it actually happened, the battery/catch-up traps, and the reconcile guard). This table stays the ordered record; those files are the local view of it.
@@ -2649,6 +2651,35 @@ The maintainer read the measurement and chose (b). `description/indistinguishabl
 **Fixture at `1.6.0`, and no variant changed** — every manifest is byte-identical to `1.5.0`, so every published rate stays comparable. What changed is the declared `families` list on the five interaction arms, because `compose.test.mjs` asserts an arm declares exactly the rules it fires and a new rule made those declarations incomplete. The test failing for the right reason is how the edit was found.
 
 **221 tests pass.** First change to `core\` today, and the only one.
+
+---
+
+## 2026-09-05 (19:20 local) — A browser-level client does see the union, and the first run said the opposite
+
+I had told the maintainer the table held nothing that was neither date-locked nor gated. **That was too strong** — the matrix's own not-measured list carried unblocked, ungated questions, and one of them needed no judge tokens at all: *would a browser-level CDP session accumulate a cross-site child's registrations where a host-attached session cannot?* `probes\browser-scope.mjs`.
+
+**Answer: yes, and the row is closed.**
+
+| View | Tools seen |
+|---|---|
+| the host page's `getTools()` | 3 — `host_alpha`, `host_beta`, `host_gamma` |
+| a session attached to the **host target** | 3 — same three |
+| a client attached to the **browser endpoint** | **4 — including the cross-site embed's `widget_ping`**, across 2 target sessions |
+
+So *"no page can enumerate what an agent can call on it"* stands, and *"no client can"* was never true — the capability lives at the browser endpoint. Both views were measured in **one run against one navigation**, so the contrast cannot be two page loads.
+
+**The first run returned the opposite answer, and that is the more useful half of this entry.** It armed `Target.setAutoAttach` on the browser session only, attached 6 targets — `browser_ui`, `background_page`, `page`, `service_worker` — with **no `iframe` among them**, saw 3 tools, and printed a confident *"the prediction is FALSIFIED, delegated tools can exist that nothing but the owning target can enumerate"*. That would have gone to the spec thread as a stronger claim than the truth. **Browser-level auto-attach alone does not reach an out-of-process iframe:** every session has to arm auto-attach again as it attaches, and only then does the OOPIF's session appear. With that fixed, 7 targets attach, one of them `iframe`, and the fourth tool arrives.
+
+Two guards added so the near-miss cannot repeat: the probe prints the **OOPIF session count** beside the verdict, and it exits **2 — cannot answer** rather than 1 when no `iframe` session ever attached, because "auto-attach reached nothing" and "the browser cannot see it" are different findings and only one of them is about WebMCP.
+
+### And it found a defect in the capture, sixteen days before the capture runs
+
+`probes\cohort-snapshot.mjs` reads its browser view with `watchBrowserTools(session)` on a **single page session** — exactly the host-attached view that saw 3 where the browser saw 4. So for any cohort page that delegates tools to a **different-site** embed, `agentVisibleToolCount` would be an **undercount**, in precisely the case the report gives as the reason for publishing that number beside the page-registered one.
+
+That is **new item 23**, not an edit made tonight. Changing a rehearsed capture script is right sixteen days out and wrong the day before, and the fix needs rehearsal evidence against a delegating page — a fix nobody exercised on the shape that breaks it is not a fix.
+
+**221 tests pass**; the probe adds no tests because nothing here decides a published number yet. Matrix row struck with the result, `probes\README.md` carries the near-miss.
+
 
 
 

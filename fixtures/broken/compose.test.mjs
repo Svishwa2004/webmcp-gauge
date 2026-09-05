@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lintManifest } from '../../core/lint.mjs';
+import { lintManifest, similarity, DEFAULT_OPTIONS } from '../../core/lint.mjs';
 import { composeVariant, diffVariant, variantNames } from './compose.mjs';
 
 const toolsFile = JSON.parse(await readFile(new URL('./tools.json', import.meta.url), 'utf8'));
@@ -58,8 +58,47 @@ test('the fixture declares the four ablation families the first sweep confounded
     assert.equal(toolsFile.ablations[name].subsetOf, 'degraded');
   }
   // And an arm that exists to be read against another *arm* names it too.
-  assert.deepEqual(ablationNames.filter(isContrastArm).sort(), ['ablate-pair-paraphrased']);
+  assert.deepEqual(ablationNames.filter(isContrastArm).sort(), [
+    'ablate-pair-paraphrased',
+    'ablate-pair-sim004',
+    'ablate-pair-sim013',
+    'ablate-pair-sim086',
+  ]);
   assert.deepEqual(variantNames(toolsFile).sort(), ['clean', 'degraded', ...ablationNames].sort());
+});
+
+test('every ladder rung declares the similarity it was measured at', () => {
+  // The ladder's whole argument is the shape of rate against similarity, so the
+  // similarity column is as load-bearing as the rates and gets the same treatment:
+  // recomputed from the text with the linter's own measure, not trusted.
+  const rungs = ablationNames.filter((name) => toolsFile.ablations[name].ladder);
+  assert.ok(rungs.length >= 3, `expected the ladder's rungs, found ${rungs.length}`);
+
+  for (const name of rungs) {
+    const ablation = toolsFile.ablations[name];
+    const parent = toolsFile.ablations[ablation.variantOf];
+    const [field] = ablation.differsBy;
+    const [toolName] = field.split('.');
+
+    const mine = ablation.tools.find((tool) => tool.name === toolName).description;
+    const theirs = parent.tools.find((tool) => tool.name === toolName).description;
+    // Each rung's competitor is compared against the tool it competes with, which
+    // is what the published table's similarity column means.
+    const rival = ablation.tools.find((tool) => tool.name === 'sum_by_category').description;
+
+    assert.notEqual(mine, theirs, `${name} does not change ${field}`);
+    assert.equal(
+      Number(similarity(rival, mine).toFixed(3)),
+      ablation.ladder.similarity,
+      `${name} declares similarity ${ablation.ladder.similarity} but measures ${similarity(rival, mine).toFixed(3)}`
+    );
+    // A rung that drifts under the thin-description bar would confound the ladder
+    // with a second defect.
+    assert.ok(
+      mine.length >= DEFAULT_OPTIONS.minDescriptionChars,
+      `${name}'s description is short enough to trip description/thin`
+    );
+  }
 });
 
 test('a contrast arm differs from its parent in precisely the fields it declares', () => {

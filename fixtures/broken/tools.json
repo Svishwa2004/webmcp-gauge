@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "frozen": true,
   "frozenOn": "2026-08-30",
   "purpose": "Tool metadata for the degraded twin of the reference page. Several variants over one identical implementation and one identical dataset, so the only difference between them is what the manifest says about the tools. That is what makes a rate difference attributable to description and schema quality rather than to the app.",
@@ -15,11 +15,19 @@
       "date": "2026-08-30",
       "change": "Added four ablation variants, each the clean manifest plus exactly one defect family: ablate-near-duplicate, ablate-duplicate-tool, ablate-thin, ablate-schema. The 'clean' and 'degraded' variants are byte-identical to 1.0.0, so the 1.0.0 numbers remain comparable.",
       "reason": "The first sweep bundled two defects on sum_by_category - a near-duplicate description and an identically-described competitor tool - and the competitor absorbed 10 of its 20 trials, so the near-duplicate's own contribution was unmeasured. The ablations exist to separate them, and to test the two predictions the first run falsified: that a near-duplicate description alone hurts, and that a one-word description alone hurts."
+    },
+    {
+      "version": "1.2.0",
+      "date": "2026-09-05",
+      "change": "Added one interaction variant, ablate-pair: the degraded manifest's own entries for sum_by_category, filter_rows and summarise_by_category lifted onto the clean page, and nothing else. It is the first variant that is not one defect family, and the first that is declared as a strict subset of another variant ('subsetOf'), with a test asserting byte-identity against it and that it cannot lint worse than it. Every earlier variant is byte-identical to 1.1.0, so every published number remains comparable.",
+      "reason": "A cold read of the public report on 2026-09-05 found that the published compounding table's 'both together' row is the whole degraded manifest rather than a two-defect arm, so the -35.0 bundles the pair's interaction with a degraded neighbourhood. Composing this arm then found something sharper, recorded in the variant's 'composedFirstAs' field: the published 'competitor alone' arm gives the competitor the *reference* description while the degraded manifest gives it the *vague* one, and the degraded arm also thins sum_by_category's argument description. The three rows of that table do not nest, so 'the parts sum to -8.3' was never a parts-versus-whole comparison. This variant makes one true comparison possible: same tool entries as degraded, clean neighbourhood."
     }
   ],
   "authoring": {
     "writtenBy": "Assistant draft inside a Qwen Code session, 2026-08-30.",
-    "note": "The 'clean' variant copies the reference page's descriptions and schemas verbatim from airlock/src/tools.ts (surveyed 2026-08-30). The 'degraded' variant is written to embody documented WebMCP failure modes, not to hit a target number, and every injected defect is registered below with the prediction it was written to test - recorded before the sweep ran."
+    "note": "The 'clean' variant copies the reference page's descriptions and schemas verbatim from airlock/src/tools.ts (surveyed 2026-08-30). The 'degraded' variant is written to embody documented WebMCP failure modes, not to hit a target number, and every injected defect is registered below with the prediction it was written to test - recorded before the sweep ran.",
+    "correction": "2026-09-05: 'verbatim' in the note above overstates it, and the note is left as written rather than edited. reports/ablation-2026-08-31.md is the accurate statement - the clean variant's descriptions are the reference ones *minus their privacy sentences*, so the clean twin is a close correspondence to the live page rather than an identity. Anything comparing a twin rate against a live-page rate has to carry that."
+
   },
   "dataset": {
     "file": "sample-expenses.csv",
@@ -227,6 +235,62 @@
               "verbose": { "type": "boolean" }
             }
           },
+          "annotations": { "readOnlyHint": true }
+        }
+      ]
+    },
+    "ablate-pair": {
+      "families": [
+        "description/near-duplicate",
+        "description/duplicate",
+        "schema/missing-type",
+        "schema/undocumented-property"
+      ],
+      "subsetOf": "degraded",
+      "subsetTools": ["sum_by_category", "filter_rows", "summarise_by_category"],
+      "basedOn": "clean",
+      "changes": ["sum_by_category", "filter_rows"],
+      "adds": ["summarise_by_category"],
+      "measure": ["sum_by_category", "filter_rows"],
+      "question": "Does the -35.0 compounding result need a degraded neighbourhood? 'Both together' in the published table is not a two-defect arm - it is the whole degraded manifest, where every other tool carries its own defect too. This arm lifts the degraded manifest's own entries for sum_by_category, filter_rows and summarise_by_category onto an otherwise clean page and changes nothing else, so it is a strict subset of the degraded variant and the neighbourhood is the only difference between them.",
+      "composedFirstAs": "The first attempt composed this as the union of ablate-near-duplicate's patch and ablate-duplicate-tool's patch, and the linter refused it: description/duplicate did not fire. That is a finding, not a wiring problem. The published 'competitor alone' arm gives summarise_by_category the *reference* description, so it duplicates a good one; the degraded manifest gives it the *vague* description, so it duplicates a bad one. The degraded arm also thins sum_by_category's argument description, which no ablation did. The three rows of the published compounding table therefore do not nest, and 'the parts sum to -8.3' compares arms that are not subsets of the whole. Recorded 2026-09-05 before this arm ran.",
+      "prediction": "sum_by_category lands near the degraded arm's 60.0% - call it 55 to 70 - and nowhere near the single-defect arms' 90.0% and 91.7%, so the interaction is real and does not need the neighbourhood. This is not a hunch: the degraded arm's own per-trial records say where its 24 sum_by_category failures went, and 20 of them chose summarise_by_category while only 4 chose describe_dataset. The competitor is inside this arm; the magnet is a clean, untouched tool that is inside it too. So at most about 4 trials in 60 are attributable to anything this arm removes. Two byte-identical descriptions cannot be told apart, which is why roughly half of the affected utterances should go to the wrong twin. Called wrong if it lands above 80%, which would mean the collapse needed the thin descriptions, the over-parameterised schema and the rejected names after all - and then both the report and ablation-2026-08-31 have to say so. filter_rows should hold near its near-duplicate-arm 95.0% and its degraded-arm 98.3%; a drop below that would be a neighbourhood effect from a neighbourhood of one added tool.",
+      "registered": "2026-09-05, before the arm ran. Item 21 in PROJECT-LOG.md, which asked for this arm, landed in commit fc5a62f; this entry and its prediction are committed on their own before any trial was measured, so the ordering is checkable in history rather than asserted.",
+      "tools": [
+        {
+          "name": "sum_by_category",
+          "impl": "sumByCategory",
+          "description": "Works with the rows in the table and returns totals for what it finds.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "highlight": { "type": "string", "description": "A category name." }
+            }
+          },
+          "annotations": { "readOnlyHint": true }
+        },
+        {
+          "name": "filter_rows",
+          "impl": "filterRows",
+          "description": "Works with the rows in the table and returns counts for what it finds.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "from": { "type": "string", "description": "Earliest date to include, as YYYY-MM-DD." },
+              "to": { "type": "string", "description": "Latest date to include, as YYYY-MM-DD." },
+              "category": { "type": "string", "description": "Restrict to one category name." },
+              "min_amount": { "type": "number", "description": "Smallest amount to include." },
+              "max_amount": { "type": "number", "description": "Largest amount to include." },
+              "limit": { "type": "number", "description": "How many matching rows to preview. Defaults to 10, capped at 25." }
+            }
+          },
+          "annotations": { "readOnlyHint": true }
+        },
+        {
+          "name": "summarise_by_category",
+          "impl": "sumByCategory",
+          "description": "Works with the rows in the table and returns totals for what it finds.",
+          "inputSchema": { "type": "object", "properties": { "cat": {} } },
           "annotations": { "readOnlyHint": true }
         }
       ]

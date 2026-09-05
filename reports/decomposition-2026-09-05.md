@@ -27,6 +27,8 @@ The damage needs **two indistinguishable options**. Alone, a vague description s
 
 ## This vindicates the linter's severities, which was not the expected outcome
 
+> **⚠️ Narrowed the same day — read [`paraphrase-2026-09-05.md`](paraphrase-2026-09-05.md) with this section.** Replacing the competitor's copied description with a plain *paraphrase* (similarity 0.529 against a 0.70 threshold, so the linter reports **nothing** about it) leaves the collapse unchanged at **50.0%**. So the claim below holds only for the byte-identical case the error rule can see, and that is the minority of the harm. What survives: the *relative* grading of the two description rules is correct. What does not: any implication that a clean description-family lint means a page is safe from this failure.
+
 Pre-registered as a suspected rule gap: the competitor arm trips **nothing in the description family** — the linter reports only an undocumented, untyped property on the new tool. That silence turned out to be **correct**: the arm cost zero accuracy. And the reverse holds too. `description/near-duplicate`, which fired on the descriptions arm, is a **warning**, and alone it was worth 1.7 points — a warning's worth of damage. `description/duplicate`, which fires only when two tools actually share one description, is an **error**, and that is precisely the configuration that costs 46.7.
 
 So the rule that fires on the *combination* is the one graded as an error, and the rule that fires on half of it is graded as advisory. That mapping was set on 2026-08-30 from judgement, before any of these three arms existed, and this is the first measurement that tests it. It holds.

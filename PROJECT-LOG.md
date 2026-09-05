@@ -2453,7 +2453,7 @@ The judge's own recorded reasoning, from the single smoke trial run before the a
 
 ---
 
-## 2026-09-05 (17:20 local) — The pair decomposed: neither defect costs anything alone, and the linter's severities were right
+## 2026-09-05 (15:30 local) — The pair decomposed: neither defect costs anything alone, and the linter's severities were right
 
 Asked to run the pair separation arms. Two arms, 180 trials, and the answer is cleaner than the finding it replaces.
 
@@ -2515,7 +2515,7 @@ Nothing in `reports\` needed a second pass — the run index, the write-ups and 
 
 ---
 
-## 2026-09-05 (19:40 local) — A paraphrase does the same damage, and it costs us a claim published four hours earlier
+## 2026-09-05 (16:10 local) — A paraphrase does the same damage, and it costs us a claim published forty minutes earlier
 
 Continued to the one unblocked measurement the last entry named: does the −46.7 interaction need the two descriptions to be **byte-identical**, or is being equally uninformative enough?
 
@@ -2531,7 +2531,7 @@ Continued to the one unblocked measurement the last entry named: does the −46.
 
 ### The retraction, which was written before the arm ran
 
-Four hours earlier `decomposition-2026-09-05.md` said the linter's warning-versus-error grading had been **vindicated** by measurement. The pre-registered prediction for this arm named the price of being right about it: *"if this arm collapses while the linter is silent, the 2026-09-05 statement that the severities were vindicated is too strong and must be narrowed."* It collapsed. So:
+Forty minutes earlier `decomposition-2026-09-05.md` said the linter's warning-versus-error grading had been **vindicated** by measurement. The pre-registered prediction for this arm named the price of being right about it: *"if this arm collapses while the linter is silent, the 2026-09-05 statement that the severities were vindicated is too strong and must be narrowed."* It collapsed. So:
 
 - **What survives:** the *relative* grading of the two description rules is correct. `description/near-duplicate` fires on an arm worth −1.7; `description/duplicate` fires on one worth −46.7.
 - **What does not:** any implication that a clean description-family lint means a page is safe from this failure. **It does not.** The paraphrase scores 0.529 against a 0.70 threshold — not a near-miss, a comfortable clearance, on two sentences any reader calls the same statement — and the manifest carrying it loses 45 points.
@@ -2562,7 +2562,7 @@ Registered in `2bc803b` before the arm measured a trial: collapse near 48.3 (✅
 
 ---
 
-## 2026-09-05 (22:10 local) — The ladder: no threshold can catch it, and the rung that proved it broke the design
+## 2026-09-05 (17:25 local) — The ladder: no threshold can catch it, and the rung that proved it broke the design
 
 Ran the similarity ladder item 22 asked for. Five rungs, one field apart, `sum_by_category` against the clean arm's 95.0%:
 

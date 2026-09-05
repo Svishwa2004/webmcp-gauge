@@ -1,6 +1,6 @@
 # A paraphrase does the same damage, and the linter never sees it — 2026-09-05
 
-**Retraction first, because it is this project's own claim that broke.** Earlier today [`decomposition-2026-09-05.md`](decomposition-2026-09-05.md) reported that the linter's warning-versus-error grading had been vindicated by measurement. **That statement was too strong and is narrowed here.** It holds only for the byte-identical case the error rule can actually see. Replace the copied competitor description with a plain paraphrase — same meaning, ordinary wording — and the collapse is unchanged while the linter falls completely silent.
+**Retraction first, because it is this project's own claim that broke.** Forty minutes earlier [`decomposition-2026-09-05.md`](decomposition-2026-09-05.md) reported that the linter's warning-versus-error grading had been vindicated by measurement. **That statement was too strong and is narrowed here.** It holds only for the byte-identical case the error rule can actually see. Replace the copied competitor description with a plain paraphrase — same meaning, ordinary wording — and the collapse is unchanged while the linter falls completely silent.
 
 | `sum_by_category`'s manifest | Competitor's description | Linter on the competitor | Rate |
 |---|---|---|---|

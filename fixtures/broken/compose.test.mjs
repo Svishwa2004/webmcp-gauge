@@ -39,15 +39,39 @@ const manifestOf = (name) => ({
   })),
 });
 
-test('the fixture declares the four ablation families the first sweep confounded, and one interaction arm', () => {
+test('the fixture declares the four ablation families the first sweep confounded, and the arms derived from degraded', () => {
   assert.deepEqual(ablationNames.filter((name) => !isSubsetArm(name)).sort(), [
     'ablate-duplicate-tool',
     'ablate-near-duplicate',
     'ablate-schema',
     'ablate-thin',
   ]);
-  assert.deepEqual(ablationNames.filter(isSubsetArm).sort(), ['ablate-pair']);
+  // Every arm that exists to be read against another variant says so, and says
+  // which one — the pair and the two halves it decomposes into.
+  assert.deepEqual(ablationNames.filter(isSubsetArm).sort(), [
+    'ablate-competitor-vague',
+    'ablate-desc-degraded',
+    'ablate-pair',
+  ]);
+  for (const name of ablationNames.filter(isSubsetArm)) {
+    assert.equal(toolsFile.ablations[name].subsetOf, 'degraded');
+  }
   assert.deepEqual(variantNames(toolsFile).sort(), ['clean', 'degraded', ...ablationNames].sort());
+});
+
+test('the pair decomposes into its two halves, on the same tool entries', () => {
+  // The point of the two halves is that they are the pair's terms rather than
+  // lookalikes measured on other manifests — which is the mistake this fixture
+  // already had to record once. So the halves must partition the pair exactly.
+  const key = (tool) => JSON.stringify(tool);
+  const pair = toolsFile.ablations['ablate-pair'];
+  const halves = ['ablate-desc-degraded', 'ablate-competitor-vague'].map((name) => toolsFile.ablations[name]);
+
+  const fromHalves = halves.flatMap((half) => half.tools).map(key).sort();
+  assert.deepEqual(fromHalves, pair.tools.map(key).sort(), 'the halves do not partition the pair');
+
+  const names = halves.flatMap((half) => half.subsetTools);
+  assert.equal(new Set(names).size, names.length, 'the halves overlap, so they are not a partition');
 });
 
 test('every ablation changes exactly the tools it declares and nothing else', () => {

@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "frozen": true,
   "frozenOn": "2026-08-30",
   "purpose": "Tool metadata for the degraded twin of the reference page. Several variants over one identical implementation and one identical dataset, so the only difference between them is what the manifest says about the tools. That is what makes a rate difference attributable to description and schema quality rather than to the app.",
@@ -21,7 +21,14 @@
       "date": "2026-09-05",
       "change": "Added one interaction variant, ablate-pair: the degraded manifest's own entries for sum_by_category, filter_rows and summarise_by_category lifted onto the clean page, and nothing else. It is the first variant that is not one defect family, and the first that is declared as a strict subset of another variant ('subsetOf'), with a test asserting byte-identity against it and that it cannot lint worse than it. Every earlier variant is byte-identical to 1.1.0, so every published number remains comparable.",
       "reason": "A cold read of the public report on 2026-09-05 found that the published compounding table's 'both together' row is the whole degraded manifest rather than a two-defect arm, so the -35.0 bundles the pair's interaction with a degraded neighbourhood. Composing this arm then found something sharper, recorded in the variant's 'composedFirstAs' field: the published 'competitor alone' arm gives the competitor the *reference* description while the degraded manifest gives it the *vague* one, and the degraded arm also thins sum_by_category's argument description. The three rows of that table do not nest, so 'the parts sum to -8.3' was never a parts-versus-whole comparison. This variant makes one true comparison possible: same tool entries as degraded, clean neighbourhood."
+    },
+    {
+      "version": "1.3.0",
+      "date": "2026-09-05",
+      "change": "Added the two halves of ablate-pair as their own variants, so the pair can be decomposed against the same tool entries for the first time: ablate-desc-degraded (degraded's sum_by_category and filter_rows, no competitor) and ablate-competitor-vague (degraded's competitor added, both descriptions left at reference quality). Both are strict subsets of 'degraded' and of ablate-pair, and every earlier variant is byte-identical to 1.2.0.",
+      "reason": "ablate-pair measured -46.7 on sum_by_category and closed the neighbourhood question, but it left the pair as a joint effect: the published single-defect arms cannot serve as its terms, because ablate-near-duplicate leaves the argument description intact and ablate-duplicate-tool's competitor carries the reference description rather than the vague one. Decomposing a whole into parts measured on different manifests is the mistake 1.2.0 was written to record; these two arms are the parts measured on the same manifest. The competitor arm also probes a suspected rule gap: the linter reports nothing in the description family for a page that adds a vaguely-described competitor beside a well-described tool."
     }
+
   ],
   "authoring": {
     "writtenBy": "Assistant draft inside a Qwen Code session, 2026-08-30.",
@@ -286,6 +293,70 @@
           },
           "annotations": { "readOnlyHint": true }
         },
+        {
+          "name": "summarise_by_category",
+          "impl": "sumByCategory",
+          "description": "Works with the rows in the table and returns totals for what it finds.",
+          "inputSchema": { "type": "object", "properties": { "cat": {} } },
+          "annotations": { "readOnlyHint": true }
+        }
+      ]
+    },
+    "ablate-desc-degraded": {
+      "families": ["description/near-duplicate"],
+      "subsetOf": "degraded",
+      "subsetTools": ["sum_by_category", "filter_rows"],
+      "basedOn": "clean",
+      "changes": ["sum_by_category", "filter_rows"],
+      "adds": [],
+      "measure": ["sum_by_category", "filter_rows"],
+      "question": "Half of the pair, against the same competitor definition: what do the degraded descriptions cost with no competitor tool present? ablate-near-duplicate already asked this, but with its own hand-written entries - it left sum_by_category's argument description intact, where the degraded manifest thins it to 'A category name.'. Using 90.0% as the 'descriptions alone' term inside a decomposition of ablate-pair would be the exact mistake this file already recorded once, so the term is measured against degraded's own entries instead.",
+      "prediction": "sum_by_category near ablate-near-duplicate's 90.0% - call it 82 to 95 - because the one difference from that arm is a thinner *argument* description, and argument quality has never moved selection here: bad_args has been observed once in 4,320 trials. Falsified below 70, which would mean an argument description the model never has to fill in changes which tool it picks. filter_rows near its 95.0% in that arm. This is the arm that should be boring; it exists so the decomposition has a legitimate first term.",
+      "registered": "2026-09-05, before the arm ran, committed with ablate-competitor-vague and before either measured a trial.",
+      "tools": [
+        {
+          "name": "sum_by_category",
+          "impl": "sumByCategory",
+          "description": "Works with the rows in the table and returns totals for what it finds.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "highlight": { "type": "string", "description": "A category name." }
+            }
+          },
+          "annotations": { "readOnlyHint": true }
+        },
+        {
+          "name": "filter_rows",
+          "impl": "filterRows",
+          "description": "Works with the rows in the table and returns counts for what it finds.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "from": { "type": "string", "description": "Earliest date to include, as YYYY-MM-DD." },
+              "to": { "type": "string", "description": "Latest date to include, as YYYY-MM-DD." },
+              "category": { "type": "string", "description": "Restrict to one category name." },
+              "min_amount": { "type": "number", "description": "Smallest amount to include." },
+              "max_amount": { "type": "number", "description": "Largest amount to include." },
+              "limit": { "type": "number", "description": "How many matching rows to preview. Defaults to 10, capped at 25." }
+            }
+          },
+          "annotations": { "readOnlyHint": true }
+        }
+      ]
+    },
+    "ablate-competitor-vague": {
+      "families": ["schema/undocumented-property", "schema/missing-type"],
+      "subsetOf": "degraded",
+      "subsetTools": ["summarise_by_category"],
+      "basedOn": "clean",
+      "changes": [],
+      "adds": ["summarise_by_category"],
+      "measure": ["sum_by_category"],
+      "question": "The other half: what does the degraded manifest's competitor cost on its own, while sum_by_category keeps its reference description? ablate-duplicate-tool answered a different question - its competitor carries the *reference* description, so the two tools are exact twins. Here the competitor is the vaguer of the two, so the correct tool is the better-described match and should win on the text alone. Note what the linter says about this manifest: **nothing in the description family**. It reports only an undocumented, untyped property on the new tool. If this arm costs real accuracy, that is a rule gap, and the gap is that no rule fires when a page adds a vaguely-described tool that competes with a well-described one.",
+      "prediction": "sum_by_category at or near the ceiling - call it 90 to 100, so at least as good as ablate-duplicate-tool's 91.7% where the competitor was an exact twin - because its own description still says what it does and the competitor's does not. The mechanism that argues against this is the one the pair arm's smoke trial recorded: with descriptions indistinguishable the judge chose on the *name*, and 'summarise_by_category' is arguably the better name for 'break my spending down by category'. So if this arm lands below 85, the damage is coming from the name rather than from the description, which would be a finding about names and not about descriptions, and the linter has no rule for it either way. Falsified below 85.",
+      "registered": "2026-09-05, before the arm ran, committed with ablate-desc-degraded and before either measured a trial.",
+      "tools": [
         {
           "name": "summarise_by_category",
           "impl": "sumByCategory",

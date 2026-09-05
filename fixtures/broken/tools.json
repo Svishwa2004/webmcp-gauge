@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "frozen": true,
   "frozenOn": "2026-08-30",
   "purpose": "Tool metadata for the degraded twin of the reference page. Several variants over one identical implementation and one identical dataset, so the only difference between them is what the manifest says about the tools. That is what makes a rate difference attributable to description and schema quality rather than to the app.",
@@ -27,6 +27,12 @@
       "date": "2026-09-05",
       "change": "Added the two halves of ablate-pair as their own variants, so the pair can be decomposed against the same tool entries for the first time: ablate-desc-degraded (degraded's sum_by_category and filter_rows, no competitor) and ablate-competitor-vague (degraded's competitor added, both descriptions left at reference quality). Both are strict subsets of 'degraded' and of ablate-pair, and every earlier variant is byte-identical to 1.2.0.",
       "reason": "ablate-pair measured -46.7 on sum_by_category and closed the neighbourhood question, but it left the pair as a joint effect: the published single-defect arms cannot serve as its terms, because ablate-near-duplicate leaves the argument description intact and ablate-duplicate-tool's competitor carries the reference description rather than the vague one. Decomposing a whole into parts measured on different manifests is the mistake 1.2.0 was written to record; these two arms are the parts measured on the same manifest. The competitor arm also probes a suspected rule gap: the linter reports nothing in the description family for a page that adds a vaguely-described competitor beside a well-described tool."
+    },
+    {
+      "version": "1.4.0",
+      "date": "2026-09-05",
+      "change": "Added ablate-pair-paraphrased: ablate-pair with exactly one field changed, the competitor's description, from a byte-identical copy of the vague text to a plain paraphrase of it. First variant declared with 'variantOf' plus 'differsBy' rather than 'subsetOf', because it is not a subset of anything - it is a one-field contrast against another arm, and compose.test.mjs asserts that it differs from its parent in precisely the declared fields and nothing else. Every earlier variant is byte-identical to 1.3.0.",
+      "reason": "The decomposition established that neither defect costs anything alone and the pair costs -46.7, and the mechanism recorded for it is that the judge, unable to tell two identical descriptions apart, decided on the tool name. That mechanism does not obviously need the descriptions to be *identical* - only to be equally uninformative. This arm separates the two readings, and it is aimed squarely at a claim this project published the same day: that the linter's warning-versus-error grading was vindicated. By the linter's own similarity measure the paraphrase scores 0.529 against a 0.70 threshold, so the linter says nothing whatsoever about the competitor here. If the rate still collapses, that grading claim was too strong and both description rules are missing the harm."
     }
 
   ],
@@ -361,6 +367,56 @@
           "name": "summarise_by_category",
           "impl": "sumByCategory",
           "description": "Works with the rows in the table and returns totals for what it finds.",
+          "inputSchema": { "type": "object", "properties": { "cat": {} } },
+          "annotations": { "readOnlyHint": true }
+        }
+      ]
+    },
+    "ablate-pair-paraphrased": {
+      "families": ["description/near-duplicate", "schema/undocumented-property", "schema/missing-type"],
+      "variantOf": "ablate-pair",
+      "differsBy": ["summarise_by_category.description"],
+      "basedOn": "clean",
+      "changes": ["sum_by_category", "filter_rows"],
+      "adds": ["summarise_by_category"],
+      "measure": ["sum_by_category"],
+      "question": "Does the -46.7 interaction need the two descriptions to be byte-identical, or is being about the same thing enough? This arm is ablate-pair with exactly one field changed: the competitor's description becomes a plain paraphrase of the vague text rather than a copy of it. Same meaning, ordinary wording, no attempt to sit near a threshold - and by the linter's own measure it scores **0.529** against a near-duplicate threshold of 0.70, so the linter now says **nothing at all** about the competitor. No description/duplicate, no description/near-duplicate against sum_by_category; the one near-duplicate finding that remains is the pre-existing sum_by_category-versus-filter_rows pair, which ablate-pair has too.",
+      "prediction": "It still collapses - near ablate-pair's 48.3%, call it 45 to 70 - so byte-identity is NOT the trigger. The reason is what the judge actually did in the pair arm's smoke trial: it never compared the two strings. It read both descriptions, found neither one told it which tool to use, and fell back on the tool *name*. A paraphrase of an uninformative description is still uninformative, so the name tiebreaker should dominate exactly as before. Falsified above 85%, which would mean the harm really is about copied text and the error-graded duplicate rule is aimed correctly. **Consequence registered in advance, because it costs this project a claim it published hours ago:** if this arm collapses while the linter is silent, then `description/duplicate` as an *error* and the 0.70 near-duplicate threshold both miss the harm, the 2026-09-05 statement that the severities were vindicated is too strong and must be narrowed to byte-identical cases only, and the rule actually needed is a semantic one this linter cannot express without a model. Either result is publishable; the one that costs us something is the one to say loudest.",
+      "registered": "2026-09-05, before the arm ran, committed on its own before any trial was measured.",
+      "tools": [
+        {
+          "name": "sum_by_category",
+          "impl": "sumByCategory",
+          "description": "Works with the rows in the table and returns totals for what it finds.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "highlight": { "type": "string", "description": "A category name." }
+            }
+          },
+          "annotations": { "readOnlyHint": true }
+        },
+        {
+          "name": "filter_rows",
+          "impl": "filterRows",
+          "description": "Works with the rows in the table and returns counts for what it finds.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "from": { "type": "string", "description": "Earliest date to include, as YYYY-MM-DD." },
+              "to": { "type": "string", "description": "Latest date to include, as YYYY-MM-DD." },
+              "category": { "type": "string", "description": "Restrict to one category name." },
+              "min_amount": { "type": "number", "description": "Smallest amount to include." },
+              "max_amount": { "type": "number", "description": "Largest amount to include." },
+              "limit": { "type": "number", "description": "How many matching rows to preview. Defaults to 10, capped at 25." }
+            }
+          },
+          "annotations": { "readOnlyHint": true }
+        },
+        {
+          "name": "summarise_by_category",
+          "impl": "sumByCategory",
+          "description": "Handles the rows in the table and gives back totals for what it discovers.",
           "inputSchema": { "type": "object", "properties": { "cat": {} } },
           "annotations": { "readOnlyHint": true }
         }

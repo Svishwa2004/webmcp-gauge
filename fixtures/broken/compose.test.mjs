@@ -19,6 +19,7 @@ const ablationNames = Object.keys(toolsFile.ablations).filter(
  */
 const familiesOf = (ablation) => ablation.families ?? [ablation.family];
 const isSubsetArm = (name) => typeof toolsFile.ablations[name].subsetOf === 'string';
+const isContrastArm = (name) => typeof toolsFile.ablations[name].variantOf === 'string';
 
 const rulesFired = (name) => {
   const findings = lintManifest({ manifest: manifestOf(name) }).findings;
@@ -40,7 +41,7 @@ const manifestOf = (name) => ({
 });
 
 test('the fixture declares the four ablation families the first sweep confounded, and the arms derived from degraded', () => {
-  assert.deepEqual(ablationNames.filter((name) => !isSubsetArm(name)).sort(), [
+  assert.deepEqual(ablationNames.filter((name) => !isSubsetArm(name) && !isContrastArm(name)).sort(), [
     'ablate-duplicate-tool',
     'ablate-near-duplicate',
     'ablate-schema',
@@ -56,7 +57,42 @@ test('the fixture declares the four ablation families the first sweep confounded
   for (const name of ablationNames.filter(isSubsetArm)) {
     assert.equal(toolsFile.ablations[name].subsetOf, 'degraded');
   }
+  // And an arm that exists to be read against another *arm* names it too.
+  assert.deepEqual(ablationNames.filter(isContrastArm).sort(), ['ablate-pair-paraphrased']);
   assert.deepEqual(variantNames(toolsFile).sort(), ['clean', 'degraded', ...ablationNames].sort());
+});
+
+test('a contrast arm differs from its parent in precisely the fields it declares', () => {
+  // A one-field contrast is only a one-field contrast if nothing else moved. This
+  // is the same discipline as the subset test, for the case where the arm is not a
+  // subset of anything: it adds text of its own, so byte-identity is the wrong
+  // check and "identical except here" is the right one.
+  for (const name of ablationNames.filter(isContrastArm)) {
+    const ablation = toolsFile.ablations[name];
+    const parent = toolsFile.ablations[ablation.variantOf];
+    assert.ok(parent?.tools, `${name} is a variant of ${ablation.variantOf}, which is not an ablation`);
+    assert.ok(Array.isArray(ablation.differsBy) && ablation.differsBy.length > 0, `${name} declares no differing field`);
+
+    const byName = (tools) => new Map(tools.map((tool) => [tool.name, tool]));
+    const mine = byName(ablation.tools);
+    const theirs = byName(parent.tools);
+    assert.deepEqual([...mine.keys()].sort(), [...theirs.keys()].sort(), `${name} patches different tools than ${ablation.variantOf}`);
+
+    const declared = new Set(ablation.differsBy);
+    for (const [toolName, tool] of mine) {
+      const other = theirs.get(toolName);
+      const fields = new Set([...Object.keys(tool), ...Object.keys(other)]);
+      for (const field of fields) {
+        const path = `${toolName}.${field}`;
+        const same = JSON.stringify(tool[field]) === JSON.stringify(other[field]);
+        if (declared.has(path)) {
+          assert.ok(!same, `${name} declares ${path} as differing, but it is identical to ${ablation.variantOf}`);
+        } else {
+          assert.ok(same, `${name} also differs from ${ablation.variantOf} at ${path}, which it does not declare`);
+        }
+      }
+    }
+  }
 });
 
 test('the pair decomposes into its two halves, on the same tool entries', () => {

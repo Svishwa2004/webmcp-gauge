@@ -2500,4 +2500,16 @@ Both registered in `8f28aa2` before either arm measured a trial. **Six of seven 
 
 **214 tests pass.** One new test, two fixture variants, no changes to `core\`, `browser\` or `bin\`.
 
+### Documents caught up, and the drift was in the story rather than the counts
+
+A sweep for stale numbers found the counts easy and the *finding* stale in four places — every document outside `reports\` still told the superseded version of the compounding story, which is the one thing today changed most:
+
+- `README.md` — thirteen runs / 4,200 trials → **sixteen / 4,500**; 210 tests → **214**; and the ablation paragraph rewritten from "a near-duplicate costs 5, a competitor costs 3, together 35" to the nested measurement: **1.7 and 0.0 alone, 46.7 together, both parts inside the noise**, with the two new write-ups linked.
+- `docs\concept.md` — status line 12 runs / 4,040 / 175 tests → **16 / 4,500 / 214**; the milestone-1 row's trial count; and §"What the linter cannot tell you" rebuilt on the nested numbers **plus** the part that is new information for that section: the warning-versus-error grading it describes was assigned from judgement on 2026-08-30 and is now measured, and it holds.
+- `docs\explainer.md` — the plain-language version had the most to gain, because the honest story is simpler than the old one: *no single mistake did any damage at all*, and with two counters whose signs read the same the shopper picks by the name over the door — which was the wrong counter's. Also 4,040 → 4,500 and twelve runs → sixteen.
+- `docs\getting-started.md` — status line, Gate 2's caveat paragraph (now the nested numbers, and `sum_by_category-12` at **12 of 13** rather than 12 of 12 per the floor audit), the cohort date corrected from "expected 2026-09-04" to the host's schedule with the watch command, and the Updated stamp.
+
+Nothing in `reports\` needed a second pass — the run index, the write-ups and the draft were written with these numbers. **214 tests pass**, and then the branch was pushed to `origin` on request: eight commits, the first push since 2026-09-03, with the pre-push visibility gate passing on a still-private remote.
+
+
 

@@ -1,7 +1,7 @@
 # webmcp-gauge — Concept Document
 
 **Name:** `webmcp-gauge` — settled 2026-08-29. Repo: https://github.com/Svishwa2004/webmcp-gauge
-**Status:** Measuring. Harness, linter, CI gate, badge, GitHub Action and cohort tooling all built; 12 runs and 4,040 trials published in `../reports/`; 175 tests pass. Mode B ships browser-automated and agent-unreached (see [Open question 1](#14-open-questions)).
+**Status:** Measuring. Harness, linter, CI gate, badge, GitHub Action and cohort tooling all built; 16 runs and 4,500 trials published in `../reports/`; 214 tests pass. Mode B ships browser-automated and agent-unreached (see [Open question 1](#14-open-questions)).
 **Written:** 2026-08-29
 **Scope:** A measurement layer for WebMCP page tools — the answer to "does an agent actually call my tool?"
 
@@ -183,7 +183,7 @@ Two design decisions carry the weight:
 
 **Thresholds are calibrated, not invented.** The reference page has a measured invocation rate — 100% [96.9%, 100.0%] on five tools over 960 trials, 99.2% on the sixth — so the defaults are set where that page lints clean: descriptions ≥ 60 characters (its thinnest is 76), ≤ 6 schema properties (its largest tool has exactly 6), near-duplicate at 70% token overlap, budget warning at 64 tools. A default that flags a manifest known to work is a broken default, and every threshold is a flag. The budget rule is the one that had to be corrected by measurement: it fired as an *error* at the reported 296 tools until 2026-08-31, when 507 tools on Chrome 152 were all accepted and surfaced. It is a warning at both levels now, and says which build was measured.
 
-**What the linter cannot tell you, and the ablations proved it.** A rule that costs 5 points alone can cost 35 in company: a near-duplicate description and a duplicate competitor tool are each nearly free on their own and together take `sum_by_category` from 95.0% to 60.0%. So severity is a property of the rule, not a prediction of the cost, and the linter says so rather than ranking findings by an impact it cannot know.
+**What the linter cannot tell you, and the ablations proved it.** A rule that costs nothing alone can cost 46.7 in company: measured on nested arms (2026-09-05), a near-duplicate description on its own costs 1.7 points and a duplicate competitor tool on its own costs **zero** — both inside the harness's own between-session noise — while the two together take `sum_by_category` from 95.0% to **48.3%**. So severity is a property of the rule, not a prediction of the cost, and the linter says so rather than ranking findings by an impact it cannot know. What the same measurement did vindicate is the *grading*: `description/near-duplicate` is a warning and fires on the arm worth −1.7, while `description/duplicate` is an error and fires only on the configuration worth −46.7. That mapping was assigned from judgement on 2026-08-30, and it is the first of these defaults that a measurement could have contradicted and did not.
 
 **A live manifest is not what the page declared.** Measured on Chrome `152.0.7977.65` (2026-08-30): `registerTool` **throws `"Invalid tool name"`** for a name containing a space, so #145's "silently does nothing" is not this build's behaviour — and the worst names can never appear in `getTools()`. They show up instead as a tool that is missing, which the harness scores `not_registered`. `--manifest` therefore lints what the source declares, and the live mode lints what the browser returns; both are needed and they answer different questions.
 
@@ -338,7 +338,7 @@ Verified 2026-08-29. Building any of the left column again would be waste.
 
 | # | Window | Deliverable | Done when |
 |---|---|---|---|
-| ~~1~~ | Aug 29–31 | ✅ **Done, exceeded** — Harness v0, Mode A only | An invocation-rate number **with a measured run-to-run variance**. If σ swamps the signal, stop and rethink — this is the go/no-go gate. Cleared 2026-08-30 on between-session σ; 4,040 trials published since |
+| ~~1~~ | Aug 29–31 | ✅ **Done, exceeded** — Harness v0, Mode A only | An invocation-rate number **with a measured run-to-run variance**. If σ swamps the signal, stop and rethink — this is the go/no-go gate. Cleared 2026-08-30 on between-session σ; 4,500 trials published since |
 | ~~2~~ | Sep 1 | ✅ **Done 2026-08-30, early** — L0 linter, standalone | Flags all documented silent-failure modes on a deliberately broken fixture page |
 | 3 | Sep 1–3 | 🟡 **Part done, and one part closed unanswered** — Mode B adapters + Mode A↔B correlation study + GitHub Action | **#268 refuted** and the GitHub Action shipped (2026-09-01). Mode B's browser layer is driven; its **agent layer is closed on a recorded negative** (2026-09-02) — the agent reads pages through a Chrome extension bridge into the user's own Chrome, and instrumenting that was declined — so the **correlation study has no result and Gate 3 is unanswered rather than passed** |
 | 4 | by Sep 3, runs Sep 4 | ✅ **Staged 2026-09-01, three days early** — Cohort snapshot script, staged and ready | `core\cohort.mjs` + `core\gallery.mjs` (32 tests), `probes\cohort-snapshot.mjs` + `probes\gallery-harvest.mjs`, rehearsed against three published galleries, three real project pages and a local two-page fixture. ⏳ The **run** waits on the gallery existing |

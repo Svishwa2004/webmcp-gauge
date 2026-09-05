@@ -59,8 +59,8 @@ The rest of the scorecard matters just as much, because it tells you *which* thi
 Three practical pieces, built in this order:
 
 1. **A free checker** that reads your menu and flags obvious mistakes — labels that break the rules, two labels that mean the same thing, forms that ask for too much. No AI needed, runs in seconds. *Built.*
-2. **The rehearsal itself** — the mystery shoppers, producing the scorecard. *Built. It has now been run 4,040 times against real pages in a real browser.*
-3. **A public record** of which assistants and browsers actually behave which way, kept up to date as they change. This is the part that outlives everything else. *Twelve runs published so far, each with the code that produced it.*
+2. **The rehearsal itself** — the mystery shoppers, producing the scorecard. *Built. It has now been run 4,500 times against real pages in a real browser.*
+3. **A public record** of which assistants and browsers actually behave which way, kept up to date as they change. This is the part that outlives everything else. *Sixteen runs published so far, each with the code that produced it.*
 
 ---
 
@@ -135,7 +135,7 @@ The first milestone was deliberately falsifiable: does the number hold still eno
 
 The second question was harder and more important: *does a good score actually mean good signage, or does it just mean the machinery ran?* To find out, we built a deliberately badly-signed copy of our own shop — same stock, same staff, same counters, only the signs rewritten badly — and sent the same twenty shoppers per counter into both. The good copy served 99.3% of them. The bad copy served 83.1%, and its two worst counters dropped to 60% and 27%. So the instrument measures the signs, not itself.
 
-Then the genuinely surprising part. We took the bad signs apart to find out which specific mistake did the damage, and **no single mistake did it.** A vague sign on its own cost 5 points. A second counter with an identical sign, on its own, cost 3. Both together cost **35** — far more than the sum. Bad signage compounds: two individually harmless problems become one serious one. That is not what we predicted, we wrote our predictions down before running the test, and two of them were wrong. Those wrong predictions are published alongside the right ones, because a measuring project that only reports its hits is not measuring.
+Then the genuinely surprising part. We took the bad signs apart to find out which specific mistake did the damage, and **no single mistake did any.** A vague sign on its own: no measurable cost. A second counter with an identical sign, on its own: no cost either — that arm was indistinguishable from the good version, mistake for mistake. Both together cost **46 points out of a hundred**. Two individually harmless problems become one serious one, and the reason is almost funny: with two counters whose signs read the same, the shopper picks by the *name over the door* — and the name that reads better belonged to the wrong counter. That is not what we predicted, we wrote our predictions down before running each test, and several were wrong. The wrong ones are published alongside the right ones, because a measuring project that only reports its hits is not measuring.
 
 Three smaller findings, all of the same shape — folklore that turned out to be untrue when tested:
 

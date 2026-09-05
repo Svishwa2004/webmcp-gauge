@@ -1,5 +1,5 @@
 {
-  "version": "1.5.0",
+  "version": "1.6.0",
   "frozen": true,
   "frozenOn": "2026-08-30",
   "purpose": "Tool metadata for the degraded twin of the reference page. Several variants over one identical implementation and one identical dataset, so the only difference between them is what the manifest says about the tools. That is what makes a rate difference attributable to description and schema quality rather than to the app.",
@@ -39,15 +39,18 @@
       "date": "2026-09-05",
       "change": "Added three more rungs of the same one-field contrast, so the competitor's description sweeps a similarity range instead of sitting at two points: ablate-pair-sim086 (0.857, above the linter's threshold), ablate-pair-sim013 (0.130) and ablate-pair-sim004 (0.043, effectively disjoint vocabulary). With ablate-pair (1.000) and ablate-pair-paraphrased (0.529) that is a five-rung ladder. Each rung carries a `ladder` block naming its measured similarity, and every rung is byte-identical to ablate-pair except the one declared field. Every earlier variant is byte-identical to 1.4.0.",
       "reason": "Item 22 asks what the linter should do about a harm it cannot see, and option (a) is to lower `nearDuplicateThreshold`. That option is only worth its false positives if description similarity separates the harmful case from the harmless one at *some* value. The ladder tests exactly that, and rung 5 decides it: if two descriptions sharing almost no vocabulary still cost 45 points, no threshold on word overlap can work and (a) is dead on the evidence rather than on taste. Every rung is written to be as uninformative as the original - none of them says which tool serves the request - because the variable under test is lexical distance, not informativeness. The honest limit of that design is recorded with the result: the ladder cannot hold similarity-to-the-*utterance* perfectly fixed while it varies similarity-to-the-sibling."
+    },
+    {
+      "version": "1.6.0",
+      "date": "2026-09-05",
+      "change": "No variant changed. Every manifest is byte-identical to 1.5.0, so every published number stays comparable. What changed is the declared family list on the five interaction arms: core/lint.mjs gained description/indistinguishable-pair, the arms now trip it, and compose.test.mjs asserts that an arm declares exactly the rules it fires.",
+      "reason": "The rule was adopted by the maintainer on 2026-09-05 after probes/name-proxy-rule.mjs measured it against all thirteen manifests here - it fires on all five collapsed rungs and stays silent on every manifest that cost nothing, and the live reference page still lints 0/0. A declaration that did not catch up would have made the isolation test fail for the right reason, which is how this edit was found."
     }
-
-
   ],
   "authoring": {
     "writtenBy": "Assistant draft inside a Qwen Code session, 2026-08-30.",
     "note": "The 'clean' variant copies the reference page's descriptions and schemas verbatim from airlock/src/tools.ts (surveyed 2026-08-30). The 'degraded' variant is written to embody documented WebMCP failure modes, not to hit a target number, and every injected defect is registered below with the prediction it was written to test - recorded before the sweep ran.",
     "correction": "2026-09-05: 'verbatim' in the note above overstates it, and the note is left as written rather than edited. reports/ablation-2026-08-31.md is the accurate statement - the clean variant's descriptions are the reference ones *minus their privacy sentences*, so the clean twin is a close correspondence to the live page rather than an identity. Anything comparing a twin rate against a live-page rate has to carry that."
-
   },
   "dataset": {
     "file": "sample-expenses.csv",
@@ -70,55 +73,79 @@
     {
       "tool": "sum_by_category",
       "injected": "Description degraded to a near-duplicate of filter_rows', and an extra tool (summarise_by_category) registered with a byte-identical description",
-      "rules": ["description/near-duplicate", "description/duplicate"],
+      "rules": [
+        "description/near-duplicate",
+        "description/duplicate"
+      ],
       "prediction": "Materially lower, with the loss landing in wrong_tool - split between filter_rows and summarise_by_category - rather than not_selected."
     },
     {
       "tool": "filter_rows",
       "injected": "Description degraded to a near-duplicate of sum_by_category's; schema left untouched so argument expectations stay satisfiable",
-      "rules": ["description/near-duplicate"],
+      "rules": [
+        "description/near-duplicate"
+      ],
       "prediction": "Materially lower, loss in wrong_tool towards sum_by_category."
     },
     {
       "tool": "find_anomalies",
       "injected": "Description replaced with a generic one that names no operation",
-      "rules": ["description/thin"],
+      "rules": [
+        "description/thin"
+      ],
       "prediction": "Lower, mostly wrong_tool; oblique phrasings should suffer most because nothing in the description reaches the intent."
     },
     {
       "tool": "top_expenses",
       "injected": "Schema over-parameterised to nine properties, three of them required and undocumented (mode, format, strategy), and the handler throws when any of the three is missing. Description kept informative so the defect isolates the schema",
-      "rules": ["schema/over-parameterised", "schema/required-without-description"],
+      "rules": [
+        "schema/over-parameterised",
+        "schema/required-without-description"
+      ],
       "prediction": "Selected correctly but executed wrongly: exec_error where the judge passes only what the utterance justifies, or bad_args where it invents values the utterance forbids. If it instead invents the three values and scores ok, that is a blind spot in the metric and the finding is about the harness, not the page."
     },
     {
       "tool": "clear_highlights",
       "injected": "Description replaced with a single word",
-      "rules": ["description/thin"],
+      "rules": [
+        "description/thin"
+      ],
       "prediction": "Lower. Its utterances are already the most oblique in the set ('clear that'), so a description carrying no information should hurt it badly."
     },
     {
       "tool": "summarise_by_category",
       "injected": "Extra tool: byte-identical description to sum_by_category, one untyped and undocumented property",
-      "rules": ["description/duplicate", "schema/missing-type", "schema/undocumented-property"],
+      "rules": [
+        "description/duplicate",
+        "schema/missing-type",
+        "schema/undocumented-property"
+      ],
       "prediction": "Absorbs some sum_by_category selections. Never correct for any utterance in the set, so every selection of it is scored wrong_tool."
     },
     {
       "tool": "Clear Highlights",
       "injected": "Extra tool: a name containing spaces, and an empty description",
-      "rules": ["name/invalid-characters", "description/missing"],
+      "rules": [
+        "name/invalid-characters",
+        "description/missing"
+      ],
       "prediction": "Spec issue #145 reports that a tool with a space in its name silently does nothing. Whether Chrome 152 registers it at all is a compatibility measurement this fixture takes: if getTools() omits it, the linter cannot see it from a live manifest and the rule earns its keep only on static input."
     },
     {
       "tool": "top.expenses.v2",
       "injected": "Extra tool: dotted name, a deprecation notice for a description, and an inputSchema that is not an object schema",
-      "rules": ["name/invalid-characters", "schema/not-object"],
+      "rules": [
+        "name/invalid-characters",
+        "schema/not-object"
+      ],
       "prediction": "Leftover-deprecated-tool shape. Should not be selected often; any selection is scored wrong_tool."
     },
     {
       "scope": "page",
       "injected": "?flood=N registers N filler tools alongside the real ones",
-      "rules": ["budget/headroom"],
+      "rules": [
+        "budget/headroom"
+      ],
       "prediction": "Linter-only. Never used for the measured sweep, because a tool-count effect would confound the description effect the sweep exists to isolate."
     }
   ],
@@ -127,9 +154,15 @@
     "ablate-near-duplicate": {
       "family": "description/near-duplicate",
       "basedOn": "clean",
-      "changes": ["sum_by_category", "filter_rows"],
+      "changes": [
+        "sum_by_category",
+        "filter_rows"
+      ],
       "adds": [],
-      "measure": ["sum_by_category", "filter_rows"],
+      "measure": [
+        "sum_by_category",
+        "filter_rows"
+      ],
       "question": "Does a near-duplicate description hurt on its own, with no competitor tool to absorb the request?",
       "prediction": "Falsified once already: filter_rows held at 100% in the 1.0.0 degraded arm with this exact description. Expect both tools to stay at or near the ceiling, which would mean vocabulary overlap alone is not a defect the metric can see - and that the linter's near-duplicate rule is advisory for a reason.",
       "tools": [
@@ -146,7 +179,9 @@
               }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         },
         {
           "name": "filter_rows",
@@ -155,15 +190,35 @@
           "inputSchema": {
             "type": "object",
             "properties": {
-              "from": { "type": "string", "description": "Earliest date to include, as YYYY-MM-DD." },
-              "to": { "type": "string", "description": "Latest date to include, as YYYY-MM-DD." },
-              "category": { "type": "string", "description": "Restrict to one category name." },
-              "min_amount": { "type": "number", "description": "Smallest amount to include." },
-              "max_amount": { "type": "number", "description": "Largest amount to include." },
-              "limit": { "type": "number", "description": "How many matching rows to preview. Defaults to 10, capped at 25." }
+              "from": {
+                "type": "string",
+                "description": "Earliest date to include, as YYYY-MM-DD."
+              },
+              "to": {
+                "type": "string",
+                "description": "Latest date to include, as YYYY-MM-DD."
+              },
+              "category": {
+                "type": "string",
+                "description": "Restrict to one category name."
+              },
+              "min_amount": {
+                "type": "number",
+                "description": "Smallest amount to include."
+              },
+              "max_amount": {
+                "type": "number",
+                "description": "Largest amount to include."
+              },
+              "limit": {
+                "type": "number",
+                "description": "How many matching rows to preview. Defaults to 10, capped at 25."
+              }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         }
       ]
     },
@@ -171,8 +226,12 @@
       "family": "description/duplicate",
       "basedOn": "clean",
       "changes": [],
-      "adds": ["summarise_by_category"],
-      "measure": ["sum_by_category"],
+      "adds": [
+        "summarise_by_category"
+      ],
+      "measure": [
+        "sum_by_category"
+      ],
       "question": "How much of sum_by_category's collapse to 35% was the competitor rather than the vague description?",
       "prediction": "Most of it. Expect sum_by_category well below the ceiling even with its reference description intact, because an identically-described tool sits beside it.",
       "tools": [
@@ -189,16 +248,24 @@
               }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         }
       ]
     },
     "ablate-thin": {
       "family": "description/thin",
       "basedOn": "clean",
-      "changes": ["find_anomalies", "clear_highlights"],
+      "changes": [
+        "find_anomalies",
+        "clear_highlights"
+      ],
       "adds": [],
-      "measure": ["find_anomalies", "clear_highlights"],
+      "measure": [
+        "find_anomalies",
+        "clear_highlights"
+      ],
       "question": "Does a description carrying no information hurt when nothing else can serve the request?",
       "prediction": "find_anomalies lower (it competes with describe_dataset for 'what stands out'), clear_highlights at the ceiling (nothing else clears highlighting). If that holds, a thin description is only a defect where a competitor exists, and the same rule should read differently for a tool with no substitute.",
       "tools": [
@@ -215,47 +282,87 @@
               }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         },
         {
           "name": "clear_highlights",
           "impl": "clearHighlights",
           "description": "Utility.",
-          "inputSchema": { "type": "object", "properties": {} },
-          "annotations": { "readOnlyHint": false }
+          "inputSchema": {
+            "type": "object",
+            "properties": {}
+          },
+          "annotations": {
+            "readOnlyHint": false
+          }
         }
       ]
     },
     "ablate-schema": {
       "family": "schema/over-parameterised",
       "basedOn": "clean",
-      "changes": ["top_expenses"],
+      "changes": [
+        "top_expenses"
+      ],
       "adds": [],
-      "measure": ["top_expenses"],
+      "measure": [
+        "top_expenses"
+      ],
       "question": "Is the schema alone enough to produce the avoid/throw/decline spread seen at 1.0.0, with the description untouched?",
       "prediction": "Yes - the description was already the reference one in the degraded arm, so this should reproduce 35% with exec_error present. This ablation is the control on the other three: it should change nothing.",
       "tools": [
         {
           "name": "top_expenses",
           "impl": "topExpenses",
-          "throwWhenMissing": ["mode", "format", "strategy"],
+          "throwWhenMissing": [
+            "mode",
+            "format",
+            "strategy"
+          ],
           "description": "Find the largest individual rows by amount and highlight them in the table.",
           "inputSchema": {
             "type": "object",
-            "required": ["mode", "format", "strategy"],
+            "required": [
+              "mode",
+              "format",
+              "strategy"
+            ],
             "properties": {
-              "limit": { "type": "number", "description": "How many rows to consider. Defaults to 5, capped at 25." },
-              "mode": { "type": "string" },
-              "format": { "type": "string" },
-              "strategy": { "type": "string" },
-              "locale": { "type": "string" },
-              "page": { "type": "number" },
-              "page_size": { "type": "number" },
-              "include_totals": { "type": "boolean" },
-              "verbose": { "type": "boolean" }
+              "limit": {
+                "type": "number",
+                "description": "How many rows to consider. Defaults to 5, capped at 25."
+              },
+              "mode": {
+                "type": "string"
+              },
+              "format": {
+                "type": "string"
+              },
+              "strategy": {
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              },
+              "page": {
+                "type": "number"
+              },
+              "page_size": {
+                "type": "number"
+              },
+              "include_totals": {
+                "type": "boolean"
+              },
+              "verbose": {
+                "type": "boolean"
+              }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         }
       ]
     },
@@ -264,14 +371,27 @@
         "description/near-duplicate",
         "description/duplicate",
         "schema/missing-type",
-        "schema/undocumented-property"
+        "schema/undocumented-property",
+        "description/indistinguishable-pair"
       ],
       "subsetOf": "degraded",
-      "subsetTools": ["sum_by_category", "filter_rows", "summarise_by_category"],
+      "subsetTools": [
+        "sum_by_category",
+        "filter_rows",
+        "summarise_by_category"
+      ],
       "basedOn": "clean",
-      "changes": ["sum_by_category", "filter_rows"],
-      "adds": ["summarise_by_category"],
-      "measure": ["sum_by_category", "filter_rows"],
+      "changes": [
+        "sum_by_category",
+        "filter_rows"
+      ],
+      "adds": [
+        "summarise_by_category"
+      ],
+      "measure": [
+        "sum_by_category",
+        "filter_rows"
+      ],
       "question": "Does the -35.0 compounding result need a degraded neighbourhood? 'Both together' in the published table is not a two-defect arm - it is the whole degraded manifest, where every other tool carries its own defect too. This arm lifts the degraded manifest's own entries for sum_by_category, filter_rows and summarise_by_category onto an otherwise clean page and changes nothing else, so it is a strict subset of the degraded variant and the neighbourhood is the only difference between them.",
       "composedFirstAs": "The first attempt composed this as the union of ablate-near-duplicate's patch and ablate-duplicate-tool's patch, and the linter refused it: description/duplicate did not fire. That is a finding, not a wiring problem. The published 'competitor alone' arm gives summarise_by_category the *reference* description, so it duplicates a good one; the degraded manifest gives it the *vague* description, so it duplicates a bad one. The degraded arm also thins sum_by_category's argument description, which no ablation did. The three rows of the published compounding table therefore do not nest, and 'the parts sum to -8.3' compares arms that are not subsets of the whole. Recorded 2026-09-05 before this arm ran.",
       "prediction": "sum_by_category lands near the degraded arm's 60.0% - call it 55 to 70 - and nowhere near the single-defect arms' 90.0% and 91.7%, so the interaction is real and does not need the neighbourhood. This is not a hunch: the degraded arm's own per-trial records say where its 24 sum_by_category failures went, and 20 of them chose summarise_by_category while only 4 chose describe_dataset. The competitor is inside this arm; the magnet is a clean, untouched tool that is inside it too. So at most about 4 trials in 60 are attributable to anything this arm removes. Two byte-identical descriptions cannot be told apart, which is why roughly half of the affected utterances should go to the wrong twin. Called wrong if it lands above 80%, which would mean the collapse needed the thin descriptions, the over-parameterised schema and the rejected names after all - and then both the report and ablation-2026-08-31 have to say so. filter_rows should hold near its near-duplicate-arm 95.0% and its degraded-arm 98.3%; a drop below that would be a neighbourhood effect from a neighbourhood of one added tool.",
@@ -284,10 +404,15 @@
           "inputSchema": {
             "type": "object",
             "properties": {
-              "highlight": { "type": "string", "description": "A category name." }
+              "highlight": {
+                "type": "string",
+                "description": "A category name."
+              }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         },
         {
           "name": "filter_rows",
@@ -296,33 +421,71 @@
           "inputSchema": {
             "type": "object",
             "properties": {
-              "from": { "type": "string", "description": "Earliest date to include, as YYYY-MM-DD." },
-              "to": { "type": "string", "description": "Latest date to include, as YYYY-MM-DD." },
-              "category": { "type": "string", "description": "Restrict to one category name." },
-              "min_amount": { "type": "number", "description": "Smallest amount to include." },
-              "max_amount": { "type": "number", "description": "Largest amount to include." },
-              "limit": { "type": "number", "description": "How many matching rows to preview. Defaults to 10, capped at 25." }
+              "from": {
+                "type": "string",
+                "description": "Earliest date to include, as YYYY-MM-DD."
+              },
+              "to": {
+                "type": "string",
+                "description": "Latest date to include, as YYYY-MM-DD."
+              },
+              "category": {
+                "type": "string",
+                "description": "Restrict to one category name."
+              },
+              "min_amount": {
+                "type": "number",
+                "description": "Smallest amount to include."
+              },
+              "max_amount": {
+                "type": "number",
+                "description": "Largest amount to include."
+              },
+              "limit": {
+                "type": "number",
+                "description": "How many matching rows to preview. Defaults to 10, capped at 25."
+              }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         },
         {
           "name": "summarise_by_category",
           "impl": "sumByCategory",
           "description": "Works with the rows in the table and returns totals for what it finds.",
-          "inputSchema": { "type": "object", "properties": { "cat": {} } },
-          "annotations": { "readOnlyHint": true }
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "cat": {}
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true
+          }
         }
       ]
     },
     "ablate-desc-degraded": {
-      "families": ["description/near-duplicate"],
+      "families": [
+        "description/near-duplicate"
+      ],
       "subsetOf": "degraded",
-      "subsetTools": ["sum_by_category", "filter_rows"],
+      "subsetTools": [
+        "sum_by_category",
+        "filter_rows"
+      ],
       "basedOn": "clean",
-      "changes": ["sum_by_category", "filter_rows"],
+      "changes": [
+        "sum_by_category",
+        "filter_rows"
+      ],
       "adds": [],
-      "measure": ["sum_by_category", "filter_rows"],
+      "measure": [
+        "sum_by_category",
+        "filter_rows"
+      ],
       "question": "Half of the pair, against the same competitor definition: what do the degraded descriptions cost with no competitor tool present? ablate-near-duplicate already asked this, but with its own hand-written entries - it left sum_by_category's argument description intact, where the degraded manifest thins it to 'A category name.'. Using 90.0% as the 'descriptions alone' term inside a decomposition of ablate-pair would be the exact mistake this file already recorded once, so the term is measured against degraded's own entries instead.",
       "prediction": "sum_by_category near ablate-near-duplicate's 90.0% - call it 82 to 95 - because the one difference from that arm is a thinner *argument* description, and argument quality has never moved selection here: bad_args has been observed once in 4,320 trials. Falsified below 70, which would mean an argument description the model never has to fill in changes which tool it picks. filter_rows near its 95.0% in that arm. This is the arm that should be boring; it exists so the decomposition has a legitimate first term.",
       "registered": "2026-09-05, before the arm ran, committed with ablate-competitor-vague and before either measured a trial.",
@@ -334,10 +497,15 @@
           "inputSchema": {
             "type": "object",
             "properties": {
-              "highlight": { "type": "string", "description": "A category name." }
+              "highlight": {
+                "type": "string",
+                "description": "A category name."
+              }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         },
         {
           "name": "filter_rows",
@@ -346,26 +514,55 @@
           "inputSchema": {
             "type": "object",
             "properties": {
-              "from": { "type": "string", "description": "Earliest date to include, as YYYY-MM-DD." },
-              "to": { "type": "string", "description": "Latest date to include, as YYYY-MM-DD." },
-              "category": { "type": "string", "description": "Restrict to one category name." },
-              "min_amount": { "type": "number", "description": "Smallest amount to include." },
-              "max_amount": { "type": "number", "description": "Largest amount to include." },
-              "limit": { "type": "number", "description": "How many matching rows to preview. Defaults to 10, capped at 25." }
+              "from": {
+                "type": "string",
+                "description": "Earliest date to include, as YYYY-MM-DD."
+              },
+              "to": {
+                "type": "string",
+                "description": "Latest date to include, as YYYY-MM-DD."
+              },
+              "category": {
+                "type": "string",
+                "description": "Restrict to one category name."
+              },
+              "min_amount": {
+                "type": "number",
+                "description": "Smallest amount to include."
+              },
+              "max_amount": {
+                "type": "number",
+                "description": "Largest amount to include."
+              },
+              "limit": {
+                "type": "number",
+                "description": "How many matching rows to preview. Defaults to 10, capped at 25."
+              }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         }
       ]
     },
     "ablate-competitor-vague": {
-      "families": ["schema/undocumented-property", "schema/missing-type"],
+      "families": [
+        "schema/undocumented-property",
+        "schema/missing-type"
+      ],
       "subsetOf": "degraded",
-      "subsetTools": ["summarise_by_category"],
+      "subsetTools": [
+        "summarise_by_category"
+      ],
       "basedOn": "clean",
       "changes": [],
-      "adds": ["summarise_by_category"],
-      "measure": ["sum_by_category"],
+      "adds": [
+        "summarise_by_category"
+      ],
+      "measure": [
+        "sum_by_category"
+      ],
       "question": "The other half: what does the degraded manifest's competitor cost on its own, while sum_by_category keeps its reference description? ablate-duplicate-tool answered a different question - its competitor carries the *reference* description, so the two tools are exact twins. Here the competitor is the vaguer of the two, so the correct tool is the better-described match and should win on the text alone. Note what the linter says about this manifest: **nothing in the description family**. It reports only an undocumented, untyped property on the new tool. If this arm costs real accuracy, that is a rule gap, and the gap is that no rule fires when a page adds a vaguely-described tool that competes with a well-described one.",
       "prediction": "sum_by_category at or near the ceiling - call it 90 to 100, so at least as good as ablate-duplicate-tool's 91.7% where the competitor was an exact twin - because its own description still says what it does and the competitor's does not. The mechanism that argues against this is the one the pair arm's smoke trial recorded: with descriptions indistinguishable the judge chose on the *name*, and 'summarise_by_category' is arguably the better name for 'break my spending down by category'. So if this arm lands below 85, the damage is coming from the name rather than from the description, which would be a finding about names and not about descriptions, and the linter has no rule for it either way. Falsified below 85.",
       "registered": "2026-09-05, before the arm ran, committed with ablate-desc-degraded and before either measured a trial.",
@@ -374,19 +571,40 @@
           "name": "summarise_by_category",
           "impl": "sumByCategory",
           "description": "Works with the rows in the table and returns totals for what it finds.",
-          "inputSchema": { "type": "object", "properties": { "cat": {} } },
-          "annotations": { "readOnlyHint": true }
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "cat": {}
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true
+          }
         }
       ]
     },
     "ablate-pair-paraphrased": {
-      "families": ["description/near-duplicate", "schema/undocumented-property", "schema/missing-type"],
+      "families": [
+        "description/near-duplicate",
+        "schema/undocumented-property",
+        "schema/missing-type",
+        "description/indistinguishable-pair"
+      ],
       "variantOf": "ablate-pair",
-      "differsBy": ["summarise_by_category.description"],
+      "differsBy": [
+        "summarise_by_category.description"
+      ],
       "basedOn": "clean",
-      "changes": ["sum_by_category", "filter_rows"],
-      "adds": ["summarise_by_category"],
-      "measure": ["sum_by_category"],
+      "changes": [
+        "sum_by_category",
+        "filter_rows"
+      ],
+      "adds": [
+        "summarise_by_category"
+      ],
+      "measure": [
+        "sum_by_category"
+      ],
       "question": "Does the -46.7 interaction need the two descriptions to be byte-identical, or is being about the same thing enough? This arm is ablate-pair with exactly one field changed: the competitor's description becomes a plain paraphrase of the vague text rather than a copy of it. Same meaning, ordinary wording, no attempt to sit near a threshold - and by the linter's own measure it scores **0.529** against a near-duplicate threshold of 0.70, so the linter now says **nothing at all** about the competitor. No description/duplicate, no description/near-duplicate against sum_by_category; the one near-duplicate finding that remains is the pre-existing sum_by_category-versus-filter_rows pair, which ablate-pair has too.",
       "prediction": "It still collapses - near ablate-pair's 48.3%, call it 45 to 70 - so byte-identity is NOT the trigger. The reason is what the judge actually did in the pair arm's smoke trial: it never compared the two strings. It read both descriptions, found neither one told it which tool to use, and fell back on the tool *name*. A paraphrase of an uninformative description is still uninformative, so the name tiebreaker should dominate exactly as before. Falsified above 85%, which would mean the harm really is about copied text and the error-graded duplicate rule is aimed correctly. **Consequence registered in advance, because it costs this project a claim it published hours ago:** if this arm collapses while the linter is silent, then `description/duplicate` as an *error* and the 0.70 near-duplicate threshold both miss the harm, the 2026-09-05 statement that the severities were vindicated is too strong and must be narrowed to byte-identical cases only, and the rule actually needed is a semantic one this linter cannot express without a model. Either result is publishable; the one that costs us something is the one to say loudest.",
       "registered": "2026-09-05, before the arm ran, committed on its own before any trial was measured.",
@@ -398,10 +616,15 @@
           "inputSchema": {
             "type": "object",
             "properties": {
-              "highlight": { "type": "string", "description": "A category name." }
+              "highlight": {
+                "type": "string",
+                "description": "A category name."
+              }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         },
         {
           "name": "filter_rows",
@@ -410,34 +633,79 @@
           "inputSchema": {
             "type": "object",
             "properties": {
-              "from": { "type": "string", "description": "Earliest date to include, as YYYY-MM-DD." },
-              "to": { "type": "string", "description": "Latest date to include, as YYYY-MM-DD." },
-              "category": { "type": "string", "description": "Restrict to one category name." },
-              "min_amount": { "type": "number", "description": "Smallest amount to include." },
-              "max_amount": { "type": "number", "description": "Largest amount to include." },
-              "limit": { "type": "number", "description": "How many matching rows to preview. Defaults to 10, capped at 25." }
+              "from": {
+                "type": "string",
+                "description": "Earliest date to include, as YYYY-MM-DD."
+              },
+              "to": {
+                "type": "string",
+                "description": "Latest date to include, as YYYY-MM-DD."
+              },
+              "category": {
+                "type": "string",
+                "description": "Restrict to one category name."
+              },
+              "min_amount": {
+                "type": "number",
+                "description": "Smallest amount to include."
+              },
+              "max_amount": {
+                "type": "number",
+                "description": "Largest amount to include."
+              },
+              "limit": {
+                "type": "number",
+                "description": "How many matching rows to preview. Defaults to 10, capped at 25."
+              }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         },
         {
           "name": "summarise_by_category",
           "impl": "sumByCategory",
           "description": "Handles the rows in the table and gives back totals for what it discovers.",
-          "inputSchema": { "type": "object", "properties": { "cat": {} } },
-          "annotations": { "readOnlyHint": true }
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "cat": {}
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true
+          }
         }
       ]
     },
     "ablate-pair-sim086": {
-      "families": ["description/near-duplicate", "schema/undocumented-property", "schema/missing-type"],
+      "families": [
+        "description/near-duplicate",
+        "schema/undocumented-property",
+        "schema/missing-type",
+        "description/indistinguishable-pair"
+      ],
       "variantOf": "ablate-pair",
-      "differsBy": ["summarise_by_category.description"],
-      "ladder": { "similarity": 0.857, "rung": 2, "of": "description-similarity ladder, 2026-09-05" },
+      "differsBy": [
+        "summarise_by_category.description"
+      ],
+      "ladder": {
+        "similarity": 0.857,
+        "rung": 2,
+        "of": "description-similarity ladder, 2026-09-05"
+      },
       "basedOn": "clean",
-      "changes": ["sum_by_category", "filter_rows"],
-      "adds": ["summarise_by_category"],
-      "measure": ["sum_by_category"],
+      "changes": [
+        "sum_by_category",
+        "filter_rows"
+      ],
+      "adds": [
+        "summarise_by_category"
+      ],
+      "measure": [
+        "sum_by_category"
+      ],
       "question": "Rung 2 of the similarity ladder. Is there any description-similarity threshold that separates the harmful case from the harmless one? This rung sits **above** the linter's 0.70 line at 0.857, so `description/near-duplicate` fires (three times) but `description/duplicate` does not - the one rung where the linter warns without erroring.",
       "prediction": "It collapses like every other rung - 45 to 60% - because the mechanism is the tool name and not the text. If a warning-level rung costs the same as an error-level one, the severity split carries no information about magnitude, only about detectability.",
       "registered": "2026-09-05, before the ladder ran, committed with the other two rungs and before any of the three measured a trial.",
@@ -449,10 +717,15 @@
           "inputSchema": {
             "type": "object",
             "properties": {
-              "highlight": { "type": "string", "description": "A category name." }
+              "highlight": {
+                "type": "string",
+                "description": "A category name."
+              }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         },
         {
           "name": "filter_rows",
@@ -461,34 +734,79 @@
           "inputSchema": {
             "type": "object",
             "properties": {
-              "from": { "type": "string", "description": "Earliest date to include, as YYYY-MM-DD." },
-              "to": { "type": "string", "description": "Latest date to include, as YYYY-MM-DD." },
-              "category": { "type": "string", "description": "Restrict to one category name." },
-              "min_amount": { "type": "number", "description": "Smallest amount to include." },
-              "max_amount": { "type": "number", "description": "Largest amount to include." },
-              "limit": { "type": "number", "description": "How many matching rows to preview. Defaults to 10, capped at 25." }
+              "from": {
+                "type": "string",
+                "description": "Earliest date to include, as YYYY-MM-DD."
+              },
+              "to": {
+                "type": "string",
+                "description": "Latest date to include, as YYYY-MM-DD."
+              },
+              "category": {
+                "type": "string",
+                "description": "Restrict to one category name."
+              },
+              "min_amount": {
+                "type": "number",
+                "description": "Smallest amount to include."
+              },
+              "max_amount": {
+                "type": "number",
+                "description": "Largest amount to include."
+              },
+              "limit": {
+                "type": "number",
+                "description": "How many matching rows to preview. Defaults to 10, capped at 25."
+              }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         },
         {
           "name": "summarise_by_category",
           "impl": "sumByCategory",
           "description": "Works with the rows in the table and returns totals for what it locates.",
-          "inputSchema": { "type": "object", "properties": { "cat": {} } },
-          "annotations": { "readOnlyHint": true }
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "cat": {}
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true
+          }
         }
       ]
     },
     "ablate-pair-sim013": {
-      "families": ["description/near-duplicate", "schema/undocumented-property", "schema/missing-type"],
+      "families": [
+        "description/near-duplicate",
+        "schema/undocumented-property",
+        "schema/missing-type",
+        "description/indistinguishable-pair"
+      ],
       "variantOf": "ablate-pair",
-      "differsBy": ["summarise_by_category.description"],
-      "ladder": { "similarity": 0.130, "rung": 4, "of": "description-similarity ladder, 2026-09-05" },
+      "differsBy": [
+        "summarise_by_category.description"
+      ],
+      "ladder": {
+        "similarity": 0.13,
+        "rung": 4,
+        "of": "description-similarity ladder, 2026-09-05"
+      },
       "basedOn": "clean",
-      "changes": ["sum_by_category", "filter_rows"],
-      "adds": ["summarise_by_category"],
-      "measure": ["sum_by_category"],
+      "changes": [
+        "sum_by_category",
+        "filter_rows"
+      ],
+      "adds": [
+        "summarise_by_category"
+      ],
+      "measure": [
+        "sum_by_category"
+      ],
       "question": "Rung 4. Almost no shared vocabulary - 0.130 - while saying just as little about which tool to use. If the collapse survives this, lexical distance is not the variable and no similarity threshold can ever separate the two cases.",
       "prediction": "It collapses - 45 to 60%. The competitor's description shares nearly no words with the original and still fails to distinguish the two tools, which is the only property that has ever mattered in these arms.",
       "registered": "2026-09-05, before the ladder ran, committed with the other two rungs and before any of the three measured a trial.",
@@ -500,10 +818,15 @@
           "inputSchema": {
             "type": "object",
             "properties": {
-              "highlight": { "type": "string", "description": "A category name." }
+              "highlight": {
+                "type": "string",
+                "description": "A category name."
+              }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         },
         {
           "name": "filter_rows",
@@ -512,34 +835,79 @@
           "inputSchema": {
             "type": "object",
             "properties": {
-              "from": { "type": "string", "description": "Earliest date to include, as YYYY-MM-DD." },
-              "to": { "type": "string", "description": "Latest date to include, as YYYY-MM-DD." },
-              "category": { "type": "string", "description": "Restrict to one category name." },
-              "min_amount": { "type": "number", "description": "Smallest amount to include." },
-              "max_amount": { "type": "number", "description": "Largest amount to include." },
-              "limit": { "type": "number", "description": "How many matching rows to preview. Defaults to 10, capped at 25." }
+              "from": {
+                "type": "string",
+                "description": "Earliest date to include, as YYYY-MM-DD."
+              },
+              "to": {
+                "type": "string",
+                "description": "Latest date to include, as YYYY-MM-DD."
+              },
+              "category": {
+                "type": "string",
+                "description": "Restrict to one category name."
+              },
+              "min_amount": {
+                "type": "number",
+                "description": "Smallest amount to include."
+              },
+              "max_amount": {
+                "type": "number",
+                "description": "Largest amount to include."
+              },
+              "limit": {
+                "type": "number",
+                "description": "How many matching rows to preview. Defaults to 10, capped at 25."
+              }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         },
         {
           "name": "summarise_by_category",
           "impl": "sumByCategory",
           "description": "Handles the listed entries and hands back combined figures for whatever turns up.",
-          "inputSchema": { "type": "object", "properties": { "cat": {} } },
-          "annotations": { "readOnlyHint": true }
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "cat": {}
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true
+          }
         }
       ]
     },
     "ablate-pair-sim004": {
-      "families": ["description/near-duplicate", "schema/undocumented-property", "schema/missing-type"],
+      "families": [
+        "description/near-duplicate",
+        "schema/undocumented-property",
+        "schema/missing-type",
+        "description/indistinguishable-pair"
+      ],
       "variantOf": "ablate-pair",
-      "differsBy": ["summarise_by_category.description"],
-      "ladder": { "similarity": 0.043, "rung": 5, "of": "description-similarity ladder, 2026-09-05" },
+      "differsBy": [
+        "summarise_by_category.description"
+      ],
+      "ladder": {
+        "similarity": 0.043,
+        "rung": 5,
+        "of": "description-similarity ladder, 2026-09-05"
+      },
       "basedOn": "clean",
-      "changes": ["sum_by_category", "filter_rows"],
-      "adds": ["summarise_by_category"],
-      "measure": ["sum_by_category"],
+      "changes": [
+        "sum_by_category",
+        "filter_rows"
+      ],
+      "adds": [
+        "summarise_by_category"
+      ],
+      "measure": [
+        "sum_by_category"
+      ],
       "question": "Rung 5, the decisive one. Effectively disjoint vocabulary - 0.043, sharing only 'the' and 'to' - and still uninformative about which tool serves the request. This is the rung that decides whether option (a) of item 22, lowering the similarity threshold, can work at any value at all.",
       "prediction": "It collapses - 45 to 60% - and that kills option (a). Two tool descriptions can share almost no words and still leave a model with no way to choose between them, and no threshold on word overlap can catch that. Falsified at 85% or above, which would mean lexical distance is the variable after all and a low threshold would be worth its false positives.",
       "registered": "2026-09-05, before the ladder ran, committed with the other two rungs and before any of the three measured a trial.",
@@ -551,10 +919,15 @@
           "inputSchema": {
             "type": "object",
             "properties": {
-              "highlight": { "type": "string", "description": "A category name." }
+              "highlight": {
+                "type": "string",
+                "description": "A category name."
+              }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         },
         {
           "name": "filter_rows",
@@ -563,22 +936,49 @@
           "inputSchema": {
             "type": "object",
             "properties": {
-              "from": { "type": "string", "description": "Earliest date to include, as YYYY-MM-DD." },
-              "to": { "type": "string", "description": "Latest date to include, as YYYY-MM-DD." },
-              "category": { "type": "string", "description": "Restrict to one category name." },
-              "min_amount": { "type": "number", "description": "Smallest amount to include." },
-              "max_amount": { "type": "number", "description": "Largest amount to include." },
-              "limit": { "type": "number", "description": "How many matching rows to preview. Defaults to 10, capped at 25." }
+              "from": {
+                "type": "string",
+                "description": "Earliest date to include, as YYYY-MM-DD."
+              },
+              "to": {
+                "type": "string",
+                "description": "Latest date to include, as YYYY-MM-DD."
+              },
+              "category": {
+                "type": "string",
+                "description": "Restrict to one category name."
+              },
+              "min_amount": {
+                "type": "number",
+                "description": "Smallest amount to include."
+              },
+              "max_amount": {
+                "type": "number",
+                "description": "Largest amount to include."
+              },
+              "limit": {
+                "type": "number",
+                "description": "How many matching rows to preview. Defaults to 10, capped at 25."
+              }
             }
           },
-          "annotations": { "readOnlyHint": true }
+          "annotations": {
+            "readOnlyHint": true
+          }
         },
         {
           "name": "summarise_by_category",
           "impl": "sumByCategory",
           "description": "Covers arithmetic duties over displayed material, as appropriate to the request.",
-          "inputSchema": { "type": "object", "properties": { "cat": {} } },
-          "annotations": { "readOnlyHint": true }
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "cat": {}
+            }
+          },
+          "annotations": {
+            "readOnlyHint": true
+          }
         }
       ]
     }
@@ -589,8 +989,13 @@
         "name": "describe_dataset",
         "impl": "describe",
         "description": "Describe the spreadsheet currently loaded in the page: row count, column names, category list, date range and total amount. Call this first to learn what data is available. Individual rows are never returned.",
-        "inputSchema": { "type": "object", "properties": {} },
-        "annotations": { "readOnlyHint": true }
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        },
+        "annotations": {
+          "readOnlyHint": true
+        }
       },
       {
         "name": "sum_by_category",
@@ -605,7 +1010,9 @@
             }
           }
         },
-        "annotations": { "readOnlyHint": true }
+        "annotations": {
+          "readOnlyHint": true
+        }
       },
       {
         "name": "filter_rows",
@@ -614,22 +1021,47 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "from": { "type": "string", "description": "Earliest date to include, as YYYY-MM-DD." },
-            "to": { "type": "string", "description": "Latest date to include, as YYYY-MM-DD." },
-            "category": { "type": "string", "description": "Restrict to one category name." },
-            "min_amount": { "type": "number", "description": "Smallest amount to include." },
-            "max_amount": { "type": "number", "description": "Largest amount to include." },
-            "limit": { "type": "number", "description": "How many matching rows to preview. Defaults to 10, capped at 25." }
+            "from": {
+              "type": "string",
+              "description": "Earliest date to include, as YYYY-MM-DD."
+            },
+            "to": {
+              "type": "string",
+              "description": "Latest date to include, as YYYY-MM-DD."
+            },
+            "category": {
+              "type": "string",
+              "description": "Restrict to one category name."
+            },
+            "min_amount": {
+              "type": "number",
+              "description": "Smallest amount to include."
+            },
+            "max_amount": {
+              "type": "number",
+              "description": "Largest amount to include."
+            },
+            "limit": {
+              "type": "number",
+              "description": "How many matching rows to preview. Defaults to 10, capped at 25."
+            }
           }
         },
-        "annotations": { "readOnlyHint": true }
+        "annotations": {
+          "readOnlyHint": true
+        }
       },
       {
         "name": "monthly_trend",
         "impl": "monthlyTrend",
         "description": "Total the loaded spending per calendar month, oldest first, so month-on-month changes are visible. Answers questions a single glance at the table cannot. Returns aggregates only.",
-        "inputSchema": { "type": "object", "properties": {} },
-        "annotations": { "readOnlyHint": true }
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        },
+        "annotations": {
+          "readOnlyHint": true
+        }
       },
       {
         "name": "find_anomalies",
@@ -644,7 +1076,9 @@
             }
           }
         },
-        "annotations": { "readOnlyHint": true }
+        "annotations": {
+          "readOnlyHint": true
+        }
       },
       {
         "name": "top_expenses",
@@ -653,17 +1087,27 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "limit": { "type": "number", "description": "How many rows to consider. Defaults to 5, capped at 25." }
+            "limit": {
+              "type": "number",
+              "description": "How many rows to consider. Defaults to 5, capped at 25."
+            }
           }
         },
-        "annotations": { "readOnlyHint": true }
+        "annotations": {
+          "readOnlyHint": true
+        }
       },
       {
         "name": "clear_highlights",
         "impl": "clearHighlights",
         "description": "Remove any highlighting from the table so every row is legible again. Call this when moving on to an unrelated question.",
-        "inputSchema": { "type": "object", "properties": {} },
-        "annotations": { "readOnlyHint": false }
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        },
+        "annotations": {
+          "readOnlyHint": false
+        }
       }
     ],
     "degraded": [
@@ -671,8 +1115,13 @@
         "name": "describe_dataset",
         "impl": "describe",
         "description": "Describe the spreadsheet currently loaded in the page: row count, column names, category list, date range and total amount. Call this first to learn what data is available. Individual rows are never returned.",
-        "inputSchema": { "type": "object", "properties": {} },
-        "annotations": { "readOnlyHint": true }
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        },
+        "annotations": {
+          "readOnlyHint": true
+        }
       },
       {
         "name": "sum_by_category",
@@ -681,10 +1130,15 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "highlight": { "type": "string", "description": "A category name." }
+            "highlight": {
+              "type": "string",
+              "description": "A category name."
+            }
           }
         },
-        "annotations": { "readOnlyHint": true }
+        "annotations": {
+          "readOnlyHint": true
+        }
       },
       {
         "name": "filter_rows",
@@ -693,22 +1147,47 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "from": { "type": "string", "description": "Earliest date to include, as YYYY-MM-DD." },
-            "to": { "type": "string", "description": "Latest date to include, as YYYY-MM-DD." },
-            "category": { "type": "string", "description": "Restrict to one category name." },
-            "min_amount": { "type": "number", "description": "Smallest amount to include." },
-            "max_amount": { "type": "number", "description": "Largest amount to include." },
-            "limit": { "type": "number", "description": "How many matching rows to preview. Defaults to 10, capped at 25." }
+            "from": {
+              "type": "string",
+              "description": "Earliest date to include, as YYYY-MM-DD."
+            },
+            "to": {
+              "type": "string",
+              "description": "Latest date to include, as YYYY-MM-DD."
+            },
+            "category": {
+              "type": "string",
+              "description": "Restrict to one category name."
+            },
+            "min_amount": {
+              "type": "number",
+              "description": "Smallest amount to include."
+            },
+            "max_amount": {
+              "type": "number",
+              "description": "Largest amount to include."
+            },
+            "limit": {
+              "type": "number",
+              "description": "How many matching rows to preview. Defaults to 10, capped at 25."
+            }
           }
         },
-        "annotations": { "readOnlyHint": true }
+        "annotations": {
+          "readOnlyHint": true
+        }
       },
       {
         "name": "monthly_trend",
         "impl": "monthlyTrend",
         "description": "Total the loaded spending per calendar month, oldest first, so month-on-month changes are visible. Answers questions a single glance at the table cannot. Returns aggregates only.",
-        "inputSchema": { "type": "object", "properties": {} },
-        "annotations": { "readOnlyHint": true }
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        },
+        "annotations": {
+          "readOnlyHint": true
+        }
       },
       {
         "name": "find_anomalies",
@@ -717,39 +1196,78 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "threshold": { "type": "number", "description": "A number." }
+            "threshold": {
+              "type": "number",
+              "description": "A number."
+            }
           }
         },
-        "annotations": { "readOnlyHint": true }
+        "annotations": {
+          "readOnlyHint": true
+        }
       },
       {
         "name": "top_expenses",
         "impl": "topExpenses",
-        "throwWhenMissing": ["mode", "format", "strategy"],
+        "throwWhenMissing": [
+          "mode",
+          "format",
+          "strategy"
+        ],
         "description": "Find the largest individual rows by amount and highlight them in the table.",
         "inputSchema": {
           "type": "object",
-          "required": ["mode", "format", "strategy"],
+          "required": [
+            "mode",
+            "format",
+            "strategy"
+          ],
           "properties": {
-            "limit": { "type": "number", "description": "How many rows to consider. Defaults to 5, capped at 25." },
-            "mode": { "type": "string" },
-            "format": { "type": "string" },
-            "strategy": { "type": "string" },
-            "locale": { "type": "string" },
-            "page": { "type": "number" },
-            "page_size": { "type": "number" },
-            "include_totals": { "type": "boolean" },
-            "verbose": { "type": "boolean" }
+            "limit": {
+              "type": "number",
+              "description": "How many rows to consider. Defaults to 5, capped at 25."
+            },
+            "mode": {
+              "type": "string"
+            },
+            "format": {
+              "type": "string"
+            },
+            "strategy": {
+              "type": "string"
+            },
+            "locale": {
+              "type": "string"
+            },
+            "page": {
+              "type": "number"
+            },
+            "page_size": {
+              "type": "number"
+            },
+            "include_totals": {
+              "type": "boolean"
+            },
+            "verbose": {
+              "type": "boolean"
+            }
           }
         },
-        "annotations": { "readOnlyHint": true }
+        "annotations": {
+          "readOnlyHint": true
+        }
       },
       {
         "name": "clear_highlights",
         "impl": "clearHighlights",
         "description": "Utility.",
-        "inputSchema": { "type": "object", "properties": {} },
-        "annotations": { "readOnlyHint": false }
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        },
+        "annotations": {
+          "readOnlyHint": false
+        }
       },
       {
         "name": "summarise_by_category",
@@ -761,21 +1279,32 @@
             "cat": {}
           }
         },
-        "annotations": { "readOnlyHint": true }
+        "annotations": {
+          "readOnlyHint": true
+        }
       },
       {
         "name": "Clear Highlights",
         "impl": "clearHighlights",
         "description": "",
-        "inputSchema": { "type": "object", "properties": {} },
-        "annotations": { "readOnlyHint": false }
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        },
+        "annotations": {
+          "readOnlyHint": false
+        }
       },
       {
         "name": "top.expenses.v2",
         "impl": "topExpenses",
         "description": "Old version. Do not use.",
-        "inputSchema": { "type": "string" },
-        "annotations": { "readOnlyHint": true }
+        "inputSchema": {
+          "type": "string"
+        },
+        "annotations": {
+          "readOnlyHint": true
+        }
       }
     ]
   }

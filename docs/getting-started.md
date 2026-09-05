@@ -237,11 +237,11 @@ webmcp-gauge lint --manifest ./tools.json                    # what the source d
 webmcp-gauge lint --serve fixtures/broken --url "twin.html?variant=degraded"
 ```
 
-No judge, no API key, seconds rather than minutes: it reads the manifest and applies thirteen rules across names, descriptions, schemas and tool-count budget. Exit `0` clean, `1` findings at or above `--fail-on` (default `error`), `2` nothing to lint — no WebMCP surface, a tool set that never settled, or zero tools.
+No judge, no API key, seconds rather than minutes: it reads the manifest and applies fourteen rules across names, descriptions, schemas and tool-count budget. Exit `0` clean, `1` findings at or above `--fail-on` (default `error`), `2` nothing to lint — no WebMCP surface, a tool set that never settled, or zero tools.
 
 Run both modes, because they answer different questions. Chrome `152.0.7977.65` **throws `"Invalid tool name"`** when a page registers a name containing a space, so the worst names never reach `getTools()` and a live lint cannot see them; `--manifest` reads what the source declares. Conversely only the live mode catches what the browser actually did with what the page tried to register.
 
-Thresholds are calibrated on the reference page rather than invented, and all of them are flags (`--min-description`, `--max-properties`, `--budget-warn`). Verified 2026-08-30: the live reference page lints **0 errors, 0 warnings**, and the deliberately mis-described fixture twin lints **6 errors, 13 warnings**.
+Thresholds are calibrated on the reference page rather than invented, and all of them are flags (`--min-description`, `--max-properties`, `--budget-warn`). Verified 2026-08-30: the live reference page lints **0 errors, 0 warnings**, and the deliberately mis-described fixture twin lints **6 errors, 13 warnings**. Re-verified 2026-09-05 after a fourteenth rule was adopted: the reference page still lints **0/0** — the calibration invariant this linter is built on — and the twin now lints **6 errors, 15 warnings**, the two extra being the new rule.
 
 A clean lint is not a measured invocation rate. L0 says the manifest is well formed; only `run` says an agent picks these tools.
 

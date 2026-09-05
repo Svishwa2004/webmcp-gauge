@@ -129,6 +129,81 @@ test('two genuinely different descriptions of the same length are left alone', (
   assert.deepEqual(result.findings, []);
 });
 
+/**
+ * `description/indistinguishable-pair`, adopted 2026-09-05 after five measured arms
+ * showed a 45-point loss that no description-similarity threshold catches. These
+ * tests pin the two halves of the rule and, more importantly, the cases it must
+ * stay silent on — each of which is a manifest with a measured rate at or near the
+ * ceiling, so a false positive here would be a rule that flags working pages.
+ */
+const pairPresent = (result) =>
+  result.findings.some((entry) => entry.rule === 'description/indistinguishable-pair');
+
+const twoTools = (aName, aDescription, bName, bDescription, options) =>
+  lintManifest({
+    manifest: {
+      present: true,
+      settled: true,
+      tools: [
+        { name: aName, description: aDescription, inputSchema: { type: 'object', properties: {} } },
+        { name: bName, description: bDescription, inputSchema: { type: 'object', properties: {} } },
+      ],
+    },
+    options,
+  });
+
+const VAGUE = 'Works with the rows in the table and returns totals for what it finds.';
+const ALSO_VAGUE = 'Handles the listed entries and hands back combined figures for whatever turns up.';
+const INFORMATIVE = 'Total the loaded spending by category, largest first, and return aggregates only.';
+
+test('close names plus two descriptions that never say which tool is which is a warning', () => {
+  const result = twoTools('sum_by_category', VAGUE, 'summarise_by_category', ALSO_VAGUE);
+  const finding = result.findings.find((entry) => entry.rule === 'description/indistinguishable-pair');
+
+  assert.ok(finding, 'this is the configuration measured at 48–58% against a 95% baseline');
+  assert.equal(finding.severity, 'warning');
+  assert.equal(finding.tool, 'sum_by_category + summarise_by_category');
+  assert.equal(finding.evidence.nameSimilarity, 0.5);
+  // It must not need the two descriptions to resemble each other: these two share
+  // almost nothing, which is exactly the case the similarity rules cannot see.
+  assert.ok(similarity(VAGUE, ALSO_VAGUE) < DEFAULT_OPTIONS.nearDuplicateThreshold);
+  assert.equal(result.findings.some((entry) => entry.rule === 'description/near-duplicate'), false);
+});
+
+test('one description that says what its own tool is for is enough to stay silent', () => {
+  // Measured: `ablate-competitor-vague` — a vague competitor beside a well-described
+  // tool — cost nothing at all (95.0%, identical to clean failure for failure).
+  assert.equal(pairPresent(twoTools('sum_by_category', INFORMATIVE, 'summarise_by_category', VAGUE)), false);
+  assert.equal(pairPresent(twoTools('sum_by_category', VAGUE, 'summarise_by_category', INFORMATIVE)), false);
+});
+
+test('two vague descriptions on unrelated names are not this rule\'s business', () => {
+  // Measured: `ablate-desc-degraded` — vague descriptions with no close-named
+  // sibling — cost 1.7 points, inside the harness's own noise.
+  assert.equal(pairPresent(twoTools('sum_by_category', VAGUE, 'clear_highlights', ALSO_VAGUE)), false);
+});
+
+test('the name-similarity threshold is an option, and the rule follows it', () => {
+  const names = ['fetch_orders', VAGUE, 'orders_report', ALSO_VAGUE];
+  assert.equal(pairPresent(twoTools(...names)), false, 'these names share one token of three');
+  assert.equal(pairPresent(twoTools(...names, { nameSimilarityThreshold: 0.3 })), true);
+});
+
+test('the rule reports presence, not cost — it cannot know what a pair will cost', () => {
+  // The five measured rungs span 48.3% to 83.3% and the rule fires identically on
+  // all of them. That is deliberate: severity is a property of the rule, and only
+  // `run` measures what a defect costs.
+  const identical = twoTools('sum_by_category', VAGUE, 'summarise_by_category', VAGUE);
+  const distant = twoTools('sum_by_category', VAGUE, 'summarise_by_category', ALSO_VAGUE);
+  const pairOf = (result) => result.findings.find((entry) => entry.rule === 'description/indistinguishable-pair');
+
+  assert.equal(pairOf(identical).severity, pairOf(distant).severity);
+  // The byte-identical case additionally trips the error-graded duplicate rule, so
+  // the two rules stack rather than replace one another.
+  assert.equal(identical.findings.some((entry) => entry.rule === 'description/duplicate'), true);
+  assert.equal(distant.findings.some((entry) => entry.rule === 'description/duplicate'), false);
+});
+
 test('a required property with no description is an error, an optional one a warning', () => {
   const result = lintManifest({
     manifest: {

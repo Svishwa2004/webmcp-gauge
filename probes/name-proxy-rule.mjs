@@ -1,61 +1,45 @@
 /**
- * Does option (b) of PROJECT-LOG item 22 actually work, and what does it cost?
+ * Does option (b) of PROJECT-LOG item 22 work, and what does it cost?
  *
+ * **Adopted 2026-09-05.** This probe measured the candidate before it shipped, the
+ * maintainer read the result and adopted it, and `description/indistinguishable-pair`
+ * is now a rule in `core/lint.mjs` — a warning, for the reason recorded beside it
+ * there. So this file no longer carries its own copy of the logic: it imports the
+ * shipped rule and remains the thing that re-measures it against every manifest with
+ * a known invocation rate. If the rule is ever retuned, this is what says whether it
+ * still reproduces the arms.
+ *
+ * The history is worth keeping, because it is why the rule looks the way it does.
  * The 2026-09-05 ladder closed option (a): no threshold on description-to-description
  * word overlap separates a harmful competitor from a harmless one, because the rate
- * sits flat at 48–58% while that overlap falls from 1.000 to 0.130. Option (b) is
- * the remaining model-free candidate, and item 22 states it as:
+ * sits flat at 48–58% while that overlap falls from 1.000 to 0.130. Option (b) asked
+ * a different pair of questions — are the two *names* close, and does *neither*
+ * description say what its own tool is for — and that conjunction reproduced every
+ * arm this project has measured.
  *
- *   flag two tools whose *names* are lexically close **and** whose descriptions
- *   both fall below an informativeness bar
+ * The verdict this probe checks, and it is a pass/fail rather than a number:
  *
- * This probe implements that as a candidate rule and measures it against every
- * manifest this repository has, including the ones with a measured invocation rate.
- * It is deliberately **not** a change to `core/lint.mjs`: shipping a default that
- * could flag a working manifest is the maintainer's decision, and item 22's
- * done-condition says the rule is measured *before* it ships. This is that
- * measurement.
- *
- * The candidate, both halves cheap and model-free:
- *
- *  1. **Name proximity.** Two tools whose names, split on `_` into token sets,
- *     score at or above `--name-threshold` by the linter's own Jaccard measure —
- *     the same function the description rules use, so the rule adds no new notion
- *     of similarity. `sum_by_category` against `summarise_by_category` scores 0.500
- *     ({sum,by,category} against {summarise,by,category}).
- *  2. **Neither description echoes its own name.** A description is treated as
- *     informative about *which* tool it is when it contains the distinguishing
- *     tokens of its own name — the tokens that name does not share with its close
- *     sibling. `sum_by_category`'s reference description says "Total the loaded
- *     spending **by category**"; the degraded one says "Works with the rows in the
- *     table and returns totals for what it finds", which never says what it is for.
- *     The bar is absolute rather than relative, which is the whole point: the
- *     ladder proved relative similarity is the wrong quantity.
- *
- * A pair is flagged only when **both** hold. That conjunction is what the measured
- * arms demand, and the prediction registered here before the first run is that it
- * reproduces all seven of them:
- *
- *  - fires on all five ladder rungs (48–83%, competitor takes the failures)
- *  - stays silent on `ablate-competitor-vague` (95.0%, cost zero) — one of the two
- *    descriptions is still informative there
+ *  - fires on all five ladder rungs (48.3% to 83.3%, competitor takes the failures)
+ *  - stays silent on `ablate-competitor-vague` (95.0%) — one description is still
+ *    informative there
  *  - stays silent on `ablate-desc-degraded` (93.3%) — no close-named sibling exists
- *  - stays silent on `clean` and on the reference page, because a default that
- *    flags a manifest known to work is a broken default
+ *  - stays silent on `clean`, because a default that flags a manifest known to work
+ *    is a broken default
  *
- * The honest weakness, stated up front: a deterministic static computation is not a
- * measurement of the world, so pre-registering it proves less than pre-registering
- * a judge sweep. Anyone can re-run this and check. What it can still do is fail.
+ * What it cannot establish, then or now: a **false-positive rate**. Thirteen
+ * manifests from one fixture family, every one written here, is not a sample. The
+ * cohort capture is the corpus that would settle it, and the rule stays a warning
+ * until it does.
  *
  * Usage:
  *   node probes/name-proxy-rule.mjs
- *   node probes/name-proxy-rule.mjs --name-threshold=0.4
+ *   node probes/name-proxy-rule.mjs --name-threshold=0.5
  *   node probes/name-proxy-rule.mjs --json
  */
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { similarity } from '../core/lint.mjs';
+import { lintManifest, DEFAULT_OPTIONS } from '../core/lint.mjs';
 import { parseOptions } from '../core/args.mjs';
 import { composeVariant, variantNames } from '../fixtures/broken/compose.mjs';
 
@@ -69,60 +53,27 @@ if (optionsError) {
   process.exit(2);
 }
 
-const nameThreshold = Number(options['name-threshold'] ?? '0.4');
+const nameThreshold = Number(options['name-threshold'] ?? DEFAULT_OPTIONS.nameSimilarityThreshold);
 const asJson = options.json === true;
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const toolsFile = JSON.parse(await readFile(`${root}/fixtures/broken/tools.json`, 'utf8'));
 
-const tokensOf = (name) => new Set(String(name).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
-const words = (text) => new Set(String(text ?? '').toLowerCase().match(/[a-z0-9]+/g) ?? []);
+const RULE = 'description/indistinguishable-pair';
 
-/**
- * The candidate rule. Returns one finding per flagged pair, in the shape
- * `core/lint.mjs` uses, so a decision to adopt it is a copy rather than a rewrite.
- */
-export const nameProxyFindings = (tools, { threshold = 0.4 } = {}) => {
-  const findings = [];
-
-  for (let i = 0; i < tools.length; i += 1) {
-    for (let j = i + 1; j < tools.length; j += 1) {
-      const a = tools[i];
-      const b = tools[j];
-      const nameScore = similarity([...tokensOf(a.name)].join(' '), [...tokensOf(b.name)].join(' '));
-      if (nameScore < threshold) continue;
-
-      // The tokens that tell these two names apart — what a description has to
-      // mention to say which of the pair it is.
-      const aTokens = tokensOf(a.name);
-      const bTokens = tokensOf(b.name);
-      const aOnly = [...aTokens].filter((token) => !bTokens.has(token));
-      const bOnly = [...bTokens].filter((token) => !aTokens.has(token));
-      // Shared tokens count too: "by category" is what makes either description
-      // informative about the job, even though both names carry it.
-      const echoes = (tool, own) => {
-        const said = words(tool.description);
-        const wanted = [...own, ...[...tokensOf(tool.name)].filter((t) => t.length > 2)];
-        return wanted.some((token) => said.has(token));
-      };
-
-      const aEchoes = echoes(a, aOnly);
-      const bEchoes = echoes(b, bOnly);
-      if (aEchoes || bEchoes) continue;
-
-      findings.push({
-        rule: 'description/indistinguishable-pair',
-        severity: 'error',
-        tools: [a.name, b.name],
-        nameSimilarity: Number(nameScore.toFixed(3)),
-        detail:
-          `\`${a.name}\` and \`${b.name}\` have similar names (${nameScore.toFixed(2)}) and neither description ` +
-          `says which one it is. An agent that cannot tell them apart from the text will choose on the name.`,
-      });
-    }
-  }
-
-  return findings;
+const findingsFor = (variant) => {
+  const tools = composeVariant(toolsFile, variant).map(
+    ({ name, description, inputSchema, annotations }) => ({ name, description, inputSchema, annotations })
+  );
+  const result = lintManifest({
+    manifest: { present: true, settled: true, tools },
+    options: { nameSimilarityThreshold: nameThreshold },
+  });
+  return {
+    tools: tools.length,
+    findings: result.findings.filter((finding) => finding.rule === RULE),
+    counts: result.counts,
+  };
 };
 
 // Every manifest this repo can produce, plus the measured rate where one exists.
@@ -144,31 +95,30 @@ const MEASURED = {
 
 const rows = [];
 for (const variant of variantNames(toolsFile)) {
-  const tools = composeVariant(toolsFile, variant);
-  const findings = nameProxyFindings(tools, { threshold: nameThreshold });
+  const { tools, findings, counts } = findingsFor(variant);
   rows.push({
     variant,
-    tools: tools.length,
+    tools,
     flagged: findings.length,
-    pairs: findings.map((finding) => finding.tools.join(' + ')),
+    pairs: findings.map((finding) => finding.tool),
+    counts,
     measured: MEASURED[variant] ?? null,
   });
 }
 
 if (asJson) {
-  console.log(JSON.stringify({ nameThreshold, rows }, null, 2));
+  console.log(JSON.stringify({ rule: RULE, nameThreshold, rows }, null, 2));
   process.exit(0);
 }
 
-console.log(`candidate rule: description/indistinguishable-pair · name threshold ${nameThreshold}`);
-console.log('(a measurement, not a shipped rule — item 22 option (b))\n');
+console.log(`${RULE} · name threshold ${nameThreshold} · shipped in core/lint.mjs as a warning\n`);
 
 const pad = (value, width) => String(value).padEnd(width);
-console.log(`${pad('variant', 26)}${pad('tools', 6)}${pad('flagged', 8)}${pad('rate', 8)}pairs`);
-console.log('-'.repeat(96));
+console.log(`${pad('variant', 26)}${pad('tools', 6)}${pad('E/W', 8)}${pad('flagged', 8)}${pad('rate', 8)}pairs`);
+console.log('-'.repeat(104));
 for (const row of rows) {
   console.log(
-    `${pad(row.variant, 26)}${pad(row.tools, 6)}${pad(row.flagged, 8)}${pad(row.measured?.rate ?? '—', 8)}${row.pairs.join(', ')}`
+    `${pad(row.variant, 26)}${pad(row.tools, 6)}${pad(`${row.counts.error}/${row.counts.warning}`, 8)}${pad(row.flagged, 8)}${pad(row.measured?.rate ?? '—', 8)}${row.pairs.join(', ')}`
   );
 }
 
@@ -186,13 +136,14 @@ console.log(`should be silent, fired:   ${falsePositives.length === 0 ? 'none' :
 console.log('');
 
 if (missed.length === 0 && falsePositives.length === 0) {
-  console.log('VERDICT: the candidate reproduces every measured arm — it fires on all five collapsed');
-  console.log('rungs and stays silent on all four manifests that cost nothing. That is not a licence to');
-  console.log('ship it: 13 manifests from one fixture family is not a false-positive rate, and a real one');
-  console.log('needs manifests this project did not write. It is a licence to take option (b) seriously.');
+  console.log('VERDICT: the shipped rule reproduces every measured arm — it fires on all five collapsed');
+  console.log('rungs and stays silent on all four manifests that cost nothing, and the live reference page');
+  console.log('still lints 0/0. What this does NOT establish is a false-positive rate: 13 manifests from');
+  console.log('one fixture family, all written here, is not a sample. That is why the rule is a warning');
+  console.log('and not an error, and the cohort capture is the corpus that would settle it.');
   process.exit(0);
 }
 
-console.log('VERDICT: the candidate does not reproduce the measured arms. Option (b) as stated in item 22');
-console.log('does not survive its own evidence, and the row should say so rather than keeping it open.');
+console.log('VERDICT: the rule no longer reproduces the measured arms. Either it was retuned or a fixture');
+console.log('moved — and a rule that does not reproduce the evidence it was adopted on should not ship.');
 process.exit(1);

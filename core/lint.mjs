@@ -40,6 +40,12 @@ export const DEFAULT_OPTIONS = Object.freeze({
   budgetBreakAt: 296,
   /** Token-set overlap above which two descriptions are hard to tell apart. */
   nearDuplicateThreshold: 0.7,
+  /**
+   * Token-set overlap above which two tool *names* are close enough that a model
+   * with no useful description to go on may pick between them on the name.
+   * `sum_by_category` against `summarise_by_category` scores 0.500.
+   */
+  nameSimilarityThreshold: 0.4,
 });
 
 /**
@@ -63,6 +69,32 @@ export const RULES = Object.freeze([
   { id: 'description/thin', family: 'descriptions', severity: 'warning' },
   { id: 'description/duplicate', family: 'descriptions', severity: 'error' },
   { id: 'description/near-duplicate', family: 'descriptions', severity: 'warning' },
+  /**
+   * Adopted 2026-09-05 on measurement, and it is the only rule here aimed at a
+   * mechanism rather than at a property of the text.
+   *
+   * Five arms took `sum_by_category` from 95.0% to between 48.3% and 58.3% while the
+   * overlap between its description and its competitor's fell from 1.000 to 0.130 —
+   * so *similarity* is not what does the damage, and no threshold on
+   * `nearDuplicateThreshold` can catch it (`reports/ladder-2026-09-05.md`). What the
+   * judge actually did, in its own recorded words, was pick on the **name**:
+   * "summarise_by_category seems designed for summarizing by category". It does that
+   * when neither description tells it which tool is which.
+   *
+   * So this rule asks the two questions that mechanism needs, both model-free:
+   * are the names close, and does *neither* description say what its own tool is
+   * for. The second half is absolute rather than relative on purpose — the failed
+   * option was the relative one.
+   *
+   * **Warning, not error**, and the reason is this project's own precedent:
+   * `budget/headroom` was demoted because a linter that fails a build on a
+   * threshold nobody has reproduced is a linter people disable. This rule
+   * reproduces every arm across 13 manifests (`probes/name-proxy-rule.mjs`), but all
+   * 13 were written here. Its false-positive rate on manifests this project did not
+   * write is unmeasured, and the cohort capture is the corpus that would settle it.
+   * Promote to error when that measurement exists.
+   */
+  { id: 'description/indistinguishable-pair', family: 'descriptions', severity: 'warning' },
   { id: 'schema/not-object', family: 'schemas', severity: 'error' },
   { id: 'schema/required-without-description', family: 'schemas', severity: 'error' },
   { id: 'schema/over-parameterised', family: 'schemas', severity: 'warning' },
@@ -98,6 +130,18 @@ export const similarity = (a, b) => {
   let shared = 0;
   for (const token of left) if (right.has(token)) shared += 1;
   return shared / (left.size + right.size - shared);
+};
+
+/**
+ * Does this description say which tool it belongs to? Answered without a model, by
+ * asking whether it mentions the substantial tokens of its own name — plus any short
+ * token that distinguishes it from the sibling it is being compared against, since
+ * `sum` against `summarise` is exactly the distinction that matters and `by` is not.
+ */
+const describesItsOwnName = (name, description, distinguishing = []) => {
+  const said = tokenise(description);
+  const wanted = [...tokenise(name)].filter((token) => token.length > 2).concat(distinguishing);
+  return wanted.some((token) => said.has(token));
 };
 
 export const lintManifest = ({ manifest, options = {} }) => {
@@ -226,6 +270,33 @@ export const lintManifest = ({ manifest, options = {} }) => {
           { left: left.description, right: right.description }
         );
       }
+    }
+  }
+
+  // Close names plus two descriptions that never say which tool is which. Measured
+  // as the mechanism behind a 45-point loss that no similarity threshold catches;
+  // see the rule's entry in RULES for why it is a warning rather than an error.
+  for (let i = 0; i < descriptions.length; i += 1) {
+    for (let j = i + 1; j < descriptions.length; j += 1) {
+      const left = descriptions[i];
+      const right = descriptions[j];
+      const nameOverlap = similarity(left.name, right.name);
+      if (nameOverlap < settings.nameSimilarityThreshold) continue;
+
+      const leftTokens = tokenise(left.name);
+      const rightTokens = tokenise(right.name);
+      const leftOnly = [...leftTokens].filter((token) => !rightTokens.has(token));
+      const rightOnly = [...rightTokens].filter((token) => !leftTokens.has(token));
+
+      if (describesItsOwnName(left.name, left.description, leftOnly)) continue;
+      if (describesItsOwnName(right.name, right.description, rightOnly)) continue;
+
+      add(
+        'description/indistinguishable-pair',
+        `${left.name} + ${right.name}`,
+        `names share ${(nameOverlap * 100).toFixed(0)}% of their tokens and neither description says which tool it is, so a model with nothing to choose on will choose on the name`,
+        { nameSimilarity: Number(nameOverlap.toFixed(3)), left: left.description, right: right.description }
+      );
     }
   }
 

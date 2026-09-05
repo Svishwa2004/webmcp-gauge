@@ -1,0 +1,198 @@
+{
+  "schema": "webmcp-gauge/report/3",
+  "generatedAt": "2026-09-05T09:54:54.893Z",
+  "subject": {
+    "url": "twin.html?variant=ablate-desc-degraded",
+    "name": "twin (degraded descriptions, no competitor)",
+    "servedFrom": "fixtures/broken"
+  },
+  "stamps": {
+    "utteranceSet": {
+      "version": "1.3.0",
+      "frozen": true,
+      "authoringModel": "deepseek v4 by agentrouter"
+    },
+    "judge": {
+      "model": "glm-5.3",
+      "baseUrl": "https://agentrouter.org/v1",
+      "requested": "glm-5.3"
+    },
+    "harness": {
+      "sessions": 3,
+      "repeatsPerSession": 1,
+      "concurrency": 3,
+      "gapSeconds": 0,
+      "isolatedSessions": true
+    },
+    "browsers": [
+      {
+        "session": 1,
+        "isolated": true,
+        "browserPid": 28536,
+        "port": "2014",
+        "build": "Chrome/152.0.7977.65",
+        "headless": true,
+        "profileDir": "D:\\Projects\\Hackthon-projects\\webmcp-gauge\\artifacts\\ablate-desc-degraded\\sessions\\session-1",
+        "startedAt": "2026-09-05T09:43:15.682Z",
+        "servedFrom": "fixtures/broken",
+        "servedUrl": "http://127.0.0.1:2013/twin.html?variant=ablate-desc-degraded"
+      },
+      {
+        "session": 2,
+        "isolated": true,
+        "browserPid": 31492,
+        "port": "11397",
+        "build": "Chrome/152.0.7977.65",
+        "headless": true,
+        "profileDir": "D:\\Projects\\Hackthon-projects\\webmcp-gauge\\artifacts\\ablate-desc-degraded\\sessions\\session-2",
+        "startedAt": "2026-09-05T09:46:05.931Z",
+        "servedFrom": "fixtures/broken",
+        "servedUrl": "http://127.0.0.1:11396/twin.html?variant=ablate-desc-degraded"
+      },
+      {
+        "session": 3,
+        "isolated": true,
+        "browserPid": 3552,
+        "port": "14989",
+        "build": "Chrome/152.0.7977.65",
+        "headless": true,
+        "profileDir": "D:\\Projects\\Hackthon-projects\\webmcp-gauge\\artifacts\\ablate-desc-degraded\\sessions\\session-3",
+        "startedAt": "2026-09-05T09:48:32.578Z",
+        "servedFrom": "fixtures/broken",
+        "servedUrl": "http://127.0.0.1:14988/twin.html?variant=ablate-desc-degraded"
+      }
+    ]
+  },
+  "isolationCaveats": [
+    "Sessions share the machine, the OS network stack and the route to the provider.",
+    "Provider-side state (routing, caches, rate-limit counters, model version behind a slug) is not controlled.",
+    "Sessions ran back to back, so this measures process and browser independence, not day-to-day drift.",
+    "Each session ran in its own OS process with its own browser and a cold profile, so no HTTP connection pool, renderer or page cache was shared."
+  ],
+  "invocation": {
+    "overall": {
+      "trials": 120,
+      "ok": 115
+    },
+    "perTool": [
+      {
+        "tool": "sum_by_category",
+        "trials": 60,
+        "ok": 56,
+        "invocation": {
+          "rate": 0.9333333333333333,
+          "low": 0.8407464268680284,
+          "high": 0.9737713012754938,
+          "n": 60,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 0.9333333333333332,
+          "sigma": 0.023570226039551553,
+          "min": 0.9,
+          "max": 0.95,
+          "runs": 3
+        },
+        "withinSession": {
+          "sigma": 0,
+          "sessions": 3
+        },
+        "outcomes": {
+          "ok": 56,
+          "wrong_tool": 4
+        }
+      },
+      {
+        "tool": "filter_rows",
+        "trials": 60,
+        "ok": 59,
+        "invocation": {
+          "rate": 0.9833333333333333,
+          "low": 0.9114487027240993,
+          "high": 0.9970518402052138,
+          "n": 60,
+          "z": 1.959963984540054
+        },
+        "betweenSession": {
+          "mean": 0.9833333333333334,
+          "sigma": 0.023570226039551608,
+          "min": 0.95,
+          "max": 1,
+          "runs": 3
+        },
+        "withinSession": {
+          "sigma": 0,
+          "sessions": 3
+        },
+        "outcomes": {
+          "ok": 59,
+          "wrong_tool": 1
+        }
+      }
+    ],
+    "perTag": {
+      "paraphrase": {
+        "trials": 42,
+        "ok": 42,
+        "rate": 1
+      },
+      "plain": {
+        "trials": 42,
+        "ok": 42,
+        "rate": 1
+      },
+      "oblique": {
+        "trials": 36,
+        "ok": 31,
+        "rate": 0.8611111111111112
+      }
+    }
+  },
+  "controls": null,
+  "coverage": {
+    "expectedTrials": 120,
+    "measuredTrials": 120,
+    "missingTrials": 0,
+    "missing": []
+  },
+  "harnessFailures": [],
+  "recoveredFailures": 2,
+  "sessionResults": [
+    {
+      "session": 1,
+      "code": 0,
+      "stalled": false,
+      "error": null,
+      "elapsedMs": 11786
+    },
+    {
+      "session": 2,
+      "code": 0,
+      "stalled": false,
+      "error": null,
+      "elapsedMs": 32993
+    },
+    {
+      "session": 3,
+      "code": 0,
+      "stalled": false,
+      "error": null,
+      "elapsedMs": 1462
+    }
+  ],
+  "timing": {
+    "startedAt": "2026-09-05T09:54:08.637Z",
+    "finishedAt": "2026-09-05T09:54:54.892Z",
+    "elapsedMs": 46253
+  },
+  "gate": {
+    "failUnder": null,
+    "gatedTools": 0,
+    "missingTrials": 0,
+    "outstandingFailures": 0,
+    "breaches": [],
+    "code": 0,
+    "status": "pass",
+    "summary": "COMPLETE — 120/120 planned trials measured, no --fail-under given, so nothing was gated."
+  }
+}

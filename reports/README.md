@@ -14,6 +14,7 @@ Each run is `<subject>-<utterance set>-<judge>-<shape>`, where shape is `sNrM` f
 | [`discrimination-2026-08-30.md`](discrimination-2026-08-30.md) | Does invocation rate tell a well-described page from a badly described one? Yes. |
 | [`ablation-2026-08-31.md`](ablation-2026-08-31.md) | *Which* defect did it? None alone — they compound. Also scores the predictions that were wrong, and carries a **Corrections** section added 2026-09-05 for six readings of its own numbers that did not survive an audit. |
 | [`pair-2026-09-05.md`](pair-2026-09-05.md) | Does the compounding result need a degraded page around it? **No.** Two defects on one tool, reference-quality neighbours: `sum_by_category` 48.3% [36.2, 60.7], −46.7 against clean — more than the whole degraded manifest cost it. Also scores its own prediction, two of whose six sub-claims were wrong, and records what composing the arm destroyed: the published table's parts were never subsets of its whole. |
+| [`decomposition-2026-09-05.md`](decomposition-2026-09-05.md) | *Which* of the two defects does the damage? **Neither, alone.** The degraded description on its own costs −1.7, the vague competitor on its own costs 0.0, and together they cost −46.7 — the parts sum to −1.7, so almost the entire effect is interaction. Both halves measured on the pair's own tool entries, so this is the project's first decomposition where the parts really are subsets of the whole. Also the first test of the linter's warning-versus-error grading, which it passes. |
 | [`spacing-2026-09-01.md`](spacing-2026-09-01.md) | Do hours-between-sessions change the answer? σ doesn't care (0.085 vs 0.062 worst-case) — but both mid-range tools declined monotonically across 26 h, the shape drift looks like. |
 
 ## The reference page (Airlock, live)
@@ -39,8 +40,10 @@ Each run is `<subject>-<utterance set>-<judge>-<shape>`, where shape is `sNrM` f
 | `twin-degraded-1.3.0-glm-5.3-s3r1-spaced` | 480 | Same arm as `twin-degraded-…-s3r1` with sessions 17.2 h and 9.2 h apart across a day boundary |
 | `airlock-1.3.0-glm-5.3-edge-s1r1` | 160 | **Second client** — Edge `153.0.4234.13`, single session: 99.3% (139/140), every tool inside or above its Chrome interval. A point measurement, not a variance one. Machine record published 2026-09-05, two days after the write-up |
 | `twin-ablate-pair-1.3.0-glm-5.3-s3r1` | 120 | **The interaction arm, 2026-09-05** — the degraded manifest's own `sum_by_category`, `filter_rows` and `summarise_by_category` entries on an otherwise clean page, so the neighbourhood is the only difference from `twin-degraded-…-s3r1`. `sum_by_category` **48.3%** [36.2, 60.7] against clean's 95.0% and degraded's 60.0%; `filter_rows` 98.3%, matching its degraded-arm rate exactly. Declared in the fixture as a strict subset of `degraded`, with a test enforcing it. Write-up: [`pair-2026-09-05.md`](pair-2026-09-05.md) |
+| `twin-ablate-desc-degraded-1.3.0-glm-5.3-s3r1` | 120 | **Half the pair, 2026-09-05** — the degraded descriptions with no competitor present. `sum_by_category` **93.3%** [84.1, 97.4], i.e. −1.7 against clean, and 3 of its 4 misses are the `sum_by_category-12` floor utterance. `filter_rows` 98.3% |
+| `twin-ablate-competitor-vague-1.3.0-glm-5.3-s3r1` | 60 | **The other half, 2026-09-05** — the vaguely-described competitor added with both descriptions left at reference quality. `sum_by_category` **95.0%** [86.3, 98.3], σ 0.000, **identical to the clean arm failure for failure** (all three misses are the floor utterance). Cost: zero. Write-up for both halves: [`decomposition-2026-09-05.md`](decomposition-2026-09-05.md) |
 
-4,320 trials across 14 runs. The raw per-trial JSONL stays local in `artifacts/` — see next step 4.
+4,500 trials across 16 runs. The raw per-trial JSONL stays local in `artifacts/` — see next step 4.
 
 ## Next steps that land here
 

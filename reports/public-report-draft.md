@@ -4,7 +4,7 @@
 
 **Status: DRAFT — not published.** Two things are outstanding: the cohort census has not been captured — it can only be captured on the day a gallery of WebMCP pages goes public — and publication waits on this repository being made public. Every other section is final. Numbers are carried from the run write-ups linked at each claim.
 
-**Author and conflict of interest.** webmcp-gauge is built by Sahan Vishwa, who also entered the hackathon whose submissions the cohort census will measure. Consequences, fixed in advance: no per-project detail is published while judging runs, a per-project scorecard goes to that builder before it goes anywhere else, and the census is aggregate. State this next to any number taken from here.
+**Author and conflict of interest.** webmcp-gauge is written by **[@Svishwa2004](https://github.com/Svishwa2004)**, who also entered the event whose submissions the cohort census will measure — so the author is inside the population being counted. Consequences, fixed in advance: no per-project detail is published while judging runs, any per-project scorecard goes to that builder before it goes anywhere else, the published census is aggregate, and the author's own entry is captured and counted by exactly the rules below, with no exemption and no special case in the code. State this next to any number taken from here.
 
 ---
 

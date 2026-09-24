@@ -30,7 +30,7 @@
  *
  * Exit codes follow the harness contract: 0 harvested, 2 cannot harvest.
  */
-import { mkdir, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { launchSession } from '../browser/launch.mjs';
@@ -45,7 +45,7 @@ import { pickTarget, galleryPageUrl, toHarvest } from '../core/gallery.mjs';
 // and the run walked the **live** gallery while claiming to walk a fixture.
 const { options, error: optionsError } = parseOptions(process.argv.slice(2), {
   values: ['serve', 'delay', 'max-pages', 'gallery', 'out', 'targets-out'],
-  switches: ['no-projects', 'probe', 'headless'],
+  switches: ['no-projects', 'probe', 'headless', 'resume'],
   maxPositional: 0,
 });
 if (optionsError) {
@@ -62,6 +62,14 @@ const probeOnly = options.probe === true;
 const headless = options.headless === true;
 const today = localDateStamp();
 const outDir = resolve(flag('out', `artifacts/gallery-${today}`));
+// Checkpoint on every page (append-only JSONL: one {page, strategy, rows} per
+// line). A 104-page cards walk at ~2.5 s/page takes ~20 min, and a transient
+// null-status page (2026-09-24: attempt 1 died on page 96 with 2,280 links
+// collected; attempt 2 on page 83 with 1,968) must cost one page, not the
+// whole walk. Resume with --resume: already-checkpointed pages are skipped,
+// so the second invocation finishes pages 83..104 instead of restarting 1..82.
+const resume = options.resume === true;
+const checkpointPath = `${outDir}/pages.jsonl`;
 
 // --serve exists so the page walk can be rehearsed against a local two-page
 // fixture instead of paging through a stranger's gallery to prove our own loop.
@@ -134,11 +142,22 @@ const visit = async (url, settleMs = 4000) => {
 const text = (expression) => session.evaluate(expression).catch(() => null);
 
 try {
+  const { origin, pathname } = new URL(galleryUrl);
   // Robots first, through the browser, because a plain fetch cannot read it. The
   // origin comes from the gallery URL rather than being hardcoded, so the same
   // check applies to a local rehearsal and to any other host.
-  const { origin, pathname } = new URL(galleryUrl);
-  const robotsStatus = await visit(`${origin}/robots.txt`, 2500);
+  // Retried like the page walk: Devpost's 202 waiting room answers intermittently
+  // once a session has walked ~80+ pages (2026-09-24, attempts 1-3), and a single
+  // 202 on robots.txt must not fail a harvest before it has begun.
+  let robotsStatus = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    robotsStatus = await visit(`${origin}/robots.txt`, attempt === 1 ? 2500 : 8000);
+    if (robotsStatus === 200 || robotsStatus === 404) break;
+    if (attempt < 3) {
+      console.warn(`robots.txt: status ${robotsStatus} (attempt ${attempt}/3) — waiting and retrying`);
+      await wait(delayMs * 4);
+    }
+  }
   const robotsTxt = (await text('document.body ? document.body.innerText : ""')) ?? '';
   if (robotsStatus === 404 || (robotsStatus === 200 && robotsTxt.trim() === '')) {
     // No robots.txt is permission, and a local fixture has none.
@@ -156,68 +175,132 @@ try {
   let matchedBy = null;
   let lastPage = null;
 
-  for (let page = 1; page <= maxPages; page += 1) {
-    const url = galleryPageUrl(galleryUrl, page);
-    const status = await visit(url, 5000);
-    if (status !== 200) fail(`gallery page ${page} returned ${status}${status === 202 ? ' — run headed, not headless' : ''}`);
-
-    const body = (await text('document.body.innerText')) ?? '';
-    if (/haven'?t published this gallery yet/i.test(body)) {
-      fail('the gallery is not published yet. Nothing to harvest — re-run on gallery-publish day.');
-    }
-
-    // Devpost's pager names the last page, which is a far better stopping rule
-    // than "this page added nothing new". Verified 2026-09-01 against a published
-    // gallery whose pager listed ?page=26 while showing 24 cards per page: with
-    // only the no-new-links rule, one slow-rendering page in the middle would end
-    // the walk early and the harvest would look complete.
-    if (page === 1) {
-      const pager = JSON.parse(
-        (await text(`JSON.stringify([...document.querySelectorAll('a[href*="page="]')]
-          .map((a) => Number(new URL(a.href, location.href).searchParams.get('page')))
-          .filter((n) => Number.isInteger(n) && n > 0))`)) ?? '[]'
-      );
-      lastPage = pager.length > 0 ? Math.max(...pager) : 1;
-      console.log(`pager reports ${lastPage} page(s)`);
-      if (lastPage > maxPages) {
-        fail(`the gallery has ${lastPage} pages but --max-pages is ${maxPages}. Raise it rather than harvest a truncated cohort.`);
+  // The checkpoint is the difference between "one page failed" and "the walk
+  // failed". A fresh run truncates whatever an earlier attempt left; --resume
+  // reloads every checkpointed page into `seen` and skips re-visiting it, so a
+  // transient null on page 83 costs page 83 instead of pages 1..82.
+  await mkdir(outDir, { recursive: true });
+  const checkpointed = new Map(); // page number -> checkpoint entry
+  if (resume) {
+    const lines = (await readFile(checkpointPath, 'utf8').catch(() => '')).split(/\r?\n/).filter(Boolean);
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+        // Zero-row entries are never trusted: a waiting-room 200 that carried no
+        // cards was checkpointed once (2026-09-24, page 3) and would have made
+        // the walk skip a page it never actually read. Such pages are re-walked.
+        if (Number.isInteger(entry?.page) && Array.isArray(entry?.rows) && entry.rows.length > 0) {
+          checkpointed.set(entry.page, entry);
+        }
+      } catch {
+        // A torn final line from a killed run is expected in an append-only
+        // file; every whole line before it still loads.
       }
     }
+  } else {
+    await writeFile(checkpointPath, '', 'utf8');
+  }
+  if (checkpointed.size > 0) {
+    for (const page of [...checkpointed.keys()].sort((a, b) => a - b)) {
+      const entry = checkpointed.get(page);
+      for (const row of entry.rows ?? []) {
+        const key = new URL(row.href).pathname.replace(/\/$/, '');
+        if (!seen.has(key)) seen.set(key, { title: row.title, devpostUrl: row.href });
+      }
+      matchedBy = matchedBy ?? entry.strategy ?? null;
+      if (lastPage === null && Number.isInteger(entry.lastPage)) lastPage = entry.lastPage;
+    }
+    console.log(`resume: ${checkpointed.size} checkpointed page(s) reloaded, ${seen.size} project(s) recovered`);
+  }
 
-    // Selector cascade. Devpost's markup cannot be verified before publication, so
-    // every candidate is tried and the one that matched is recorded in the output.
-    const found = JSON.parse(
-      (await text(`(() => {
-        const strategies = [
-          ['gallery-item', 'a.link-to-software'],
-          ['software-entry', '.software-entry a[href*="/software/"]'],
-          ['gallery-anchor', '.gallery-item a[href*="/software/"]'],
-          ['any-software-link', 'a[href*="devpost.com/software/"]'],
-          ['relative-software-link', 'a[href^="/software/"]'],
-        ];
-        for (const [name, selector] of strategies) {
-          const nodes = [...document.querySelectorAll(selector)];
-          if (nodes.length === 0) continue;
-          const rows = nodes.map((a) => ({
-            href: a.href,
-            title: (a.querySelector('h5, .software-entry-name, .title')?.innerText ?? a.innerText ?? '').trim().split('\\n')[0],
-          })).filter((r) => /\\/software\\//.test(r.href));
-          if (rows.length > 0) return JSON.stringify({ strategy: name, rows });
+  for (let page = 1; page <= maxPages; page += 1) {
+    if (checkpointed.has(page)) continue;
+    // On resume the pager count is known before the first live visit, so stop
+    // at it here as well — otherwise a completed 1..lastPage walk visits one
+    // page past the end just to learn it is past the end (rehearsal 2026-09-24:
+    // a --resume run over a finished 2-page fixture still fetched page 3).
+    if (lastPage !== null && page > lastPage) break;
+    const url = galleryPageUrl(galleryUrl, page);
+    // One retry loop for the card walk, keyed on the thing that actually matters:
+    // cards on the page. A non-200 status and a 200 whose body carries no cards
+    // are both failures — Devpost's waiting room has produced both shapes
+    // (2026-09-24: null status on pages 3 and 96; a 200 with zero gallery items
+    // on page 3), and checkpointing an empty page would make a truncated cohort
+    // look complete. Bounded: at most 3 attempts per page, then fail loudly
+    // rather than harvest a truncated cohort.
+    let status = null;
+    let found = { strategy: null, rows: [] };
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      status = await visit(url, attempt === 1 ? 5000 : 10000);
+      if (status === 200) {
+        const body = (await text('document.body.innerText')) ?? '';
+        if (/haven'?t published this gallery yet/i.test(body)) {
+          fail('the gallery is not published yet. Nothing to harvest — re-run on gallery-publish day.');
         }
-        return JSON.stringify({ strategy: null, rows: [] });
-      })()`)) ?? '{"strategy":null,"rows":[]}'
-    );
 
-    if (page === 1 && found.rows.length === 0) {
-      const outline =
-        (await text(`JSON.stringify(Object.entries([...document.querySelectorAll('*')].reduce((counts, el) => {
-          const key = el.tagName.toLowerCase() + (typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\\s+/)[0] : '');
-          counts[key] = (counts[key] ?? 0) + 1;
-          return counts;
-        }, {})).sort((a, b) => b[1] - a[1]).slice(0, 25))`)) ?? '[]';
-      console.error('no card matched any strategy. Most common elements on the page:');
-      console.error(outline);
-      fail('every selector strategy found zero project links — the markup changed, and guessing would produce a wrong dataset');
+        // Devpost's pager names the last page, which is a far better stopping rule
+        // than "this page added nothing new". Verified 2026-09-01 against a published
+        // gallery whose pager listed ?page=26 while showing 24 cards per page: with
+        // only the no-new-links rule, one slow-rendering page in the middle would end
+        // the walk early and the harvest would look complete.
+        if (page === 1) {
+          const pager = JSON.parse(
+            (await text(`JSON.stringify([...document.querySelectorAll('a[href*="page="]')]
+              .map((a) => Number(new URL(a.href, location.href).searchParams.get('page')))
+              .filter((n) => Number.isInteger(n) && n > 0))`)) ?? '[]'
+          );
+          lastPage = pager.length > 0 ? Math.max(...pager) : 1;
+          console.log(`pager reports ${lastPage} page(s)`);
+          if (lastPage > maxPages) {
+            fail(`the gallery has ${lastPage} pages but --max-pages is ${maxPages}. Raise it rather than harvest a truncated cohort.`);
+          }
+        }
+
+        // Selector cascade. Devpost's markup cannot be verified before publication, so
+        // every candidate is tried and the one that matched is recorded in the output.
+        found = JSON.parse(
+          (await text(`(() => {
+            const strategies = [
+              ['gallery-item', 'a.link-to-software'],
+              ['software-entry', '.software-entry a[href*="/software/"]'],
+              ['gallery-anchor', '.gallery-item a[href*="/software/"]'],
+              ['any-software-link', 'a[href*="devpost.com/software/"]'],
+              ['relative-software-link', 'a[href^="/software/"]'],
+            ];
+            for (const [name, selector] of strategies) {
+              const nodes = [...document.querySelectorAll(selector)];
+              if (nodes.length === 0) continue;
+              const rows = nodes.map((a) => ({
+                href: a.href,
+                title: (a.querySelector('h5, .software-entry-name, .title')?.innerText ?? a.innerText ?? '').trim().split('\\n')[0],
+              })).filter((r) => /\\/software\\//.test(r.href));
+              if (rows.length > 0) return JSON.stringify({ strategy: name, rows });
+            }
+            return JSON.stringify({ strategy: null, rows: [] });
+          })()`)) ?? '{"strategy":null,"rows":[]}'
+        );
+        if (found.rows.length > 0) break;
+      }
+      if (attempt < 3) {
+        console.warn(`page ${page}: status ${status}, ${found.rows.length} card(s) (attempt ${attempt}/3) — waiting and retrying`);
+        await wait(delayMs * 2);
+      }
+    }
+    if (status !== 200) fail(`gallery page ${page} returned ${status} after 3 attempts${status === 202 ? ' — run headed, not headless' : ''}`);
+
+    if (found.rows.length === 0) {
+      if (page === 1) {
+        const outline =
+          (await text(`JSON.stringify(Object.entries([...document.querySelectorAll('*')].reduce((counts, el) => {
+            const key = el.tagName.toLowerCase() + (typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\\s+/)[0] : '');
+            counts[key] = (counts[key] ?? 0) + 1;
+            return counts;
+          }, {})).sort((a, b) => b[1] - a[1]).slice(0, 25))`)) ?? '[]';
+        console.error('no card matched any strategy. Most common elements on the page:');
+        console.error(outline);
+        fail('every selector strategy found zero project links — the markup changed, and guessing would produce a wrong dataset');
+      }
+      fail(`gallery page ${page} returned 200 but carried no project cards after 3 attempts — waiting room or markup change, not an empty page; read it before trusting the harvest`);
     }
 
     matchedBy = matchedBy ?? found.strategy;
@@ -227,6 +310,10 @@ try {
       if (!seen.has(key)) seen.set(key, { title: row.title, devpostUrl: row.href });
     }
     console.log(`page ${page}: ${found.rows.length} link(s) via "${found.strategy}", ${seen.size - before} new (total ${seen.size})`);
+    // Checkpoint only after the page's rows are in `seen`, so a reload cannot
+    // produce a half-page: the line and the in-memory state land together or
+    // the line never exists.
+    await appendFile(checkpointPath, `${JSON.stringify({ page, strategy: found.strategy, rows: found.rows, lastPage })}\n`, 'utf8');
 
     // Stop on the pager's own count when there is one; fall back to "nothing new"
     // only for a gallery that shows no pager at all.
@@ -246,7 +333,35 @@ try {
     const picks = [];
     const projects = [...seen.values()];
 
+    // The project-page walk is an hour of visits at 2,496 projects and gets the
+    // same checkpoint treatment as the card walk, keyed by devpostUrl: a page
+    // that returns null at minute 90 costs that page, not the other 89 minutes.
+    const picksPath = `${outDir}/picks.jsonl`;
+    const donePicks = new Map(); // devpostUrl -> pick
+    if (visitProjects) {
+      if (resume) {
+        const lines = (await readFile(picksPath, 'utf8').catch(() => '')).split(/\r?\n/).filter(Boolean);
+        for (const line of lines) {
+          try {
+            const pick = JSON.parse(line);
+            if (pick?.devpostUrl) donePicks.set(pick.devpostUrl, pick);
+          } catch {
+            // Torn final line — same tolerance as the card checkpoint.
+          }
+        }
+        if (donePicks.size > 0) console.log(`resume: ${donePicks.size} project page(s) already read — skipping them`);
+      } else {
+        await writeFile(picksPath, '', 'utf8');
+      }
+    }
+
     for (const [index, project] of projects.entries()) {
+      const already = donePicks.get(project.devpostUrl) ?? null;
+      if (already) {
+        picks.push(already);
+        if ((index + 1) % 10 === 0) console.log(`  …${index + 1}/${projects.length} project pages read`);
+        continue;
+      }
       let links = [];
       let scope = null;
       if (visitProjects) {
@@ -285,6 +400,7 @@ try {
         pick.skipReason = 'no submission links section on the project page';
       }
       picks.push(pick);
+      if (visitProjects) await appendFile(picksPath, `${JSON.stringify(pick)}\n`, 'utf8');
       if ((index + 1) % 10 === 0) console.log(`  …${index + 1}/${projects.length} project pages read`);
     }
 

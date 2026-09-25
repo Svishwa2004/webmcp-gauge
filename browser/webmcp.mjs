@@ -125,6 +125,15 @@ export const observe = (session) => session.evaluate(OBSERVATION_EXPRESSION);
  * gone. On a build without the domain this returns `available: false` and `names()`
  * returns null rather than an empty array: a view you do not have is not evidence of
  * absence, and the classifier must not read it as one.
+ *
+ * Two entry points share one accumulator:
+ *
+ * - `watchBrowserTools(session)` attaches to one page target. Enough when the page
+ *   and its embeds are same-site: every registration arrives at that session. This
+ *   is what trials use, and what a same-site capture should use.
+ * - `watchBrowserToolsAtBrowser(webSocketDebuggerUrl)` attaches at the browser
+ *   endpoint instead, which is what a capture over an unknown cohort must use,
+ *   because a cross-site delegating embed is invisible to the host-attached view.
  */
 export const watchBrowserTools = async (session) => {
   const present = new Map();
@@ -158,6 +167,207 @@ export const watchBrowserTools = async (session) => {
     stop: () => {
       stopAdded();
       stopRemoved();
+    },
+  };
+};
+
+/**
+ * The same accumulation, done at the browser endpoint.
+ *
+ * `webSocketDebuggerUrl` is the browser's own endpoint (`/json/version`), not a
+ * page target's. Everything arrives on one socket, tagged with the `sessionId` of
+ * the target each event came from — the pattern `probes/browser-scope.mjs`
+ * measured on 2026-09-05 against the `spec-227` cross-site fixture: the host
+ * page's `getTools()` sees 3 tools and a watch attached to the host target sees
+ * the same 3, while a browser-endpoint watch sees 4 across 2 target sessions,
+ * including the cross-site embed's `widget_ping`. A capture that can meet an
+ * unknown cohort must read this view, or every page that delegates tools to a
+ * different-site embed publishes an `agentVisibleToolCount` that undercounts it —
+ * in precisely the case the report cites as the reason for publishing that number
+ * beside the page-registered one (PROJECT-LOG item 23).
+ *
+ * Recursion is the whole game, and it is not automatic. Browser-level auto-attach
+ * armed **once** attached six targets with no iframe among them and saw 3 tools —
+ * the near-miss that run caught in itself. Every attached session arms
+ * `Target.setAutoAttach` again as it attaches; that is what walks down to the
+ * out-of-process iframe. Each new session also gets `WebMCP.enable`, tolerated
+ * when a target type refuses it: enabling is best-effort per target, and the
+ * verdict is about the union, not about any one target's cooperation.
+ *
+ * Availability cannot be decided at setup the way the host-attached watch decides
+ * it, because the browser endpoint itself has no WebMCP domain to enable — the
+ * question answers itself one target at a time. So `available` and `reason` are
+ * read-time getters, and they keep the classifier-safe rule: a build whose every
+ * enable refused reports `available: false` with `names()` null (no view is not
+ * evidence of absence), never an empty union.
+ *
+ * Returns the same view shape as `watchBrowserTools`, plus three read-time
+ * counters so a caller can tell "auto-attach reached nothing" apart from "the
+ * browser cannot see it" — only one of those is about WebMCP:
+ *
+ * - `oopiFrames` — attached `iframe` targets. An out-of-process iframe's tool can
+ *   only arrive through one, so a run where this is 0 has measured its own
+ *   plumbing rather than the browser's view, and the number must travel with any
+ *   verdict drawn from the union (the exit-2 guard browser-scope.mjs added after
+ *   its own first run would have published the opposite answer).
+ * - `sessionCount` — targets attached; `toolSessions` — sessions that produced
+ *   tool events, which is how wide the union actually is.
+ *
+ * The optional `WebSocket` override exists for the same reason the host-attached
+ * tests fake the session: the accumulation contract is this repo's logic, and it
+ * must be testable without a browser.
+ */
+export const watchBrowserToolsAtBrowser = async (
+  webSocketDebuggerUrl,
+  { WebSocket: makeSocket = globalThis.WebSocket } = {}
+) => {
+  const present = new Map();
+  const removed = [];
+  const toolSessions = new Set();
+  const attached = new Map(); // sessionId -> { targetId, type, url }
+  const enableResults = new Map(); // sessionId -> true | refusal message
+
+  const socket = new makeSocket(webSocketDebuggerUrl);
+  await new Promise((open, failed) => {
+    socket.addEventListener('open', open, { once: true });
+    socket.addEventListener(
+      'error',
+      () => failed(new Error(`could not connect to ${webSocketDebuggerUrl}`)),
+      { once: true }
+    );
+  });
+
+  let nextId = 1;
+  const pending = new Map();
+  const listeners = new Map();
+
+  socket.addEventListener('message', (event) => {
+    let message;
+    try {
+      message = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+    if (message.id !== undefined && pending.has(message.id)) {
+      const entry = pending.get(message.id);
+      pending.delete(message.id);
+      clearTimeout(entry.timer);
+      if (message.error) entry.reject(new Error(`${message.error.message} (${message.error.code})`));
+      else entry.resolve(message.result ?? {});
+      return;
+    }
+    if (!message.method) return;
+    for (const handler of listeners.get(message.method) ?? []) {
+      handler(message.params ?? {}, message.sessionId ?? null);
+    }
+  });
+
+  const send = (method, params = {}, sessionId = undefined) =>
+    new Promise((resolve, reject) => {
+      const id = nextId++;
+      // A command with no reply is a dead endpoint, not a slow one — the same
+      // bound every wait in browser/session.mjs carries, for the same reason: a
+      // silent stall is indistinguishable from work in progress.
+      const timer = setTimeout(() => {
+        pending.delete(id);
+        reject(new Error(`CDP ${method} did not answer within 15000ms`));
+      }, 15000);
+      pending.set(id, { resolve, reject, timer });
+      socket.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
+    });
+
+  const on = (method, handler) => {
+    const list = listeners.get(method) ?? [];
+    list.push(handler);
+    listeners.set(method, list);
+  };
+
+  on('Target.attachedToTarget', (params) => {
+    const { sessionId } = params;
+    const info = params.targetInfo ?? {};
+    attached.set(sessionId, {
+      targetId: info.targetId ?? null,
+      type: info.type ?? null,
+      url: info.url ?? null,
+    });
+    // Arming auto-attach again on each attached session is what makes the walk
+    // recursive; a target type that refuses either command is recorded by
+    // absence, and an enable refusal decides `available` — a build without the
+    // domain must look unavailable, not empty.
+    send(
+      'Target.setAutoAttach',
+      { autoAttach: true, waitForDebuggerOnStart: false, flatten: true },
+      sessionId
+    ).catch(() => {});
+    send('WebMCP.enable', {}, sessionId)
+      .then(() => enableResults.set(sessionId, true))
+      .catch((error) => enableResults.set(sessionId, String(error.message ?? error)));
+  });
+
+  on('WebMCP.toolsAdded', (params, sessionId) => {
+    for (const tool of params.tools ?? []) {
+      if (!tool?.name) continue;
+      present.set(tool.name, tool);
+      if (sessionId) toolSessions.add(sessionId);
+    }
+  });
+
+  on('WebMCP.toolsRemoved', (params, sessionId) => {
+    for (const tool of params.tools ?? []) {
+      if (!tool?.name) continue;
+      present.delete(tool.name);
+      removed.push(tool.name);
+      if (sessionId) toolSessions.add(sessionId);
+    }
+  });
+
+  await send('Target.setDiscoverTargets', { discover: true });
+  await send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: false, flatten: true });
+
+  const anySessionEnabled = () => {
+    for (const succeeded of enableResults.values()) if (succeeded === true) return true;
+    return false;
+  };
+  const lastRefusal = () => {
+    let reason = null;
+    for (const value of enableResults.values()) if (value !== true) reason = value;
+    return reason;
+  };
+
+  return {
+    get available() {
+      return anySessionEnabled();
+    },
+    get reason() {
+      if (attached.size === 0) return 'no target session attached to the browser endpoint';
+      return anySessionEnabled() ? null : (lastRefusal() ?? 'no session enabled the WebMCP domain');
+    },
+    names: () => (anySessionEnabled() ? [...present.keys()] : null),
+    tools: () => (anySessionEnabled() ? [...present.values()] : null),
+    removedNames: () => (anySessionEnabled() ? [...removed] : null),
+    get oopiFrames() {
+      let count = 0;
+      for (const target of attached.values()) if (target.type === 'iframe') count += 1;
+      return count;
+    },
+    get sessionCount() {
+      return attached.size;
+    },
+    get toolSessionCount() {
+      return toolSessions.size;
+    },
+    stop: () => {
+      for (const entry of pending.values()) {
+        clearTimeout(entry.timer);
+        entry.reject(new Error('watch stopped'));
+      }
+      pending.clear();
+      listeners.clear();
+      try {
+        socket.close();
+      } catch {
+        // A socket that is already gone is the state we wanted.
+      }
     },
   };
 };

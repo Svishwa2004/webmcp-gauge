@@ -205,26 +205,27 @@ test('the census counts adoption, not browser support', () => {
  * stop being the same number. Both are captured; neither is allowed to stand in
  * for the other.
  */
-const embedRecord = () =>
-  toRecord({
-    target: { project: 'host', url: 'https://host.example/', repo: null, aliases: [] },
-    capturedAt: 'now',
-    status: 200,
-    finalUrl: 'https://host.example/',
-    manifest: { present: true, tools: [{ name: 'own_one', description: 'x' }] },
-    browserTools: [
-      { name: 'own_one', frameId: 'F1' },
-      {
-        name: 'embedded_pay',
-        frameId: 'F2',
-        stackTrace: { callFrames: [{ url: 'https://widget.example/w.js' }] },
-      },
-    ],
-    frames: [
-      { id: 'F1', origin: 'https://host.example' },
-      { id: 'F2', origin: 'https://widget.example' },
-    ],
-  });
+const embedInputs = () => ({
+  target: { project: 'host', url: 'https://host.example/', repo: null, aliases: [] },
+  capturedAt: 'now',
+  status: 200,
+  finalUrl: 'https://host.example/',
+  manifest: { present: true, tools: [{ name: 'own_one', description: 'x' }] },
+  browserTools: [
+    { name: 'own_one', frameId: 'F1' },
+    {
+      name: 'embedded_pay',
+      frameId: 'F2',
+      stackTrace: { callFrames: [{ url: 'https://widget.example/w.js' }] },
+    },
+  ],
+  frames: [
+    { id: 'F1', origin: 'https://host.example' },
+    { id: 'F2', origin: 'https://widget.example' },
+  ],
+});
+
+const embedRecord = () => toRecord(embedInputs());
 
 test('a third party\u2019s tool is agent-visible but never credited to the page', () => {
   const record = embedRecord();
@@ -288,6 +289,29 @@ test('the census reports agent-side totals separately from adoption', () => {
   assert.equal(summary.totalAgentVisibleTools, 2, 'reality counts what an agent can call');
   assert.equal(summary.pagesWithThirdPartyTools, 1);
   assert.equal(summary.pagesWhereViewsDiverge, 1);
+});
+
+/**
+ * Item 23 (2026-09-05): the agent view can be taken at the browser endpoint,
+ * and then the record has to say so — with the OOPIF session count attached,
+ * because a watch no out-of-process iframe ever attached to has measured
+ * auto-attach rather than the browser's view. From `agentToolCount` alone the
+ * two findings are identical; they are not the same claim.
+ */
+test('the record keeps how the agent view was taken, and defaults to null when unsaid', () => {
+  const watched = toRecord({
+    ...embedInputs(),
+    browserView: { endpoint: 'browser', oopiFrames: 1, attachedSessions: 3, toolSessions: 2 },
+  });
+  assert.deepEqual(watched.webmcp.browserView, {
+    endpoint: 'browser',
+    oopiFrames: 1,
+    attachedSessions: 3,
+    toolSessions: 2,
+  });
+
+  const unsaid = embedRecord();
+  assert.equal(unsaid.webmcp.browserView, null, 'older callers must not gain a made-up view description');
 });
 
 test('an empty cohort summarizes to zeroes rather than throwing', () => {

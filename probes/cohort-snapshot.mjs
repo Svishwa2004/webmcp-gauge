@@ -27,7 +27,7 @@ import { resolve } from 'node:path';
 
 import { launchSession } from '../browser/launch.mjs';
 import { openSession } from '../browser/session.mjs';
-import { captureManifest, watchBrowserTools } from '../browser/webmcp.mjs';
+import { captureManifest, watchBrowserToolsAtBrowser } from '../browser/webmcp.mjs';
 import {
   normalizeTargets,
   robotsAllows,
@@ -90,6 +90,24 @@ const browser = await launchSession({
 console.log(`cohort snapshot → ${outDir}`);
 console.log(`browser ${browser.build ?? '(unknown build)'} on port ${browser.port}, ${targets.length} target(s)`);
 
+// The browser-endpoint socket the agent view is read through (item 23,
+// 2026-09-05): a watch attached to a page's own target never hears a cross-site
+// delegating embed's registrations, so the union is read where it lives. One
+// endpoint fetch for the whole run; a browser that will not answer it is a
+// failed launch, not 461 error records to find out with.
+const browserEndpoint = await fetch(`http://127.0.0.1:${browser.port}/json/version`, {
+  signal: AbortSignal.timeout(10000),
+})
+  .then((response) => {
+    if (!response.ok) throw new Error(`HTTP ${response.status} from /json/version`);
+    return response.json();
+  })
+  .then((version) => version.webSocketDebuggerUrl)
+  .catch((error) => {
+    console.error(`cannot capture: browser endpoint unavailable (${error.message})`);
+    process.exit(2);
+  });
+
 const robotsCache = new Map();
 const robotsPermits = async (url) => {
   const { origin, pathname } = new URL(url);
@@ -126,8 +144,13 @@ for (const [index, target] of targets.entries()) {
     const session = await openSession({ port: browser.port });
     try {
       // The browser's tool view has to be watched from before navigation: the set
-      // arrives as events and there is no command that lists it.
-      const browserView = await watchBrowserTools(session);
+      // arrives as events and there is no command that lists it. Since item 23
+      // (2026-09-05) the watch sits at the browser endpoint and arms auto-attach
+      // recursively — a host-attached watch cannot hear a cross-site delegating
+      // embed, which is exactly the registration a cohort census must not miss.
+      // The client is opened before `openSession` so the tab this target creates
+      // is caught at birth, and closed with the target below.
+      const browserView = await watchBrowserToolsAtBrowser(browserEndpoint);
 
       // The main document's own status code, taken from the network event rather
       // than a second request: fetching twice to learn a status would double the
@@ -184,6 +207,16 @@ for (const [index, target] of targets.entries()) {
           manifest,
           browserTools: browserView.tools(),
           frames: frameTree,
+          // How the agent view was taken and what it reached. The OOPIF count
+          // travels with the number: a record where `agentToolCount` is drawn
+          // from a watch no out-of-process iframe ever attached to has measured
+          // auto-attach, not the browser's view, and must never read as one.
+          browserView: {
+            endpoint: 'browser',
+            oopiFrames: browserView.oopiFrames,
+            attachedSessions: browserView.sessionCount,
+            toolSessions: browserView.toolSessionCount,
+          },
         });
       }
       off();

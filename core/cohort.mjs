@@ -221,6 +221,7 @@ export const toRecord = ({
   manifest,
   browserTools = null,
   frames = [],
+  browserView = null,
   error = null,
 }) => {
   const reachable = typeof status === 'number' && status < 400;
@@ -285,6 +286,14 @@ export const toRecord = ({
             onlyInPage: pageNames.filter((n) => !agentNames.includes(n)),
           }
         : null,
+      // How the agent view was taken and what it reached, or null when the
+      // runner did not say. Item 23 (2026-09-05): a host-attached watch
+      // undercounts a cross-site delegating page, so the capture reads the
+      // union at the browser endpoint — and `oopiFrames` travels with the
+      // number, because a watch no out-of-process iframe ever attached to has
+      // measured auto-attach rather than the browser's view. The two findings
+      // look identical from `agentToolCount` alone and are not the same claim.
+      browserView,
     },
     error,
   };

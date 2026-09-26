@@ -1,6 +1,6 @@
 {
   "name": "webmcp-gauge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Measures whether an AI agent actually calls the tools a page exposes through WebMCP.",
   "license": "MIT",

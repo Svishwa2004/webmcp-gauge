@@ -57,7 +57,7 @@ Append-only record of every change, decision, and verification in this project. 
 | Remote visibility | ✅ **Private** — verified two ways before the first push (see the 2026-08-29 late entry), and **enforced since 2026-09-03**: `node probes/remote-visibility.mjs` runs both signals and exits 0 private / 1 public / 2 cannot-answer (rules in `core\visibility.mjs`, 19 tests), and `scripts\hooks\pre-push` runs it on every push. Flip to public at the report launch, ~Sep 23 — which also means flipping `EXPECTED_VISIBILITY` in that hook |
 | Challenge submission | ❌ **Not eligible and not attempted** — see 2026-08-29 entry |
 
-**Immediate next action:** ✅ **Published 2026-09-26 — items 12, 14, 17, 18 and the gated calls are all closed.** The repo is public, the report is out, the scorecard-offer channel is live, and the linter promotion decision is recorded. What remains is small and named: **item 20's Brave single-session sweep**, checkpointed and waiting on the judge provider (`--resume` re-runs the 160 unmeasured trials; the provider answered 503 no-available-channel on 2026-09-26), after which the fifth matrix column lands dated; and the **npm package**, prepped with a files whitelist and repo metadata, publishing on the maintainer's `npm login`. The historic wording of this line (watch for the gallery, the 2026-09-05 verification, the item-22 three-option costing) is preserved in the 2026-09-05 entries below.
+**Immediate next action:** ✅ **Published 2026-09-26 — items 12, 14, 17, 18 and the gated calls are all closed, and the package is on npm.** The repo is public, the report is out, the scorecard-offer channel is live, the linter promotion decision is recorded, and **`webmcp-gauge@0.1.0` is on the npm registry**, verified by a fresh `npx` install from the registry running lint against a real page. The last open item in the project is **item 20's Brave single-session sweep**, checkpointed and waiting on the judge provider (`--resume` re-runs the 160 unmeasured trials; the provider answered 503 no-available-channel on 2026-09-26); when it lands, the fifth matrix column goes in dated. The historic wording of this line (watch for the gallery, the 2026-09-05 verification, the item-22 three-option costing) is preserved in the 2026-09-05 entries below.
 
 ## What to do next, in order
 
@@ -2735,3 +2735,7 @@ The full capture launches the same night on the item-23-fixed runner: 2,185 targ
 
 
 
+
+## 2026-09-26 (13:05 local) — The package is on npm
+
+`webmcp-gauge@0.1.0` is live on the registry — criterion 5's second on-ramp, the one the log itself named and the only build task the flip left open. The publish required the maintainer's own hand at the OTP (npm's 2FA refused the non-interactive shell with 403, then EOTP twice; the browser-auth flow does not poll without a TTY, which is the correct behavior — a publish that authenticates without a human present is the failure mode the OTP exists to prevent). Verified the only way that counts: a fresh `npx webmcp-gauge@0.1.0 lint --url` from the **registry**, not the local tarball, ran its own browser and exited with the could-not-measure contract intact. Document audit landed in the same hour: every status line in the repo now says published, the secrets scan is clean post-flip, and the tarball ships the harness without the cohort fixtures or the probes.

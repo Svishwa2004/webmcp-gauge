@@ -2,7 +2,7 @@
 
 **What was measured, in one sentence:** whether a language model, handed a page's live tool list, picks the right tool and calls it with valid arguments — measured 4,200 times. **What was not measured: any shipping agent product.** No commercial agent invoked anything in this report; [the limit section](#the-limit-no-shipping-agent-was-measured) says why, and it is the first thing to read before citing a number from here.
 
-**Status: DRAFT — not published.** One thing is outstanding: publication waits on this repository being made public (PROJECT-LOG item 18). The cohort census was captured complete on 2026-09-25/26 and its section below is filled from [`census-2026-09-26.md`](census-2026-09-26.md). Every other section is final. Numbers are carried from the run write-ups linked at each claim.
+**Status: published 2026-09-26.** The repository went public with this commit — PROJECT-LOG item 18, by maintainer decision — and the private-during-judging window is closed. The cohort census was captured complete on 2026-09-25/26; its section below is filled from [`census-2026-09-26.md`](census-2026-09-26.md). Numbers are carried from the run write-ups linked at each claim.
 
 **Author and conflict of interest.** webmcp-gauge is written by **[@Svishwa2004](https://github.com/Svishwa2004)**, who also entered the event whose submissions the cohort census will measure — so the author is inside the population being counted. Consequences, fixed in advance: no per-project detail is published while judging runs, any per-project scorecard goes to that builder before it goes anywhere else, the published census is aggregate, and the author's own entry is captured and counted by exactly the rules below, with no exemption and no special case in the code. State this next to any number taken from here.
 
@@ -199,6 +199,8 @@ The one number nobody has published for WebMCP is how many pages in the wild act
 **The two views disagree on 43.9% of pages.** 806 of the 1,836 pages with a browser-side view carry tools an agent can call that **no page surface lists** — 799 of them embed the same three-tool hosted auth suite, and 647 embed a five-tool site-agent suite from a second provider (both third-party origins stay local per the fourth-party rule). 146 pages registered nothing themselves and ship entirely through an embed. The agent view is a floor, not a ceiling: one page in 1,836 lost page-registered tools to the known late-enable non-replay mechanism, and the record's own metadata marks it.
 
 **And the linter met 1,507 manifests nobody here wrote.** The schema rules dominate real-world manifests — half of all adopting pages require an undocumented parameter (`schema/required-without-description`) — and only 28.6% lint entirely clean. The fourteenth rule (`description/indistinguishable-pair`) fires on **4.0%** of real manifests, one of them a textbook hit (three byte-identical descriptions distinguished only by a team prefix); that rate, on this corpus, is the measurement behind keeping it a warning. Full tables and the residual audit: [`census-2026-09-26.md`](census-2026-09-26.md).
+
+**To every builder in this census:** the private scorecard of your own page — the per-tool findings the linter produced against your manifest, ordered worst first, with a remedy line per finding and a section on anything an agent can call on your page that your page cannot list — is available on request. Open an issue on this repository and it comes to you; it goes nowhere else until you have it.
 
 ## Reproducing any of this
 

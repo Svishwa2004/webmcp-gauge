@@ -90,9 +90,12 @@ export const RULES = Object.freeze([
    * `budget/headroom` was demoted because a linter that fails a build on a
    * threshold nobody has reproduced is a linter people disable. This rule
    * reproduces every arm across 13 manifests (`probes/name-proxy-rule.mjs`), but all
-   * 13 were written here. Its false-positive rate on manifests this project did not
-   * write is unmeasured, and the cohort capture is the corpus that would settle it.
-   * Promote to error when that measurement exists.
+   * 13 were written here. The cohort corpus settled the open question on
+   * 2026-09-26, and the maintainer decided to **keep the warning**: on 1,507
+   * captured manifests (`reports/census-2026-09-26.md`) the rule fires on 60 of
+   * them (4.0%), one a textbook indistinguishable pair, the rest prefix-heavy
+   * namespaces whose descriptions differentiate semantically — promoting would
+   * fail real builds on a naming pattern rather than a measured confusion.
    */
   { id: 'description/indistinguishable-pair', family: 'descriptions', severity: 'warning' },
   { id: 'schema/not-object', family: 'schemas', severity: 'error' },

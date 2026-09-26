@@ -2,7 +2,7 @@
 
 **What was measured, in one sentence:** whether a language model, handed a page's live tool list, picks the right tool and calls it with valid arguments — measured 4,200 times. **What was not measured: any shipping agent product.** No commercial agent invoked anything in this report; [the limit section](#the-limit-no-shipping-agent-was-measured) says why, and it is the first thing to read before citing a number from here.
 
-**Status: DRAFT — not published.** Two things are outstanding: the cohort census has not been captured — it can only be captured on the day a gallery of WebMCP pages goes public — and publication waits on this repository being made public. Every other section is final. Numbers are carried from the run write-ups linked at each claim.
+**Status: DRAFT — not published.** One thing is outstanding: publication waits on this repository being made public (PROJECT-LOG item 18). The cohort census was captured complete on 2026-09-25/26 and its section below is filled from [`census-2026-09-26.md`](census-2026-09-26.md). Every other section is final. Numbers are carried from the run write-ups linked at each claim.
 
 **Author and conflict of interest.** webmcp-gauge is written by **[@Svishwa2004](https://github.com/Svishwa2004)**, who also entered the event whose submissions the cohort census will measure — so the author is inside the population being counted. Consequences, fixed in advance: no per-project detail is published while judging runs, any per-project scorecard goes to that builder before it goes anywhere else, the published census is aggregate, and the author's own entry is captured and counted by exactly the rules below, with no exemption and no special case in the code. State this next to any number taken from here.
 
@@ -184,15 +184,21 @@ What a static linter *can* see is the mechanism the judge actually used. Its own
 
 And the limit that rule does not remove: it is a **proxy**. The variable that actually tracked the harm is how relevant a description is to the *request*, which no static linter can see, because it does not know what users will ask. That is the clearest argument in this report for why a measured invocation rate exists at all.
 
-## The cohort census — not yet measured
+## The cohort census
 
-The one number nobody has published for WebMCP is how many pages in the wild actually register a tool. This report will carry it for one cohort: the submissions to the WebMCP Challenge, a hackathon whose project gallery becomes public at the end of judging. **It has not been captured.** As of **2026-09-05** the gallery is still unpublished; the host's own schedule closed submissions on 2026-09-04, runs judging to 2026-09-22 and announces winners on 2026-09-24, so the capture waits on that. It is a one-day measurement by nature — free hosting tiers outlive a hackathon by months, not years — which is why the rules below were fixed in code, with tests, before the data existed:
+The one number nobody has published for WebMCP is how many pages in the wild actually register a tool. This report carries it for one cohort: **all 2,474 submissions to the WebMCP Challenge**, captured complete on 2026-09-25/26 — 2,185 with a usable demo link, 2,183 capture targets after alias collapsing. It is a one-day measurement by nature — free hosting tiers outlive a hackathon by months, not years — which is why the rules below were fixed in code, with tests, before the data existed:
 
 - **Adoption means "registered at least one tool"**, never "the API is present". A page where `document.modelContext` exists and no tool is registered counts as not adopted.
 - **Page-registered and agent-visible counts are reported side by side**, never folded together — the delegated-embed finding above is exactly why they can differ, and a third party's tools are never credited to the page that framed them.
-- **Published output is aggregate; the per-project record is not published.** The census, the distribution of lint findings and the counts are what go out. The captured manifests stay local. The intermediate per-project rows that the aggregate is computed from carry tool *names*, description *lengths*, schema shape and annotation presence — never a description, never a page title, never markup — and no ranking is published at all.
-- **Any per-project detail goes to that project's builder first**, and nothing identifying anyone is published while judging is running.
+- **Published output is aggregate; the per-project record is not published.** The captured manifests stay local. The intermediate per-project rows carry tool *names*, description *lengths*, schema shape and annotation presence — never a description, never a page title, never markup — and no ranking is published at all.
+- **Any per-project detail goes to that project's builder first**, and nothing identifying anyone was published while judging was running.
 - Manners are unconditional: one page at a time, a delay between projects, an identifying user agent, `robots.txt` honoured, and a refusal rather than a guess if the page shape is not what the harness expects.
+
+**The result: 1,507 of 1,866 reachable pages — 80.8% [78.9, 82.5] — register at least one WebMCP tool.** 317 of 2,183 targets were unreachable (215 of them hosts that no longer resolve, 47 robots.txt refusals, 36 HTTP errors, the rest timeouts and capture failures — each recorded as a data point, never excluded silently). The median adopting page ships **seven** tools; the largest ships **154**, all of them visible to an agent.
+
+**The two views disagree on 43.9% of pages.** 806 of the 1,836 pages with a browser-side view carry tools an agent can call that **no page surface lists** — 799 of them embed the same three-tool hosted auth suite, and 647 embed a five-tool site-agent suite from a second provider (both third-party origins stay local per the fourth-party rule). 146 pages registered nothing themselves and ship entirely through an embed. The agent view is a floor, not a ceiling: one page in 1,836 lost page-registered tools to the known late-enable non-replay mechanism, and the record's own metadata marks it.
+
+**And the linter met 1,507 manifests nobody here wrote.** The schema rules dominate real-world manifests — half of all adopting pages require an undocumented parameter (`schema/required-without-description`) — and only 28.6% lint entirely clean. The fourteenth rule (`description/indistinguishable-pair`) fires on **4.0%** of real manifests, one of them a textbook hit (three byte-identical descriptions distinguished only by a team prefix); that rate, on this corpus, is the measurement behind keeping it a warning. Full tables and the residual audit: [`census-2026-09-26.md`](census-2026-09-26.md).
 
 ## Reproducing any of this
 

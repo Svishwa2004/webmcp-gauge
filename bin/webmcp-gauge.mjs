@@ -12,6 +12,7 @@ import { lintManifest, lintToText } from '../core/lint.mjs';
 import { runSessions } from '../core/orchestrate.mjs';
 import { buildPlan, readCheckpoint, readFailures, runSessionSweep, trialKey } from '../core/sweep.mjs';
 import { runTrial } from '../core/trial.mjs';
+import { createJudge as createAnthropicJudge } from '../judges/anthropic-messages.mjs';
 import { createJudge } from '../judges/openai-compatible.mjs';
 import { buildReport, toMarkdown } from '../report/emit.mjs';
 import { buildBadge, renderBadgeSvg } from '../report/badge.mjs';
@@ -39,6 +40,9 @@ error, never a silently ignored default):
                        measurement can run against a fixture page in this repo
   --judge <model>      judge model id (env WEBMCP_GAUGE_JUDGE_MODEL)
   --base-url <url>     judge endpoint (env WEBMCP_GAUGE_JUDGE_BASE_URL)
+  --judge-shape <api>  judge wire protocol: openai (default) or anthropic — the
+                       shape is the endpoint's, and guessing it from the hostname
+                       would be a silent default (env WEBMCP_GAUGE_JUDGE_SHAPE)
   --port <n>           attach to an existing Chrome instead of launching one
 
 lint options (no judge required):
@@ -102,7 +106,7 @@ which one that was. See docs/getting-started.md and .env.example.`;
  */
 const CLI_OPTIONS = {
   values: [
-    'fixture', 'url', 'serve', 'judge', 'base-url', 'port',
+    'fixture', 'url', 'serve', 'judge', 'base-url', 'judge-shape', 'port',
     'manifest', 'variant', 'fail-on', 'min-description', 'max-properties', 'budget-warn',
     'tool', 'utterance',
     'sessions', 'repeats', 'concurrency', 'gap', 'tools', 'out', 'subject', 'fail-under', 'badge-label',
@@ -178,6 +182,17 @@ const judgeModel =
 const judgeBaseUrl =
   (typeof flags['base-url'] === 'string' && flags['base-url']) ||
   process.env.WEBMCP_GAUGE_JUDGE_BASE_URL;
+const judgeShape =
+  (typeof flags['judge-shape'] === 'string' && flags['judge-shape']) ||
+  process.env.WEBMCP_GAUGE_JUDGE_SHAPE ||
+  'openai';
+if (judgeShape !== 'openai' && judgeShape !== 'anthropic') {
+  fail(`--judge-shape must be "openai" or "anthropic", got "${judgeShape}"`);
+}
+const buildJudge = () =>
+  judgeShape === 'anthropic'
+    ? createAnthropicJudge({ baseUrl: judgeBaseUrl, model: judgeModel })
+    : createJudge({ baseUrl: judgeBaseUrl, model: judgeModel });
 // L0 is the free on-ramp: it reads a manifest and calls no model, so demanding a
 // judge for it would put an API key in front of the cheapest useful answer.
 if (needsJudge && (!judgeModel || !judgeBaseUrl)) {
@@ -299,7 +314,7 @@ if (command === 'lint') {
     process.exitCode = blocking > 0 ? EXIT.breach : EXIT.pass;
   }
 } else if (command === 'trial') {
-  const judge = createJudge({ baseUrl: judgeBaseUrl, model: judgeModel });
+  const judge = buildJudge();
   const utteranceId = typeof flags.utterance === 'string' ? flags.utterance : null;
   const toolName =
     typeof flags.tool === 'string' ? flags.tool : utteranceId?.replace(/-\d+$/, '') ?? null;
@@ -348,7 +363,7 @@ if (command === 'lint') {
   }
 } else if (command === 'session') {
   const session = Number(flags.session ?? 1);
-  const judge = createJudge({ baseUrl: judgeBaseUrl, model: judgeModel });
+  const judge = buildJudge();
   const target = await openTarget();
 
   // Each session owns its browser: a cold profile, its own port, its own process
@@ -438,6 +453,8 @@ if (command === 'lint') {
     judgeModel,
     '--base-url',
     judgeBaseUrl,
+    '--judge-shape',
+    judgeShape,
     '--out',
     outDir,
     '--repeats',

@@ -1,0 +1,48 @@
+name: Scorecard request
+description: Request the private WebMCP scorecard of a page you own — the standing offer in the published report
+title: "Scorecard request: <page>"
+labels: [scorecard-request]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The published report carries a standing offer: the private scorecard of a page
+        goes to its builder first, and nowhere else until they have it.
+
+        The scorecard is a static reading of the page's tool manifest — per-tool lint
+        findings ordered worst first, with a remedy line per finding, plus a section on
+        anything an agent can call on the page that the page itself cannot list.
+        It is **not** an invocation rate and contains no ranking against other pages.
+
+        The maintainer verifies ownership before sending anything.
+  - type: input
+    id: url
+    attributes:
+      label: Page URL
+      description: The page the scorecard is about — the one the census measured
+    validations:
+      required: true
+  - type: input
+    id: repo
+    attributes:
+      label: Repository or source link
+      description: Where the page's code lives, if public
+  - type: textarea
+    id: ownership
+    attributes:
+      label: Ownership verification
+      description: >
+        How can we verify you control this page? Easiest: commit a file named
+        `webmcp-gauge-verify.txt` containing this issue's number, or deploy it at
+        a path on the page's origin. The maintainer will confirm before anything is sent.
+    validations:
+      required: true
+  - type: dropdown
+    id: delivery
+    attributes:
+      label: How should the scorecard arrive?
+      options:
+        - As a comment on this issue (visible only to maintainers and you)
+        - Attached privately after ownership is verified
+    validations:
+      required: true

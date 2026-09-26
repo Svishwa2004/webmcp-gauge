@@ -1,7 +1,7 @@
 name: webmcp-gauge
 description: >-
-  Lint a page's WebMCP manifest, or measure whether an agent actually invokes its
-  tools, and fail the build when it regresses. Emits a badge either way.
+  Lint a page's WebMCP manifest, or measure whether an agent actually invokes
+  its tools, and fail on a regression.
 author: Sahan Vishwa
 
 # Two modes, because they cost different things and mean different things.

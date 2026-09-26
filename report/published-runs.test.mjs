@@ -24,6 +24,16 @@ import { dirname, resolve } from 'node:path';
 
 const reportsDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'reports');
 
+// The npm package ships without `reports/` — it carries the harness, not the
+// published record. This test is about this *repository's* folder discipline,
+// so on a package install there is nothing for it to check and it says so
+// rather than failing.
+const reportsStat = await readdir(reportsDir).then(
+  () => true,
+  () => false
+);
+const suite = reportsStat ? test : test.skip;
+
 /**
  * A run file names its four coordinates and its shape. Write-ups (`README`,
  * `compatibility-matrix`, `spacing-2026-09-01`, …) are prose about runs and carry
@@ -34,7 +44,7 @@ const RUN_FILE = /^[a-z0-9-]+-\d+\.\d+\.\d+-[a-z0-9.-]+-(s\d+r\d+|r\d+)(-[a-z0-9
 
 const listReports = async () => (await readdir(reportsDir)).sort();
 
-test('every published run write-up has its machine record beside it', async () => {
+suite('every published run write-up has its machine record beside it', async () => {
   const files = await listReports();
   const runs = files.filter((name) => RUN_FILE.test(name));
 
@@ -46,7 +56,7 @@ test('every published run write-up has its machine record beside it', async () =
   assert.deepEqual(missing, [], `run write-ups with no .json machine record: ${missing.join(', ')}`);
 });
 
-test('every machine record is a report of the schema it claims', async () => {
+suite('every machine record is a report of the schema it claims', async () => {
   const files = await listReports();
   const records = files.filter(
     (name) => name.endsWith('.json') && RUN_FILE.test(name.replace(/\.json$/, '.md'))

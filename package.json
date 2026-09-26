@@ -1,6 +1,5 @@
 {
   "name": "webmcp-gauge",
-  "private": true,
   "version": "0.1.0",
   "type": "module",
   "description": "Measures whether an AI agent actually calls the tools a page exposes through WebMCP.",
@@ -11,6 +10,39 @@
   "engines": {
     "node": ">=24.0.0"
   },
+  "files": [
+    "bin",
+    "core",
+    "browser",
+    "judges",
+    "report",
+    "fixtures/airlock.utterances.json",
+    "fixtures/gallery",
+    "fixtures/broken",
+    "fixtures/README.md",
+    "docs",
+    "README.md",
+    "LICENSE",
+    "action.yml"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Svishwa2004/webmcp-gauge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Svishwa2004/webmcp-gauge/issues"
+  },
+  "homepage": "https://github.com/Svishwa2004/webmcp-gauge#readme",
+  "keywords": [
+    "webmcp",
+    "mcp",
+    "model-context-protocol",
+    "ai-agents",
+    "linter",
+    "measurement",
+    "browser-automation",
+    "invocation-rate"
+  ],
   "scripts": {
     "gauge": "node bin/webmcp-gauge.mjs",
     "test": "node --test"

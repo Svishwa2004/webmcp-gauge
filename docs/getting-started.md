@@ -1,7 +1,7 @@
 # webmcp-gauge — How to Start, and How the Project Flows
 
-**Status:** measuring — steps 0–7 done; the gallery published 2026-09-24, the pilot cohort census captured (461 targets, `../reports/census-pilot-2026-09-25.md`), the full 2,185-target capture in progress as of 2026-09-26; 4,500 trials published in `../reports/`, 227 tests pass
-**Written:** 2026-08-29 · **Updated:** 2026-09-05
+**Status:** published 2026-09-26 — steps 0–7 done; the gallery published 2026-09-24, the complete census captured (2,183 targets, [`../reports/census-2026-09-26.md`](../reports/census-2026-09-26.md)) and the report published ([`../reports/public-report-draft.md`](../reports/public-report-draft.md)); 4,500 trials published in `../reports/`, 229 tests pass
+**Written:** 2026-08-29 · **Updated:** 2026-09-26
 **Companions:** `concept.md` (what and why) · `explainer.md` (plain language) · `../PROJECT-LOG.md` (append-only record)
 
 Verification legend used throughout: ✅ verified on this machine · ⚠️ unverified · ❌ known wrong.

@@ -1,6 +1,6 @@
 # webmcp-gauge — How to Start, and How the Project Flows
 
-**Status:** measuring — steps 0–7 done, the cohort capture waits on the gallery (still unpublished on 2026-09-05; the host's schedule runs judging to 2026-09-22 and announces winners 2026-09-24, so watch from ~Sep 22 with `node probes/gallery-status.mjs`); 4,500 trials published in `../reports/`, 214 tests pass
+**Status:** measuring — steps 0–7 done; the gallery published 2026-09-24, the pilot cohort census captured (461 targets, `../reports/census-pilot-2026-09-25.md`), the full 2,185-target capture in progress as of 2026-09-26; 4,500 trials published in `../reports/`, 227 tests pass
 **Written:** 2026-08-29 · **Updated:** 2026-09-05
 **Companions:** `concept.md` (what and why) · `explainer.md` (plain language) · `../PROJECT-LOG.md` (append-only record)
 

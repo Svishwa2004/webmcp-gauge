@@ -1,7 +1,7 @@
 # webmcp-gauge — Concept Document
 
 **Name:** `webmcp-gauge` — settled 2026-08-29. Repo: https://github.com/Svishwa2004/webmcp-gauge
-**Status:** Measuring. Harness, linter, CI gate, badge, GitHub Action and cohort tooling all built; 16 runs and 4,500 trials published in `../reports/`; 214 tests pass. Mode B ships browser-automated and agent-unreached (see [Open question 1](#14-open-questions)).
+**Status:** Measuring. Harness, linter, CI gate, badge, GitHub Action and cohort tooling all built; 16 runs and 4,500 trials published in `../reports/`; 227 tests pass. Mode B ships browser-automated and agent-unreached (see [Open question 1](#14-open-questions)).
 **Written:** 2026-08-29
 **Scope:** A measurement layer for WebMCP page tools — the answer to "does an agent actually call my tool?"
 

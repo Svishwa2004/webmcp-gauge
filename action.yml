@@ -54,7 +54,11 @@ inputs:
     required: false
     default: ''
   base-url:
-    description: 'run mode: OpenAI-compatible endpoint for the judge'
+    description: 'run mode: judge endpoint. OpenAI-compatible by default; set judge-shape for an anthropic-messages endpoint'
+    required: false
+    default: ''
+  judge-shape:
+    description: 'run mode: judge wire protocol, openai (default) or anthropic — the shape is the endpoint''s'
     required: false
     default: ''
   badge-label:
@@ -131,6 +135,7 @@ runs:
           [ -n "${{ inputs.fail-under }}" ] && args+=(--fail-under "${{ inputs.fail-under }}")
           [ -n "${{ inputs.judge }}" ] && args+=(--judge "${{ inputs.judge }}")
           [ -n "${{ inputs.base-url }}" ] && args+=(--base-url "${{ inputs.base-url }}")
+          [ -n "${{ inputs.judge-shape }}" ] && args+=(--judge-shape "${{ inputs.judge-shape }}")
         fi
 
         echo "webmcp-gauge ${args[*]}"

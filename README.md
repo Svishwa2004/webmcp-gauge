@@ -72,15 +72,16 @@ webmcp-gauge run --serve fixtures/broken --url "twin.html?variant=degraded" --su
 
 Every flag is documented in `--help`. A `run` writes four files into `--out`: `report.md` for reading, `report.json` (the machine record with per-tool outcome counts and coverage), `badge.json` + `badge.svg`, and a JSONL checkpoint that `--resume` continues. The cohort capture and harvest tools live in [`probes/`](probes/) in this repository, not in the npm package — they are one-day workflows, documented in their own READMEs.
 
-**The API key, only where it is actually needed.** `lint` reads the manifest and applies static rules — no model anywhere in the path, so it runs on every push with no secrets. `trial` and `run` measure whether an agent-model *chooses* the tool, so they need a judge: any OpenAI-compatible endpoint (hosted or local — Ollama and LM Studio both speak the protocol), costing one model call per trial. The CLI refuses to run if the judge is the model that authored the frozen utterance set; the set records which one that was.
+**The API key, only where it is actually needed.** `lint` reads the manifest and applies static rules — no model anywhere in the path, so it runs on every push with no secrets. `trial` and `run` measure whether an agent-model *chooses* the tool, so they need a judge: any OpenAI-compatible endpoint (hosted or local — Ollama and LM Studio both speak the protocol), costing one model call per trial. An **anthropic-messages endpoint works too** — pass `--judge-shape anthropic` (or `WEBMCP_GAUGE_JUDGE_SHAPE=anthropic`); the shape is the endpoint's and the CLI will not guess it from the hostname. The CLI refuses to run if the judge is the model that authored the frozen utterance set; the set records which one that was.
 
 Credentials come from the environment:
 
 | Variable | Purpose |
 |---|---|
 | `WEBMCP_GAUGE_JUDGE_API_KEY` | judge key (run/trial only) |
-| `WEBMCP_GAUGE_JUDGE_BASE_URL` | OpenAI-compatible endpoint |
+| `WEBMCP_GAUGE_JUDGE_BASE_URL` | judge endpoint (OpenAI-compatible by default) |
 | `WEBMCP_GAUGE_JUDGE_MODEL` | judge model id, stamped into every report |
+| `WEBMCP_GAUGE_JUDGE_SHAPE` | `anthropic` for an anthropic-messages endpoint (default: `openai`) |
 | `WEBMCP_GAUGE_CHROME` | browser override (default: find Chrome; any Chromium works) |
 | `CDP_PORT` | attach to a browser you started instead of launching one |
 | `WEBMCP_GAUGE_CHROME_LOG` | `1` passes Chrome's own stderr through, for launch debugging |
@@ -141,6 +142,7 @@ A badge is a bare number in a coloured pill — the exact thing this project ref
     fail-under: '0.9'
     judge: ${{ vars.JUDGE_MODEL }}
     base-url: ${{ vars.JUDGE_BASE_URL }}
+    # judge-shape: anthropic   # only for an anthropic-messages endpoint; default openai
   env:
     WEBMCP_GAUGE_JUDGE_API_KEY: ${{ secrets.JUDGE_API_KEY }}
 ```

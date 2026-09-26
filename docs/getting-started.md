@@ -6,6 +6,8 @@
 
 Verification legend used throughout: ✅ verified on this machine · ⚠️ unverified · ❌ known wrong.
 
+> **Just want to run the tool?** The README's [Usage](../README.md#usage) section is the stranger's path: `npx webmcp-gauge lint --url <page>` needs no install and no API key, and the requirements table there says exactly which modes need a browser and which need a judge key. This document is the author's own machine record — the paths, browsers and credentials below are how *this* project was stood up, kept because the log's verification claims trace to it.
+
 ---
 
 ## 0. What is already in place

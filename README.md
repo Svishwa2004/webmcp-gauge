@@ -45,17 +45,51 @@ Conflating those two was a real defect in this project's first two sweeps: a too
 
 ## Usage
 
+**Quick start, zero install, no API key:**
+
+```bash
+npx webmcp-gauge lint --url https://your-page.example
+```
+
+**Requirements:**
+
+| Mode | Node | Browser | Judge key |
+|---|---|---|---|
+| `lint --manifest <file>` | ≥ 22 (24 tested) | not needed | **not needed** |
+| `lint --url <page>` | ≥ 22 (24 tested) | yes — launches its own Chrome | **not needed** |
+| `trial` / `run` | ≥ 22 (24 tested) | yes | **yes** — any OpenAI-compatible endpoint |
+
+Install once with `npm i -g webmcp-gauge`, or from a clone use `npm run gauge …` / `node bin/webmcp-gauge.mjs …` — every form runs the same CLI:
+
 ```
 webmcp-gauge lint --url https://example.com
+webmcp-gauge lint --manifest page-tools.json
 webmcp-gauge trial --utterance sum_by_category-05 --judge <model> --base-url <endpoint>
 webmcp-gauge run --sessions 3 --repeats 2 --out artifacts/run --judge <model> --base-url <endpoint>
 webmcp-gauge run --sessions 1 --fail-under 0.9 --judge <model> --base-url <endpoint>
 webmcp-gauge run --serve fixtures/broken --url "twin.html?variant=degraded" --subject "twin" ...
 ```
 
-`lint` needs no judge and no key — it reads the page's manifest and applies static rules. Everything else calls a judge model, which must not be the model that wrote the utterances: the frozen set records which one did, and the CLI refuses to run if they match. Credentials come from the environment; see [`.env.example`](.env.example).
+**The API key, only where it is actually needed.** `lint` reads the manifest and applies static rules — no model anywhere in the path, so it runs on every push with no secrets. `trial` and `run` measure whether an agent-model *chooses* the tool, so they need a judge: any OpenAI-compatible endpoint (hosted or local — Ollama and LM Studio both speak the protocol), costing one model call per trial. The CLI refuses to run if the judge is the model that authored the frozen utterance set; the set records which one that was.
 
-Install once from npm and every command runs as `webmcp-gauge …`; from a clone, `npm run gauge …` or `node bin/webmcp-gauge.mjs …` runs the same thing.
+Credentials come from the environment:
+
+| Variable | Purpose |
+|---|---|
+| `WEBMCP_GAUGE_JUDGE_API_KEY` | judge key (run/trial only) |
+| `WEBMCP_GAUGE_JUDGE_BASE_URL` | OpenAI-compatible endpoint |
+| `WEBMCP_GAUGE_JUDGE_MODEL` | judge model id, stamped into every report |
+| `WEBMCP_GAUGE_CHROME` | browser override (default: find Chrome; any Chromium works) |
+| `CDP_PORT` | attach to a browser you started instead of launching one |
+| `WEBMCP_GAUGE_CHROME_LOG` | `1` passes Chrome's own stderr through, for launch debugging |
+
+**Nothing loads `.env` automatically** — the CLI reads the environment. Export the variables, or run through the env file directly:
+
+```bash
+node --env-file=.env bin/webmcp-gauge.mjs run --sessions 1 --judge "$WEBMCP_GAUGE_JUDGE_MODEL" ...
+```
+
+See [`.env.example`](.env.example) for the annotated list.
 
 `--serve <dir>` publishes a directory on 127.0.0.1 and resolves `--url` against it, which is how the deliberately mis-described fixture page in [`fixtures/broken/`](fixtures/broken/) gets measured with the same frozen utterance set as the reference page.
 
@@ -87,16 +121,16 @@ A badge is a bare number in a coloured pill — the exact thing this project ref
 
 ### GitHub Action
 
-[`action.yml`](action.yml) wraps both modes. `lint` needs no browser flag, no judge and no key, so it can run on every push; `run` spends a model call per trial and belongs on a schedule or a manual dispatch.
+[`action.yml`](action.yml) wraps both modes and is [on the GitHub Marketplace](https://github.com/marketplace/actions/webmcp-gauge) — pin `@v1` for a stable interface. `lint` needs no browser flag, no judge and no key, so it can run on every push; `run` spends a model call per trial and belongs on a schedule or a manual dispatch.
 
 ```yaml
-- uses: Svishwa2004/webmcp-gauge@main
+- uses: Svishwa2004/webmcp-gauge@v1
   with:
     mode: lint
     url: https://your-page.example
     fail-on: error
 
-- uses: Svishwa2004/webmcp-gauge@main
+- uses: Svishwa2004/webmcp-gauge@v1
   with:
     mode: run
     url: https://your-page.example

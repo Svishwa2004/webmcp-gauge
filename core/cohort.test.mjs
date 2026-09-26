@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 
 import {
   normalizeTargets,
+  capturedUrlsFrom,
+  remainingTargets,
   robotsAllows,
   toRecord,
   toPublishable,
@@ -312,6 +314,47 @@ test('the record keeps how the agent view was taken, and defaults to null when u
 
   const unsaid = embedRecord();
   assert.equal(unsaid.webmcp.browserView, null, 'older callers must not gain a made-up view description');
+});
+
+/**
+ * The resume rules, from the night of 2026-09-25/26 when a browser death and a
+ * machine sleep each stopped a full-corpus run and the URL subtraction ran
+ * twice by hand. A capture that cannot be repeated must be resumable in one
+ * command, and the subtraction must be exactly the file's canonical URLs
+ * against the fixture's canonical targets — no near-miss spellings.
+ */
+test('resume: captured urls parse out of an append-only snapshot, torn lines and all', () => {
+  const text = [
+    JSON.stringify({ project: 'a', url: 'https://a.example/' }),
+    '{"project":"torn",',
+    JSON.stringify({ project: 'b', url: 'https://b.example/' }),
+    '',
+  ].join('\n');
+
+  const captured = capturedUrlsFrom(text);
+  assert.equal(captured.size, 2, 'a torn final line must not poison the rest of the file');
+  assert.ok(captured.has('https://a.example/'));
+  assert.ok(captured.has('https://b.example/'));
+
+  assert.deepEqual([...capturedUrlsFrom('')], [], 'an empty file resumes everything');
+  assert.deepEqual([...capturedUrlsFrom(null)], [], 'a missing file resumes everything');
+});
+
+test('resume: remaining targets subtract exactly what the file already holds', () => {
+  const targets = normalizeTargets([
+    { url: 'https://a.example/' },
+    { url: 'https://b.example/#frag' },
+    { url: 'https://c.example/' },
+  ]);
+  const captured = capturedUrlsFrom(
+    `${JSON.stringify({ url: 'https://a.example/' })}\n${JSON.stringify({ url: 'https://b.example/' })}`
+  );
+
+  const remaining = remainingTargets(targets, captured);
+  assert.deepEqual(remaining.map((t) => t.url), ['https://c.example/']);
+
+  assert.throws(() => remainingTargets(targets, new Map()), TypeError, 'a Set is the contract');
+  assert.equal(remainingTargets([], new Set()).length, 0);
 });
 
 test('an empty cohort summarizes to zeroes rather than throwing', () => {

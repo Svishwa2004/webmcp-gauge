@@ -29,7 +29,9 @@ import { launchSession } from '../browser/launch.mjs';
 import { openSession } from '../browser/session.mjs';
 import { captureManifest, watchBrowserToolsAtBrowser } from '../browser/webmcp.mjs';
 import {
+  capturedUrlsFrom,
   normalizeTargets,
+  remainingTargets,
   robotsAllows,
   toRecord,
   toPublishable,
@@ -45,7 +47,7 @@ import { parseOptions } from '../core/args.mjs';
 // is cheap and a run into the wrong directory is not.
 const { options, error: optionsError } = parseOptions(process.argv.slice(2), {
   values: ['targets', 'url', 'delay', 'settle', 'out'],
-  switches: ['headed'],
+  switches: ['headed', 'resume'],
   maxPositional: 0,
 });
 if (optionsError) {
@@ -61,6 +63,7 @@ const settleMs = Number(flag('settle', '10000'));
 const today = localDateStamp();
 const outDir = resolve(flag('out', `artifacts/cohort-${today}`));
 const headless = options.headed !== true;
+const resume = options.resume === true;
 
 if (!targetsPath && !singleUrl) {
   console.error('usage: node probes/cohort-snapshot.mjs --targets=<file.json> | --url=<url>');
@@ -75,6 +78,26 @@ const targets = normalizeTargets(Array.isArray(rawTargets) ? rawTargets : rawTar
 await mkdir(outDir, { recursive: true });
 const recordsPath = `${outDir}/snapshot.jsonl`;
 const startedAt = new Date().toISOString();
+
+// The snapshot file is append-only, so a fresh run into a directory that
+// already holds one would silently double every captured row — a mistake to
+// refuse, not repair. --resume continues an existing file instead: the URLs
+// already in it are subtracted from the targets and only the remainder is
+// visited. Built the night of 2026-09-25/26, when a browser death and a
+// machine sleep each stopped a full-corpus run and the subtraction ran twice
+// by hand.
+const existingSnapshot = await readFile(recordsPath, 'utf8').catch(() => null);
+if (existingSnapshot !== null && !resume) {
+  console.error(
+    `cannot capture: ${recordsPath} already exists — pass --resume to continue it, or a fresh --out to start over`
+  );
+  process.exit(2);
+}
+const capturedUrls = existingSnapshot !== null ? capturedUrlsFrom(existingSnapshot) : new Set();
+const pendingTargets = remainingTargets(targets, capturedUrls);
+if (resume && capturedUrls.size > 0) {
+  console.log(`resume: ${capturedUrls.size} already captured — ${pendingTargets.length} to go`);
+}
 
 const browser = await launchSession({
   // Fresh profile per invocation: a killed Chrome leaves a SingletonLock that
@@ -108,6 +131,14 @@ const browserEndpoint = await fetch(`http://127.0.0.1:${browser.port}/json/versi
     process.exit(2);
   });
 
+// The difference between "this target failed" and "the whole browser is gone".
+// The first is a census row; the second must stop the run loudly — without it,
+// every remaining target errors out one by one and the run pretends to work.
+const browserAlive = () =>
+  fetch(`http://127.0.0.1:${browser.port}/json/version`, { signal: AbortSignal.timeout(3000) })
+    .then((response) => response.ok)
+    .catch(() => false);
+
 const robotsCache = new Map();
 const robotsPermits = async (url) => {
   const { origin, pathname } = new URL(url);
@@ -128,9 +159,10 @@ const robotsPermits = async (url) => {
 };
 
 const records = [];
-for (const [index, target] of targets.entries()) {
-  const label = `[${index + 1}/${targets.length}] ${target.project}`;
+for (const [index, target] of pendingTargets.entries()) {
+  const label = `[${index + 1}/${pendingTargets.length}] ${target.project}`;
   let record;
+  let browserDied = false;
 
   if (!(await robotsPermits(target.url))) {
     record = toRecord({
@@ -141,15 +173,17 @@ for (const [index, target] of targets.entries()) {
     });
     console.log(`${label} — skipped, robots.txt`);
   } else {
-    const session = await openSession({ port: browser.port });
+    let session = null;
     try {
+      session = await openSession({ port: browser.port });
       // The browser's tool view has to be watched from before navigation: the set
       // arrives as events and there is no command that lists it. Since item 23
       // (2026-09-05) the watch sits at the browser endpoint and arms auto-attach
       // recursively — a host-attached watch cannot hear a cross-site delegating
       // embed, which is exactly the registration a cohort census must not miss.
-      // The client is opened before `openSession` so the tab this target creates
-      // is caught at birth, and closed with the target below.
+      // The client arms while the tab is still at about:blank and before
+      // navigation, so `WebMCP.enable` lands before any page script can
+      // register — the ordering the spec-227 rehearsal measured.
       const browserView = await watchBrowserToolsAtBrowser(browserEndpoint);
 
       // The main document's own status code, taken from the network event rather
@@ -222,14 +256,28 @@ for (const [index, target] of targets.entries()) {
       off();
       browserView.stop();
     } catch (error) {
-      record = toRecord({
-        target,
-        capturedAt: new Date().toISOString(),
-        status: null,
-        error: `capture: ${error.message}`,
-      });
+      // A target that failed is a census row; a browser that died is a stop
+      // sign. Telling them apart is what the night of 2026-09-25/26 earned:
+      // before, openSession sat outside this try and a dead browser exited
+      // the process instead of saying so.
+      if (await browserAlive()) {
+        record = toRecord({
+          target,
+          capturedAt: new Date().toISOString(),
+          status: null,
+          error: `capture: ${error.message}`,
+        });
+      } else {
+        record = toRecord({
+          target,
+          capturedAt: new Date().toISOString(),
+          status: null,
+          error: `browser died mid-capture: ${error.message}`,
+        });
+        browserDied = true;
+      }
     } finally {
-      await session.close();
+      if (session) await session.close();
     }
 
     const tools = record.webmcp.toolCount;
@@ -240,12 +288,23 @@ for (const [index, target] of targets.entries()) {
     );
   }
 
+  // The browser-died record is a stop sign, not a census row: it is printed
+  // and never appended, so a resumed run retries this target instead of
+  // skipping it as already captured.
+  if (browserDied) {
+    console.error(`\nbrowser died at target ${index + 1} of ${pendingTargets.length} — nothing after it was attempted`);
+    console.error(`${recordsPath} holds every completed capture so far`);
+    console.error('rerun with --resume to continue from here');
+    await browser.close().catch(() => {});
+    process.exit(2);
+  }
+
   records.push(record);
   // Append per project rather than at the end: a capture that cannot be repeated
   // must not be able to lose everything to a crash on the last target.
   await appendFile(recordsPath, `${JSON.stringify(record)}\n`, 'utf8');
 
-  if (index < targets.length - 1) await new Promise((r) => setTimeout(r, delayMs));
+  if (index < pendingTargets.length - 1) await new Promise((r) => setTimeout(r, delayMs));
 }
 
 await browser.close();
@@ -257,6 +316,7 @@ const summary = {
   browser: browser.build ?? null,
   userAgentSuffix: HARNESS_UA_SUFFIX,
   targetsGiven: targets.length,
+  ...(resume ? { alreadyCaptured: capturedUrls.size } : {}),
   ...summarize(records),
 };
 

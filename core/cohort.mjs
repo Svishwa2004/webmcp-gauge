@@ -86,6 +86,43 @@ export const normalizeTargets = (raw) => {
 };
 
 /**
+ * The URLs already captured in a snapshot file — the resume half of a runner
+ * whose capture cannot be repeated. Built the night of 2026-09-25/26, when a
+ * browser death and a machine sleep each stopped a run mid-corpus and the
+ * URL subtraction ran twice by hand. A torn or unparseable line is skipped
+ * rather than fatal: the file is append-only, so the worst a torn final line
+ * can hide is the one record it belongs to. The runner never writes a record
+ * for the target a browser death stopped on, so everything in the file is a
+ * completed capture and resuming skips exactly what is done.
+ */
+export const capturedUrlsFrom = (snapshotText) => {
+  const urls = new Set();
+  if (typeof snapshotText !== 'string') return urls;
+  for (const line of snapshotText.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    try {
+      const record = JSON.parse(line);
+      if (typeof record?.url === 'string' && record.url !== '') urls.add(record.url);
+    } catch {
+      // Skipped, not fatal — see above.
+    }
+  }
+  return urls;
+};
+
+/**
+ * The targets a resumed run still owes, given the set already captured.
+ * Matching is by the canonical URL `toRecord` stored, which is exactly what
+ * `normalizeTargets` produced — no re-normalization, so a fragment alias
+ * cannot come back as a second visit.
+ */
+export const remainingTargets = (targets, captured) => {
+  if (!Array.isArray(targets)) throw new TypeError('targets must be an array');
+  if (!(captured instanceof Set)) throw new TypeError('captured must be a Set of urls');
+  return targets.filter((target) => !captured.has(target.url));
+};
+
+/**
  * Minimal robots.txt evaluation for one path and our own user-agent token.
  *
  * Honouring robots is a §12 commitment, and a snapshot that quietly ignored it

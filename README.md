@@ -32,7 +32,7 @@ Every trial lands in exactly one bucket — `not_supported`, `not_registered`, `
 
 - **A static linter** — no browser needed to reason, no model, no API key. Fourteen rules across four families: invalid or colliding tool names, missing, thin, duplicate or near-duplicate descriptions, **a pair of close-named tools whose descriptions neither of them distinguishes** (adopted 2026-09-05 on measurement, after five arms showed that pattern costs 45 points while no similarity threshold catches it), over-parameterised and under-documented schemas, and tool counts approaching a per-page budget that is still unmeasured (the reported 296-tool figure does **not** reproduce on Chrome 152, where 507 registered tools were all accepted and surfaced). Thresholds are calibrated so the reference page — the one measured at 100% over 960 trials — lints clean, because a default that flags a manifest known to work is a broken default. *Built.*
 - **The harness** — drives real browsers over the Chrome DevTools Protocol, fires the utterance set at the page's registered tools, classifies every outcome, and emits a JSON report plus a CI gate. Every trial reads the tool set **twice** — the page's own `getTools()` and the browser's `WebMCP.toolsAdded` stream — because "the page never registered it" and "the client dropped it" are indistinguishable from inside the page. *Built.*
-- **A public dataset** — the cross-client compatibility record and invocation-rate corpus, regenerated as browsers change, published with the code that produced every number. *Thirteen runs so far, in `reports/` — including the four-build compatibility matrix and a second client for the rate.*
+- **A public dataset** — the cross-client compatibility record and invocation-rate corpus, regenerated as browsers change, published with the code that produced every number. *Sixteen runs and the complete WebMCP Challenge census so far, in `reports/` — including the four-build compatibility matrix, a second client for the rate, and the census with 80.8% adoption across 2,183 captured pages.*
 
 ## How a number is reported
 
@@ -70,6 +70,8 @@ webmcp-gauge run --sessions 1 --fail-under 0.9 --judge <model> --base-url <endpo
 webmcp-gauge run --serve fixtures/broken --url "twin.html?variant=degraded" --subject "twin" ...
 ```
 
+Every flag is documented in `--help`. A `run` writes four files into `--out`: `report.md` for reading, `report.json` (the machine record with per-tool outcome counts and coverage), `badge.json` + `badge.svg`, and a JSONL checkpoint that `--resume` continues. The cohort capture and harvest tools live in [`probes/`](probes/) in this repository, not in the npm package — they are one-day workflows, documented in their own READMEs.
+
 **The API key, only where it is actually needed.** `lint` reads the manifest and applies static rules — no model anywhere in the path, so it runs on every push with no secrets. `trial` and `run` measure whether an agent-model *chooses* the tool, so they need a judge: any OpenAI-compatible endpoint (hosted or local — Ollama and LM Studio both speak the protocol), costing one model call per trial. The CLI refuses to run if the judge is the model that authored the frozen utterance set; the set records which one that was.
 
 Credentials come from the environment:
@@ -102,6 +104,8 @@ A gate is only useful if `1` means one thing, so the three cases are separated:
 | `0` | Every planned trial was measured, and no tool's invocation rate fell below `--fail-under` |
 | `1` | Every planned trial was measured, and a rate is below `--fail-under` — the page regressed |
 | `2` | The run cannot answer: planned trials have no measurement (re-run with `--resume`), or the arguments were unusable |
+
+In `lint` mode the same codes mean: `0` no findings at or above `--fail-on`, `1` findings at that level, `2` the manifest could not be read.
 
 Incomplete outranks a breach on purpose. Gaps are not random — a judge outage or a page that never loaded can take out one tool's utterances and nothing else — so a rate over a run with holes is a rate over a denominator the run did not choose, and reporting that as a regression would be a lie with a plausible number. Completeness is derived from the plan against the checkpoint, not from the failure log, because a session killed mid-plan logs nothing.
 
